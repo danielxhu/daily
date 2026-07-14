@@ -1,0 +1,25 @@
+# Local packaging (M9.4): `docker compose up` brings up the backend (FastAPI :8000)
+# and frontend (Next.js :3000). Data (SQLite + Chroma + frames) is a local bind mount;
+# nothing here is paid/cloud (NFR-2). The backend image is the lean base install —
+# clustering / memory / whisper need the `ml` extra; the recommended full-feature path
+# is local on a Mac (Metal) via scripts/dev.sh. API keys are passed through from the
+# host shell ONLY (never baked into an image); the app boots fine without them, a real
+# verify needs DEEPSEEK_API_KEY (see README).
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+    volumes:
+      - ./backend/data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # the browser runs on the host, so it reaches the backend on the published port
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports: ["3000:3000"]
+    depends_on: [backend]

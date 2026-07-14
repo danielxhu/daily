@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Audio stub: an RSS feed with an <enclosure> direct-audio URL (M1A.5).
+     The audio itself is NOT shipped; transcription is mocked (NFR-3). The
+     accompanying expected transcript lives in podcast_stub.json. -->
+<rss version="2.0">
+  <channel>
+    <title>Demo Finance Podcast</title>
+    <item>
+      <title>Episode 1: Earnings recap</title>
+      <guid>podcast-ep-001</guid>
+      <enclosure url="https://example.com/audio/ep1.mp3" length="12345678" type="audio/mpeg"/>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,21 @@
+version: 1
+interactions:
+- request:
+    method: GET
+    uri: https://news.example.com/empty
+    body: ''
+    headers:
+      User-Agent:
+      - daily/0.1
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - text/html; charset=utf-8
+    body:
+      string: "<!doctype html>\n<html lang=\"en\">\n<head><title>Loading…</title></head>\n\
+        <body>\n  <nav><a href=\"/\">Home</a><a href=\"/about\">About</a></nav>\n\
+        \  <div id=\"app\"></div>\n  <footer>© 2026 Example Inc.</footer>\n</body>\n\
+        </html>\n"

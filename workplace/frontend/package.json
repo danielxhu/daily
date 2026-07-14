@@ -1,0 +1,43 @@
+{
+  "name": "daily-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "daily frontend — Next.js + Tailwind app shell (Stage 2, M2.5+).",
+  "scripts": {
+    "dev": "next dev",
+    "dev:mock": "NEXT_PUBLIC_API_MOCK=1 next dev",
+    "build": "rm -rf .next tsconfig.tsbuildinfo && next build",
+    "build:mock": "rm -rf .next tsconfig.tsbuildinfo && NEXT_PUBLIC_API_MOCK=1 next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^25.0.1",
+    "msw": "^2.14.6",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.8"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}

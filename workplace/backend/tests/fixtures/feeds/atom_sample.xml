@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <title>Yahoo Finance</title>
+  <link rel="alternate" href="https://www.youtube.com/@YahooFinance"/>
+  <id>yt:channel:UCEAZeUIeJs0IjQiqTCdVSIg</id>
+  <entry>
+    <id>yt:video:abc123</id>
+    <title>Markets wrap: stocks close higher</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=abc123"/>
+    <summary>A recap of today's market session.</summary>
+    <published>2026-06-09T21:05:00+00:00</published>
+    <updated>2026-06-09T21:30:00Z</updated>
+  </entry>
+  <entry>
+    <id>yt:video:def456</id>
+    <title>Fed decision preview</title>
+    <link rel="self" href="https://www.youtube.com/feeds/api/videos/def456"/>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=def456"/>
+    <content type="html">What to watch ahead of the rate decision.</content>
+    <updated>2026-06-08T12:00:00Z</updated>
+  </entry>
+</feed>

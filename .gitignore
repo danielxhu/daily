@@ -1,0 +1,10 @@
+# OS
+.DS_Store
+
+# Test artifacts
+test-results/
+
+# Python build metadata
+*.egg-info/
+__pycache__/
+*.pyc

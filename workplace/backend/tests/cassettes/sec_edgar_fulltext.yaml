@@ -1,0 +1,34 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      User-Agent:
+      - daily/0.1 (+verification bot; contact via repo)
+    method: GET
+    uri: https://efts.sec.gov/LATEST/search-index?q=%22Company%20X%20reported%20%244B%20in%20quarterly%20revenue.%22&forms=10-K%2C10-Q%2C8-K
+  response:
+    body:
+      string: '{"hits": {"total": {"value": 1}, "hits": [{"_id": "0000999999-25-000001:companyx-20250630.htm", "_source": {"ciks": ["0000999999"], "display_names": ["Company X Inc. (CMPX)"], "form": "10-Q", "file_date": "2025-07-15"}}]}}'
+    headers:
+      Content-Type:
+      - application/json
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      User-Agent:
+      - daily/0.1 (+verification bot; contact via repo)
+    method: GET
+    uri: https://www.sec.gov/Archives/edgar/data/999999/000099999925000001/companyx-20250630.htm
+  response:
+    body:
+      string: '<html><body><p>Item 2. Management Discussion and Analysis. In the second quarter ended June 30, 2025, Company X reported total revenue of $4.0 billion, an increase from the prior-year period and a quarterly record for the company.</p></body></html>'
+    headers:
+      Content-Type:
+      - text/html; charset=utf-8
+    status:
+      code: 200
+      message: OK
+version: 1

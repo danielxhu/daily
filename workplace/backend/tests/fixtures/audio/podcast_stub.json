@@ -1,0 +1,11 @@
+{
+  "enclosure_url": "https://example.com/audio/ep1.mp3",
+  "note": "Real audio is not shipped; the transcriber is mocked (NFR-3). This is the expected transcript the MockTranscriber should return for this stub.",
+  "expected_transcript": {
+    "language": "en",
+    "segments": [
+      {"text": "Welcome to the earnings recap.", "start_ms": 0, "end_ms": 2000},
+      {"text": "NVIDIA posted record data-center revenue.", "start_ms": 2000, "end_ms": 5000}
+    ]
+  }
+}

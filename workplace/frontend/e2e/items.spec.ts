@@ -1,0 +1,91 @@
+import { expect, test, type Page } from "@playwright/test";
+
+// Open the app and wait for the mock worker before interacting.
+async function openMockApp(page: Page, path = "/") {
+  await page.goto(path);
+  await expect(page.locator("html[data-msw-ready='true']")).toBeAttached({
+    timeout: 30_000,
+  });
+}
+
+// M16.4: every tracked item has its own detail page — the owner's "点进任何一条
+// 信息" entry point. Everything stays in tracking language.
+
+test("click an item on Today → its detail page: summary, source says, provenance, note", async ({
+  page,
+}) => {
+  await openMockApp(page);
+  await page
+    .getByRole("link", { name: "SEC statement on market-structure rulemaking" })
+    .click();
+
+  // header + original link
+  await expect(
+    page.getByRole("heading", { name: "SEC statement on market-structure rulemaking", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "original ↗" }).first()).toHaveAttribute(
+    "href",
+    "https://www.sec.gov/news/press-release/2026-99",
+  );
+  // the AI summary (active locale) + honesty note
+  await expect(
+    page.getByText("The source says its market-structure rulemaking enters a comment period."),
+  ).toBeVisible();
+  await expect(page.getByText(/AI-generated from the source text/)).toBeVisible();
+  // the raw excerpt left the page (2026-07-10) — provenance stays
+  await expect(page.getByRole("region", { name: "Source says" })).toHaveCount(0);
+  const prov = page.getByRole("region", { name: "Source & provenance" });
+  await expect(prov.getByText("trafilatura")).toBeVisible();
+  // a note saves into the board's Knowledge
+  await page
+    .getByRole("textbox", { name: "Your note" })
+    .fill("watch the comment deadline");
+  await page.getByRole("button", { name: "Save note" }).click();
+  await expect(page.getByText("Saved to Knowledge.")).toBeVisible();
+  // no check language anywhere on the page
+  await expect(page.locator("body")).not.toContainText(/credibility|verdict|\/100|deep check/i);
+});
+
+test("a pending item fetches + summarizes automatically on open (no click)", async ({
+  page,
+}) => {
+  await openMockApp(page);
+  // the podcast item has no enrichment in the fixture (degraded → pending);
+  // opening its detail page starts fetch-&-summarize by itself (2026-07-10)
+  await page.getByRole("link", { name: "Markets Daily — episode 214" }).click();
+  await expect(
+    page.getByText("The source says this episode discusses market trends."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fetch & summarize" })).toHaveCount(0);
+  // …and the discussion opens up in place, now that grounding material exists
+  await expect(
+    page.getByRole("textbox", { name: "Your question about this item" }),
+  ).toBeVisible();
+});
+
+// M16.5: the second half of the owner's "点进任何一条信息都可以和 chat 讨论" —
+// an item-bounded discussion right on the detail page.
+test("discuss an item on its detail page: source-bounded reply, honest limits", async ({
+  page,
+}) => {
+  await openMockApp(page);
+  await page
+    .getByRole("link", { name: "SEC statement on market-structure rulemaking" })
+    .click();
+
+  const panel = page.getByRole("region", { name: "Discuss this item" });
+  // honest bounds up front: source is the anchor, analysis is labeled
+  await expect(
+    panel.getByText(/use this item's stored text and AI summary as the factual anchor/),
+  ).toBeVisible();
+  await panel
+    .getByRole("textbox", { name: "Your question about this item" })
+    .fill("评议期什么时候结束?");
+  await panel.getByRole("button", { name: "Send" }).click();
+
+  // the user turn + the mock's reply: source fact, then labeled analysis
+  await expect(panel.getByText("评议期什么时候结束?", { exact: true })).toBeVisible();
+  await expect(panel.getByText(/来源提到规则进入公开评议期;由此看/)).toBeVisible();
+  // still zero check language anywhere on the page
+  await expect(page.locator("body")).not.toContainText(/credibility|verdict|\/100|deep check/i);
+});

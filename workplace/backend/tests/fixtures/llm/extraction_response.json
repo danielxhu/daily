@@ -1,0 +1,16 @@
+{
+  "claims": [
+    {
+      "claim_text": "NVIDIA data-center revenue hit a record $30.8B for the quarter.",
+      "source_quote": "record data-center revenue of $30.8B for the quarter",
+      "type": "fact",
+      "entities": ["NVDA"]
+    },
+    {
+      "claim_text": "NVIDIA data-center revenue reached a record $30.8B (Chinese source).",
+      "source_quote": "数据中心业务季度营收达到 308 亿美元，创历史新高",
+      "type": "fact",
+      "entities": ["NVDA"]
+    }
+  ]
+}

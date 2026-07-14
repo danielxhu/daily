@@ -1,0 +1,23 @@
+version: 1
+interactions:
+- request:
+    method: GET
+    uri: https://news.example.com/nvda
+    body: ''
+    headers:
+      User-Agent:
+      - daily/0.1
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - text/html; charset=utf-8
+    body:
+      string: "<!doctype html>\n<html lang=\"en\">\n<head><title>NVIDIA posts record\
+        \ data-center revenue</title></head>\n<body>\n  <article>\n    <h1>NVIDIA\
+        \ posts record data-center revenue</h1>\n    <p>NVIDIA reported record data-center\
+        \ revenue of $30.8B for the quarter,\n    beating analyst expectations.</p>\n\
+        \    <p>The company cited continued demand for AI accelerators.</p>\n  </article>\n\
+        </body>\n</html>\n"

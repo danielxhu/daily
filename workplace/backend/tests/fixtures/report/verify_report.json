@@ -1,0 +1,83 @@
+{
+  "sources": [
+    {
+      "requested": {"kind": "url", "url": "https://example.com/nvda-earnings"},
+      "status": "ok",
+      "source": {
+        "source_id": "s1",
+        "type": "webpage",
+        "origin": "user",
+        "url": "https://example.com/nvda-earnings",
+        "domain": "example.com",
+        "raw_text": "NVIDIA reported record data-center revenue of $30.8B for the quarter.",
+        "extraction_method": "static_html",
+        "segments": [],
+        "frame_annotations": [],
+        "citation_type": "primary",
+        "tier": "T2"
+      },
+      "failure": null
+    },
+    {
+      "requested": {"kind": "url", "url": "https://paywall.example/x"},
+      "status": "failed",
+      "source": null,
+      "failure": {
+        "requested_url": "https://paywall.example/x",
+        "type": "webpage",
+        "kind": "paywall",
+        "next_action": "Paste the article text and a source label.",
+        "reason": "Paywalled; not fetched (out of scope §2.2)."
+      }
+    }
+  ],
+  "clusters": [
+    {
+      "id": "c1",
+      "canonical_text": "NVIDIA data-center revenue hit a record $30.8B for the quarter.",
+      "claim_ids": ["cl1"],
+      "embedding": [0.01, 0.02, 0.03],
+      "entities": ["NVDA"],
+      "representative_source_id": "s1"
+    }
+  ],
+  "verdicts": [
+    {
+      "cluster_id": "c1",
+      "credibility": 34.375,
+      "breakdown": {
+        "sources_score": 25.0,
+        "agreement_score": 100.0,
+        "reputation_prior": 50.0,
+        "conflict_penalty": 0.0,
+        "base": 55.0,
+        "independence_factor": 0.625,
+        "raw_unique_domains": 1,
+        "near_duplicate_collapses": 0,
+        "copy_edges": 0,
+        "unique_domains": 1,
+        "total_urls": 1,
+        "cited_only_count": 0,
+        "support_count": 1,
+        "refute_count": 0,
+        "authoritative_anchor": false,
+        "fetched_evidence_count": 0
+      },
+      "conflict": false,
+      "framing_notes": []
+    }
+  ],
+  "judgement_cards": [
+    {
+      "cluster_id": "c1",
+      "core_fact": "NVIDIA data-center revenue hit a record $30.8B for the quarter.",
+      "credibility": 34.375,
+      "one_line_note": "1 counted independent source; corroboration is low.",
+      "strongest_support": {
+        "source_id": "s1",
+        "quote": "record data-center revenue of $30.8B",
+        "span_ref": "s1:16-52"
+      }
+    }
+  ]
+}

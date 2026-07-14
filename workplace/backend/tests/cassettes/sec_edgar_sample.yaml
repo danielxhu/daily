@@ -1,0 +1,18 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      User-Agent:
+      - daily-test
+    method: GET
+    uri: https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0000320193
+  response:
+    body:
+      string: "<html><body><h1>EDGAR sample</h1><p>Total revenue was $1.2B in FY2025.</p></body></html>"
+    headers:
+      Content-Type:
+      - text/html; charset=utf-8
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -1,0 +1,11 @@
+{
+  "id": "demo_video",
+  "title": "NVIDIA earnings recap",
+  "subtitles": {
+    "en": [{"ext": "vtt", "url": "https://yt.example/cap/en.vtt"}]
+  },
+  "automatic_captions": {
+    "en": [{"ext": "vtt", "url": "https://yt.example/auto/en.vtt"}],
+    "zh-Hans": [{"ext": "vtt", "url": "https://yt.example/auto/zh.vtt"}]
+  }
+}

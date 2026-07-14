@@ -1,0 +1,1574 @@
+{
+  "$defs": {
+    "Board": {
+      "additionalProperties": false,
+      "description": "A personal knowledge base = topic collection (FR-15); single operator,\nNOT a user account. Sources & facts link by board_id / board_ids — the fact\nstore itself stays single, shared, deduped.",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "created_at"
+      ],
+      "title": "Board",
+      "type": "object"
+    },
+    "DailyDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "tracked": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TrackedItemCard"
+          },
+          "title": "Tracked",
+          "type": "array"
+        }
+      },
+      "required": [
+        "date",
+        "generated_at"
+      ],
+      "title": "DailyDigest",
+      "type": "object"
+    },
+    "DiscussMessage": {
+      "additionalProperties": false,
+      "description": "One turn in an evidence-bounded digest-item discussion (M12.3).",
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "DiscussMessage",
+      "type": "object"
+    },
+    "FrameAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_text": {
+          "title": "Anchor Text",
+          "type": "string"
+        },
+        "image_path": {
+          "title": "Image Path",
+          "type": "string"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "number"
+        },
+        "vision_description": {
+          "title": "Vision Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "timestamp",
+        "anchor_text",
+        "vision_description",
+        "image_path"
+      ],
+      "title": "FrameAnnotation",
+      "type": "object"
+    },
+    "IngestionResult": {
+      "additionalProperties": false,
+      "description": "Per-source outcome of ingest_all (FR-1 partial batch / FR-2 typed failure).",
+      "properties": {
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SourceFailure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requested": {
+          "$ref": "#/$defs/SourceRequest"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requested",
+        "status",
+        "source",
+        "failure"
+      ],
+      "title": "IngestionResult",
+      "type": "object"
+    },
+    "ItemDiscussReply": {
+      "additionalProperties": false,
+      "description": "`POST /tracked-items/{id}/discuss` reply (M16.5). Source-bounded: grounded\nONLY in the item's stored excerpt + AI enrichment; beyond them the model\nanswers 证据不足. Source-attributed tone — never a truth verdict, never a\nscore, never investment advice. READ-ONLY and never cached (NFR-7 exc. (4)).",
+      "properties": {
+        "reply": {
+          "title": "Reply",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reply"
+      ],
+      "title": "ItemDiscussReply",
+      "type": "object"
+    },
+    "ItemDiscussRequest": {
+      "additionalProperties": false,
+      "description": "`POST /tracked-items/{id}/discuss` body (M16.5): the chat so far (oldest →\nnewest; the last message must be the user's turn) about ONE tracked item.\nGrounding is the item's PERSISTED material only — its stored content excerpt\nplus its bilingual enrichment and card metadata. No cluster_id / evidence /\ndraft here: a tracked-item discussion never touches the (dormant) fact layer.",
+      "properties": {
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/DiscussMessage"
+          },
+          "title": "Messages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "messages"
+      ],
+      "title": "ItemDiscussRequest",
+      "type": "object"
+    },
+    "ItemEnrichment": {
+      "additionalProperties": false,
+      "description": "M16.3: bilingual, source-attributed enrichment for ONE tracked item — a\nsingle flash call at poll/refresh time (NFR-7 exception (3), broadened to\nbilingual output so the locale toggle follows instantly; owner 2026-07-08:\n\"中英切换时 AI 生成内容语言不跟随\"). Every field restates or annotates the\nSOURCE — attributed claims, never asserted truth, never outside knowledge,\nnever a score, never investment advice. A failed generation is None at the\ncard level; nothing here is ever fabricated.",
+      "properties": {
+        "entities": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "limitations_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limitations En"
+        },
+        "limitations_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Limitations Zh"
+        },
+        "summary_en": {
+          "title": "Summary En",
+          "type": "string"
+        },
+        "summary_zh": {
+          "title": "Summary Zh",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "title_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title En"
+        },
+        "title_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Zh"
+        },
+        "why_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Why En"
+        },
+        "why_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Why Zh"
+        }
+      },
+      "required": [
+        "summary_zh",
+        "summary_en"
+      ],
+      "title": "ItemEnrichment",
+      "type": "object"
+    },
+    "KnowledgeAnswer": {
+      "additionalProperties": false,
+      "description": "`POST /knowledge/answer` (M16.2): the on-demand AI answer — ONE flash call\n(NFR-7 exception (5)) grounded ONLY in the user's saved notes matching the\nquestion. Tracked items are never fed in; the fact layer is dormant (v0.13).\nNo matching notes → answer=None with zero LLM spend; an LLM failure is a 502\n(the user explicitly asked — a typed error beats a silent null).",
+      "properties": {
+        "answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Answer"
+        },
+        "based_on": {
+          "title": "Based On",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "answer",
+        "based_on"
+      ],
+      "title": "KnowledgeAnswer",
+      "type": "object"
+    },
+    "KnowledgeAnswerRequest": {
+      "additionalProperties": false,
+      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.",
+      "properties": {
+        "q": {
+          "title": "Q",
+          "type": "string"
+        }
+      },
+      "required": [
+        "q"
+      ],
+      "title": "KnowledgeAnswerRequest",
+      "type": "object"
+    },
+    "KnowledgeModule": {
+      "additionalProperties": false,
+      "description": "A user-named grouping INSIDE a board (M15.1, v0.12 / FR-15): the knowledge\nhierarchy is board → module → source → item → fact/note/saved_check. Modules\norganize sources (and their items); deleting one only un-groups — it never\ndeletes sources, items, facts, or notes.",
+      "properties": {
+        "board_id": {
+          "title": "Board Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "board_id",
+        "name",
+        "created_at"
+      ],
+      "title": "KnowledgeModule",
+      "type": "object"
+    },
+    "KnowledgeNote": {
+      "additionalProperties": false,
+      "description": "The knowledge layer (FR-15). `saved_check` (M13.2): the user-curated text of\na /verify result, negotiated with the model and saved by the user — labeled as\nthe user's own saved content, never presented as a pipeline-verified fact.",
+      "properties": {
+        "board_id": {
+          "title": "Board Id",
+          "type": "string"
+        },
+        "citations": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "is_synthesized": {
+          "default": false,
+          "title": "Is Synthesized",
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "pinned_fact",
+            "user_note",
+            "ai_distilled",
+            "saved_check"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "regenerable": {
+          "default": true,
+          "title": "Regenerable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "board_id",
+        "kind",
+        "content",
+        "created_at"
+      ],
+      "title": "KnowledgeNote",
+      "type": "object"
+    },
+    "KnowledgeSearchResult": {
+      "additionalProperties": false,
+      "description": "`GET /knowledge/search`: deterministic SQLite keyword matching only — zero\nLLM and zero embedding in the request path (M16.2, the owner's \"search is\nvery slow\" fix). Two labeled layers: the user's own notes and tracked items.\nTracked items are NEVER fed into the on-demand answer synthesis.",
+      "properties": {
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TrackedItemCard"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "saved": {
+          "items": {
+            "$ref": "#/$defs/KnowledgeNote"
+          },
+          "title": "Saved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "saved"
+      ],
+      "title": "KnowledgeSearchResult",
+      "type": "object"
+    },
+    "NormalizedSource": {
+      "additionalProperties": false,
+      "description": "Full ingestion output; carries independence + tier metadata. This is what\nthe whole pipeline operates on. When reduced to `Source`, domain/citation_type/\ntier MUST be copied across (independence/tiering/scoring all read them).",
+      "properties": {
+        "citation_type": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "cited",
+            "republished"
+          ],
+          "title": "Citation Type",
+          "type": "string"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Domain"
+        },
+        "extraction_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "static_html",
+                "structured_html",
+                "rendered_html",
+                "pdf_text",
+                "caption",
+                "whisper",
+                "pasted_text",
+                "frame_ocr"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Method"
+        },
+        "frame_annotations": {
+          "items": {
+            "$ref": "#/$defs/FrameAnnotation"
+          },
+          "title": "Frame Annotations",
+          "type": "array"
+        },
+        "origin": {
+          "default": "user",
+          "enum": [
+            "user",
+            "fetched"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "raw_text": {
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/Segment"
+          },
+          "title": "Segments",
+          "type": "array"
+        },
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "tier": {
+          "default": "T2",
+          "enum": [
+            "T1",
+            "T1.5",
+            "T2"
+          ],
+          "title": "Tier",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "webpage",
+            "podcast",
+            "youtube",
+            "text",
+            "pdf"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "source_id",
+        "type",
+        "url",
+        "domain",
+        "raw_text",
+        "segments",
+        "frame_annotations"
+      ],
+      "title": "NormalizedSource",
+      "type": "object"
+    },
+    "PipelineRun": {
+      "additionalProperties": false,
+      "description": "One verify/poll run, persisted to SQLite; visible in logs + UI.",
+      "properties": {
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/SourceRequest"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepTrace"
+          },
+          "title": "Steps",
+          "type": "array"
+        },
+        "trigger": {
+          "enum": [
+            "verify",
+            "poll",
+            "digest"
+          ],
+          "title": "Trigger",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "trigger",
+        "inputs",
+        "steps",
+        "started_at"
+      ],
+      "title": "PipelineRun",
+      "type": "object"
+    },
+    "SeenItem": {
+      "additionalProperties": false,
+      "properties": {
+        "first_seen": {
+          "format": "date-time",
+          "title": "First Seen",
+          "type": "string"
+        },
+        "item_key": {
+          "title": "Item Key",
+          "type": "string"
+        },
+        "subscription_id": {
+          "title": "Subscription Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscription_id",
+        "item_key",
+        "first_seen"
+      ],
+      "title": "SeenItem",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "end_ts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "End Ts"
+        },
+        "start_ts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Start Ts"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "words": {
+          "default": [],
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Words",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "start_ts",
+        "end_ts"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "citation_type": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "cited",
+            "republished"
+          ],
+          "title": "Citation Type",
+          "type": "string"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Domain"
+        },
+        "fetched_at": {
+          "format": "date-time",
+          "title": "Fetched At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "origin": {
+          "default": "user",
+          "enum": [
+            "user",
+            "fetched"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "raw_text": {
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "reputation_prior": {
+          "default": 0.5,
+          "title": "Reputation Prior",
+          "type": "number"
+        },
+        "tier": {
+          "default": "T2",
+          "enum": [
+            "T1",
+            "T1.5",
+            "T2"
+          ],
+          "title": "Tier",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "webpage",
+            "podcast",
+            "youtube",
+            "text",
+            "pdf"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "url",
+        "domain",
+        "raw_text",
+        "fetched_at"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceFailure": {
+      "additionalProperties": false,
+      "description": "FR-2 typed failure (shown in UI).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "fetch_blocked",
+            "paywall",
+            "login_required",
+            "anti_bot",
+            "no_captions",
+            "transcribe_failed",
+            "js_render_failed",
+            "parse_empty",
+            "unsupported_file",
+            "timeout",
+            "transcription_deferred"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "next_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Action"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "requested_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Requested Url"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "webpage",
+                "podcast",
+                "youtube",
+                "text",
+                "pdf"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Type"
+        }
+      },
+      "required": [
+        "requested_url",
+        "type",
+        "kind",
+        "reason"
+      ],
+      "title": "SourceFailure",
+      "type": "object"
+    },
+    "SourcePackEntry": {
+      "additionalProperties": false,
+      "description": "One seed source in the built-in editable default pack (FR-3). The default\npack seeds a board's subscriptions on cold start; the operator trims/edits it,\nthen subscribes (Stage 7). A fixed starter list — NOT auto web-discovery by\ntopic (§2.2).",
+      "properties": {
+        "board_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Board Id"
+        },
+        "category": {
+          "enum": [
+            "central_bank",
+            "regulator",
+            "company_ir",
+            "rss",
+            "youtube"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "direct",
+            "autodiscover",
+            "platform",
+            "homepage_diff"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "url",
+        "mode",
+        "category"
+      ],
+      "title": "SourcePackEntry",
+      "type": "object"
+    },
+    "SourceRequest": {
+      "additionalProperties": false,
+      "description": "One input item to /verify (FR-1) or one item a poll emits (FR-3).",
+      "properties": {
+        "declared_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared Domain"
+        },
+        "declared_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "webpage",
+                "podcast",
+                "youtube",
+                "text",
+                "pdf"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared Type"
+        },
+        "kind": {
+          "enum": [
+            "url",
+            "text"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SourceRequest",
+      "type": "object"
+    },
+    "StepTrace": {
+      "additionalProperties": false,
+      "description": "One pipeline step's outcome within a run. A FLAT per-run record — NOT a\ntelemetry/tracing platform.",
+      "properties": {
+        "counts": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Counts",
+          "type": "object"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "fallback_used": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Used"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "skipped",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "step": {
+          "enum": [
+            "ingestion",
+            "vision",
+            "extraction",
+            "alignment",
+            "retrieval",
+            "verification",
+            "scoring",
+            "memory",
+            "digest"
+          ],
+          "title": "Step",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step",
+        "status"
+      ],
+      "title": "StepTrace",
+      "type": "object"
+    },
+    "Subscription": {
+      "additionalProperties": false,
+      "properties": {
+        "board_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Board Id"
+        },
+        "consecutive_failures": {
+          "default": 0,
+          "title": "Consecutive Failures",
+          "type": "integer"
+        },
+        "feed_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Feed Url"
+        },
+        "health": {
+          "default": "ok",
+          "enum": [
+            "ok",
+            "unhealthy"
+          ],
+          "title": "Health",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "input_url": {
+          "title": "Input Url",
+          "type": "string"
+        },
+        "interval_minutes": {
+          "default": 60,
+          "title": "Interval Minutes",
+          "type": "integer"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_polled": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Polled"
+        },
+        "last_seen_item_key_for_display": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Last Seen Item Key For Display"
+        },
+        "mode": {
+          "enum": [
+            "direct",
+            "autodiscover",
+            "platform",
+            "homepage_diff"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "module_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Module Id"
+        },
+        "subscription_failure_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "gone",
+                "rate_limited",
+                "parse_or_render_unfit",
+                "network",
+                "system_anomaly",
+                "items_unfetchable"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subscription Failure Kind"
+        }
+      },
+      "required": [
+        "id",
+        "input_url",
+        "feed_url",
+        "mode",
+        "last_polled",
+        "last_seen_item_key_for_display"
+      ],
+      "title": "Subscription",
+      "type": "object"
+    },
+    "TraceSummary": {
+      "additionalProperties": false,
+      "description": "Condensed run trace for the report (M2.4): the run id + ordered steps.",
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepTrace"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "steps"
+      ],
+      "title": "TraceSummary",
+      "type": "object"
+    },
+    "TrackedItemCard": {
+      "additionalProperties": false,
+      "description": "One tracked source item as first-class knowledge (M15.1a, v0.12 P0).\n\nDeliberately carries NO credibility: an item that has not been deeply checked\nmust never fake a score (§2.4 — the UI says \"not deeply checked\" instead).\n`status` is the item's own lifecycle, decoupled from deep verification:\nnew (discovered, being processed) / fetched (content in hand — visible even\nwhen claim extraction or scoring failed; `degraded_reason` says so) /\nfailed (typed ingestion failure — still visible, with the failure kind) /\ndeferred (M14.5 first-check transcription deferral; the next check processes).",
+      "properties": {
+        "board_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Board Id"
+        },
+        "content_available": {
+          "default": false,
+          "title": "Content Available",
+          "type": "boolean"
+        },
+        "degraded_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Degraded Reason"
+        },
+        "domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Domain"
+        },
+        "enrichment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ItemEnrichment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failure_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "fetch_blocked",
+                "paywall",
+                "login_required",
+                "anti_bot",
+                "no_captions",
+                "transcribe_failed",
+                "js_render_failed",
+                "parse_empty",
+                "unsupported_file",
+                "timeout",
+                "transcription_deferred"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failure Kind"
+        },
+        "first_seen": {
+          "format": "date-time",
+          "title": "First Seen",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "module_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Module Id"
+        },
+        "published": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published"
+        },
+        "similar_count": {
+          "default": 0,
+          "title": "Similar Count",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "new",
+            "fetched",
+            "failed",
+            "deferred"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        },
+        "tier": {
+          "anyOf": [
+            {
+              "enum": [
+                "T1",
+                "T1.5",
+                "T2"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tier"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "id",
+        "board_id",
+        "url",
+        "title",
+        "domain",
+        "tier",
+        "published",
+        "first_seen",
+        "status"
+      ],
+      "title": "TrackedItemCard",
+      "type": "object"
+    },
+    "TrackedItemDetail": {
+      "additionalProperties": false,
+      "description": "`GET /tracked-items/{id}` (M16.4): the item detail page payload — the card\nplus what only the detail view needs. Everything stays in tracking language:\nno score, no verdict, no stance (v0.13).",
+      "properties": {
+        "excerpt_preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Excerpt Preview"
+        },
+        "fetch_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fetch Method"
+        },
+        "item": {
+          "$ref": "#/$defs/TrackedItemCard"
+        },
+        "related": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TrackedItemCard"
+          },
+          "title": "Related",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item",
+        "excerpt_preview",
+        "fetch_method"
+      ],
+      "title": "TrackedItemDetail",
+      "type": "object"
+    },
+    "UsageEvent": {
+      "additionalProperties": false,
+      "description": "FR-17 beta usage signal — local only, no external analytics (§8.2).",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        },
+        "type": {
+          "enum": [
+            "digest_open",
+            "evidence_click",
+            "verdict_save",
+            "verdict_share",
+            "helped_judge"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "user": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User"
+        }
+      },
+      "required": [
+        "type",
+        "created_at"
+      ],
+      "title": "UsageEvent",
+      "type": "object"
+    }
+  }
+}

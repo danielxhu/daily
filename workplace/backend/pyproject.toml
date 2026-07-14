@@ -1,0 +1,86 @@
+[project]
+name = "daily-backend"
+version = "0.1.0"
+description = "daily — multi-source claim verification & credibility scoring (V1)"
+requires-python = ">=3.11"  # SSOT §9.1 / §10: Python 3.11+
+# Core runtime deps. Heavier per-stage deps (yt-dlp, faster-whisper,
+# playwright) stay in optional groups.
+dependencies = [
+    "pydantic>=2,<3",
+    "pydantic-settings>=2,<3",
+    "httpx>=0.27",  # async HTTP fetch (SSOT §10); cassette-replayed in tests
+    "trafilatura>=2,<3",  # static HTML main-content extraction (M1A.4, §10)
+    "openai>=1.40",  # OpenAI-compatible client for DeepSeek (M1A.10, §10)
+    "pypdf>=4,<6",  # public text-layer PDF extraction (M1B.3, §10); lightweight
+    "fastapi>=0.110",  # API layer (M2.1, §9.4)
+    "uvicorn>=0.27",  # ASGI server to run the backend (M2.1)
+    # In-process hourly poll scheduler (FR-3 / §6.4 — the machine-on tracking loop).
+    # A runtime dep, not optional: `dev.sh` enables the scheduler by default, so the
+    # recommended local run must start cleanly. Lightweight, pure-Python, no network;
+    # the wrapper still lazy-imports it and tests inject a fake backend (NFR-3).
+    "apscheduler>=3.10,<4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "vcrpy>=6",  # record/replay HTTP cassettes for the offline suite (SSOT §9.2)
+]
+# Heavy local-ML deps (real transcription). NOT installed in the offline test
+# venv — the adapter lazy-imports faster-whisper and tests inject a fake model
+# (NFR-3). Install with `pip install -e ".[ml]"` to transcribe for real.
+ml = [
+    "faster-whisper>=1.0",
+]
+youtube = [
+    "yt-dlp>=2024.1",
+]
+# Headless-render fallback (FR-2 tier 3). NOT installed in the offline test venv —
+# html_render lazy-imports playwright and tests inject a fake RenderClient (NFR-3).
+# Install with `pip install -e ".[render]" && playwright install chromium`.
+render = [
+    "playwright>=1.40",
+]
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+# Run from backend/; put backend root on sys.path so `app` and `tests` import
+# without an editable install.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["app", "tests"]
+strict = true
+
+[[tool.mypy.overrides]]
+# vcrpy / faster-whisper etc. ship no type stubs. `follow_imports = skip` treats them
+# as opaque whether or not they are installed, so the type check is identical on the
+# ml-free offline venv and on a runtime venv with the `ml` extra installed.
+module = [
+    "vcr.*",
+    "faster_whisper.*",
+    "yt_dlp.*",
+    "playwright.*",
+    "apscheduler.*",
+    "transformers.*",
+    "qwen_vl_utils.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"

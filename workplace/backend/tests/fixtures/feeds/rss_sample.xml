@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>SEC Press Releases</title>
+    <link>https://www.sec.gov/news/pressreleases</link>
+    <description>Latest press releases from the U.S. Securities and Exchange Commission.</description>
+    <language>en-us</language>
+    <item>
+      <title>SEC Charges Investment Adviser With Misleading Disclosures</title>
+      <link>https://www.sec.gov/news/press-release/2026-101</link>
+      <guid isPermaLink="false">sec-press-2026-101</guid>
+      <description>The SEC announced charges against an adviser over fee disclosures.</description>
+      <pubDate>Tue, 09 Jun 2026 13:30:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>SEC Adopts Amendments to Modernize Filing Rules</title>
+      <link>https://www.sec.gov/news/press-release/2026-100</link>
+      <guid isPermaLink="false">sec-press-2026-100</guid>
+      <description>New amendments take effect in Q4.</description>
+      <pubDate>Mon, 08 Jun 2026 18:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Statement on Market Structure</title>
+      <link>https://www.sec.gov/news/statement/market-structure-2026</link>
+      <description>A staff statement with no guid element.</description>
+    </item>
+  </channel>
+</rss>

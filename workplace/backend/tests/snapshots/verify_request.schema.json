@@ -1,0 +1,106 @@
+{
+  "$defs": {
+    "SourceRequest": {
+      "additionalProperties": false,
+      "description": "One input item to /verify (FR-1) or one item a poll emits (FR-3).",
+      "properties": {
+        "declared_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared Domain"
+        },
+        "declared_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "webpage",
+                "podcast",
+                "youtube",
+                "text",
+                "pdf"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Declared Type"
+        },
+        "kind": {
+          "enum": [
+            "url",
+            "text"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SourceRequest",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`POST /verify` body: a mixed batch of 1–15 sources (FR-1).",
+  "properties": {
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceRequest"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "sources"
+  ],
+  "title": "VerifyRequest",
+  "type": "object"
+}

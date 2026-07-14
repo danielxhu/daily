@@ -1,0 +1,26 @@
+{
+  "date": "2026-06-22",
+  "items": [
+    {
+      "cluster_id": "c1",
+      "category": "earnings",
+      "canonical_text": "NVIDIA data-center revenue hit a record $30.8B for the quarter.",
+      "credibility": 34.375,
+      "independent_sources": 1,
+      "framing_notes": [],
+      "verdict_delta": null,
+      "heat": 0.5
+    },
+    {
+      "cluster_id": "c2",
+      "category": "policy",
+      "canonical_text": "The Fed held its benchmark rate at 4.25%-4.50%.",
+      "credibility": 95.0,
+      "independent_sources": 1,
+      "framing_notes": [],
+      "verdict_delta": "confirmed (was rumored)",
+      "heat": 0.8
+    }
+  ],
+  "generated_at": "2026-06-22T08:00:00Z"
+}

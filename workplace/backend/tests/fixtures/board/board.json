@@ -1,0 +1,39 @@
+{
+  "board": {
+    "id": "b1",
+    "name": "finance",
+    "created_at": "2026-06-22T00:00:00Z"
+  },
+  "notes": [
+    {
+      "id": "n1",
+      "board_id": "b1",
+      "kind": "pinned_fact",
+      "content": "The Fed held its benchmark rate at 4.25%-4.50%.",
+      "citations": ["cl2"],
+      "is_synthesized": false,
+      "regenerable": true,
+      "created_at": "2026-06-22T01:00:00Z"
+    },
+    {
+      "id": "n2",
+      "board_id": "b1",
+      "kind": "user_note",
+      "content": "Watch NVDA guidance next quarter.",
+      "citations": [],
+      "is_synthesized": false,
+      "regenerable": true,
+      "created_at": "2026-06-22T01:05:00Z"
+    },
+    {
+      "id": "n3",
+      "board_id": "b1",
+      "kind": "ai_distilled",
+      "content": "This week: record NVIDIA data-center revenue; the Fed on hold.",
+      "citations": ["cl1", "cl2"],
+      "is_synthesized": true,
+      "regenerable": true,
+      "created_at": "2026-06-22T08:00:00Z"
+    }
+  ]
+}

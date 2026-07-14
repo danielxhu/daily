@@ -1,0 +1,21 @@
+# Python
+backend/.venv/
+backend/.venv-ml/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / local data
+backend/.env
+backend/data/
+backend/daily.db
+frontend/.env*
+
+# Node
+node_modules/
+frontend/.next/
+
+# OS
+.DS_Store
