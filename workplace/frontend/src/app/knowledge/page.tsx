@@ -4,10 +4,10 @@ import { useT } from "@/lib/i18n";
 import { BoardsView } from "@/components/BoardsView";
 import { KnowledgeView } from "@/components/KnowledgeView";
 
-/** Knowledge (zh: 知识库) — the operator's verified knowledge base (M12.4).
- * Two surfaces on one page: browse by topic board (each board = its verified
- * facts + notes + AI summary — promoted here from the old footer-level Boards
- * page), and the "ask daily" conversation over the same fact layer. */
+/** Knowledge (zh: 知识库) — the operator's knowledge base (M12.4). Two surfaces
+ * on one page, ask first (owner 2026-07-18: the question box was buried under
+ * the board admin): the "ask daily" conversation, then browse by topic board
+ * (each board = its module chips, tracked items, and notes). */
 export default function KnowledgePage() {
   const t = useT();
   return (
@@ -19,15 +19,6 @@ export default function KnowledgePage() {
         </p>
       </header>
       <div className="space-y-10 py-8">
-        <section aria-labelledby="knowledge-boards" className="space-y-5">
-          <div className="section-head">
-            <h2 id="knowledge-boards" className="section-title">
-              {t("knowledge.section.boards")}
-            </h2>
-            <span aria-hidden="true" className="section-rule" />
-          </div>
-          <BoardsView />
-        </section>
         <section aria-labelledby="knowledge-ask" className="space-y-5">
           <div className="section-head">
             <h2 id="knowledge-ask" className="section-title">
@@ -36,6 +27,15 @@ export default function KnowledgePage() {
             <span aria-hidden="true" className="section-rule" />
           </div>
           <KnowledgeView />
+        </section>
+        <section aria-labelledby="knowledge-boards" className="space-y-5">
+          <div className="section-head">
+            <h2 id="knowledge-boards" className="section-title">
+              {t("knowledge.section.boards")}
+            </h2>
+            <span aria-hidden="true" className="section-rule" />
+          </div>
+          <BoardsView />
         </section>
       </div>
     </div>

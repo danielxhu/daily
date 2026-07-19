@@ -20,11 +20,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from html import unescape
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import app.core.config as config
 from app.db.subscription_store import list_subscriptions
 from app.db.tracked_item_store import upsert_discovered
+from app.ingestion.router import is_youtube
 from app.schemas.models import SourceRequest, Subscription
 from app.tracking.dedup import dedup_key, mark_items_seen, select_new_items
 from app.tracking.feed import FeedItem, FeedParseError, parse_feed
@@ -257,7 +258,24 @@ def _html_title(content: bytes) -> str | None:
     if not m:
         return None
     title = unescape(m.group(1).decode("utf-8", errors="replace")).strip()
+    # YouTube's platform suffix — and a bot-check/consent shell page's title is
+    # JUST the suffix ("- YouTube"), which must read as "no title", not a title
+    # (owner 2026-07-17: an item literally named "- YouTube")
+    title = re.sub(r"\s*-\s*YouTube$", "", title).strip()
     return title or None
+
+
+def _oembed_title(video_url: str, fetch: Callable[[str], bytes]) -> str | None:
+    """YouTube's oEmbed endpoint serves the real video title even when the watch
+    page answers with a bot-check shell. Code-only, keyless, best-effort."""
+    try:
+        raw = fetch(
+            "https://www.youtube.com/oembed?url=" + quote(video_url, safe="") + "&format=json"
+        )
+        title = json.loads(raw).get("title")
+    except Exception:
+        return None
+    return str(title).strip() or None if isinstance(title, str) else None
 
 
 _PLATFORM_LIST_LIMIT = 15
@@ -378,11 +396,15 @@ def poll_subscription(
             # player URLs canonicalize to the plain /video/ page first.
             video_url = _canonical_video_url(sub.input_url)
             page = fetch(video_url)
+            title = _html_title(page)
+            if title is None and is_youtube(video_url):
+                # the watch page was a bot-check shell — oEmbed still has the title
+                title = _oembed_title(video_url, fetch)
             found = [
                 FeedItem(
                     guid=None,
                     url=video_url,
-                    title=_html_title(page),
+                    title=title,
                     summary=None,
                     published=_html_published(page),
                 )

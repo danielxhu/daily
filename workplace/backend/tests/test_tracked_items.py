@@ -305,12 +305,7 @@ def _enrichment_json() -> dict[str, object]:
     return {
         "summary_zh": "来源称美联储维持利率不变。",
         "summary_en": "The source says the Fed held rates steady.",
-        "why_zh": "与利率追踪相关。",
-        "why_en": "Relevant to rate tracking.",
-        "entities": ["Federal Reserve"],
         "tags": ["rates", "policy"],
-        "limitations_zh": "仅基于正文节选。",
-        "limitations_en": "Based on an excerpt only.",
     }
 
 
@@ -337,7 +332,7 @@ def test_enrich_prompt_is_source_attributed_and_validated() -> None:
     assert "never give investment advice" in call["system"].lower() or (
         "investment advice" in call["system"]
     )
-    assert "not translated" in call["system"]  # entities stay as written
+    assert "THREE paragraphs" in call["system"]  # owner 2026-07-17: 三段左右
     assert "Fed holds rates" in call["user"] and "reuters.com" in call["user"]
 
     # a missing/blank/oversized summary in EITHER language sinks the enrichment
@@ -348,14 +343,13 @@ def test_enrich_prompt_is_source_attributed_and_validated() -> None:
     bad2["summary_zh"] = "  "
     assert enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([bad2])) is None
     bad3 = dict(_enrichment_json())
-    bad3["summary_en"] = "x" * 2000
+    bad3["summary_en"] = "x" * 4000
     assert enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([bad3])) is None
     # … but a broken optional field only drops that field
     partial = dict(_enrichment_json())
-    partial["why_en"] = 123
     partial["tags"] = "not-a-list"
     got = enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([partial]))
-    assert got is not None and got.why_en is None and got.tags == []
+    assert got is not None and got.tags == []
     # total failure / empty content → None, never raises
     assert enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([])) is None
     assert enrich_fetched_item("   ", title=None, domain=None, llm=MockLLMClient([{}])) is None

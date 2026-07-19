@@ -11,7 +11,7 @@ async function openMockApp(page: Page, path = "/") {
 // M16.4: every tracked item has its own detail page — the owner's "点进任何一条
 // 信息" entry point. Everything stays in tracking language.
 
-test("click an item on Today → its detail page: summary, source says, provenance, note", async ({
+test("click an item on Today → its detail page: summary + the LLM-curated note flow", async ({
   page,
 }) => {
   await openMockApp(page);
@@ -27,20 +27,25 @@ test("click an item on Today → its detail page: summary, source says, provenan
     "href",
     "https://www.sec.gov/news/press-release/2026-99",
   );
-  // the AI summary (active locale) + honesty note
+  // the AI summary (active locale)
   await expect(
     page.getByText("The source says its market-structure rulemaking enters a comment period."),
   ).toBeVisible();
-  await expect(page.getByText(/AI-generated from the source text/)).toBeVisible();
-  // the raw excerpt left the page (2026-07-10) — provenance stays
+  // the raw excerpt, provenance and related blocks all left the page (2026-07-13)
   await expect(page.getByRole("region", { name: "Source says" })).toHaveCount(0);
-  const prov = page.getByRole("region", { name: "Source & provenance" });
-  await expect(prov.getByText("trafilatura")).toBeVisible();
-  // a note saves into the board's Knowledge
+  await expect(page.getByRole("region", { name: "Source & provenance" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Similar & related" })).toHaveCount(0);
+
+  // the note is LLM-curated first (2026-07-13): draft → chat revision → save
+  await page.getByRole("button", { name: "Draft a note" }).click();
+  await expect(page.getByText(/要点:市场结构规则进入公开评议期/)).toBeVisible();
+  await expect(page.getByText("AI draft — not saved yet")).toBeVisible();
   await page
-    .getByRole("textbox", { name: "Your note" })
-    .fill("watch the comment deadline");
-  await page.getByRole("button", { name: "Save note" }).click();
+    .getByRole("textbox", { name: "How should the draft change" })
+    .fill("补上评议截止日期");
+  await page.getByRole("button", { name: "Revise" }).click();
+  await expect(page.getByText(/修订稿.*按「补上评议截止日期」/)).toBeVisible();
+  await page.getByRole("button", { name: "Save to Knowledge" }).click();
   await expect(page.getByText("Saved to Knowledge.")).toBeVisible();
   // no check language anywhere on the page
   await expect(page.locator("body")).not.toContainText(/credibility|verdict|\/100|deep check/i);
@@ -74,10 +79,7 @@ test("discuss an item on its detail page: source-bounded reply, honest limits", 
     .click();
 
   const panel = page.getByRole("region", { name: "Discuss this item" });
-  // honest bounds up front: source is the anchor, analysis is labeled
-  await expect(
-    panel.getByText(/use this item's stored text and AI summary as the factual anchor/),
-  ).toBeVisible();
+  await expect(panel.getByText("Discuss this item with AI.")).toBeVisible();
   await panel
     .getByRole("textbox", { name: "Your question about this item" })
     .fill("评议期什么时候结束?");

@@ -293,6 +293,27 @@ def test_a_single_video_url_becomes_a_one_item_source(tmp_path: Path) -> None:
     assert again.ok and again.new_count == 0  # dedup: the one item never repeats
 
 
+def test_a_youtube_bot_shell_falls_back_to_the_oembed_title(tmp_path: Path) -> None:
+    """owner 2026-07-17: an item literally titled "- YouTube". A bot-checked watch
+    page serves a shell whose <title> is just the platform suffix — that is NOT a
+    title; the keyless oEmbed endpoint still has the real one."""
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(
+        conn, input_url="https://www.youtube.com/watch?v=7ARBJQn6QkM", mode="platform"
+    )
+
+    def fetch(url: str) -> bytes:
+        if url.startswith("https://www.youtube.com/oembed?"):
+            return b'{"title": "NVIDIA CEO Jensen Huang\'s Vision for the Future"}'
+        return b"<html><head><title> - YouTube</title></head><body></body></html>"
+
+    _, dispatch = _collect_dispatch()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=dispatch)
+    assert out.ok and out.new_count == 1
+    row = conn.execute("SELECT title FROM tracked_items").fetchone()
+    assert row["title"] == "NVIDIA CEO Jensen Huang's Vision for the Future"
+
+
 def test_a_bilibili_space_lists_videos_via_ytdlp(tmp_path: Path, monkeypatch: Any) -> None:
     """A Bilibili uploader page is a JS shell (homepage-diff sees nothing) — the
     poll lists its latest videos via yt-dlp instead. The lister is injected here;

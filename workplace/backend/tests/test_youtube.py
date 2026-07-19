@@ -69,7 +69,7 @@ def test_yt_dlp_opts_obey_fetch_policy(monkeypatch: pytest.MonkeyPatch) -> None:
     opts = yt_dlp_opts()
     assert opts["proxy"] == ""  # direct connection; ignores env proxy (§2.2)
     assert opts["cookiefile"] is None
-    assert opts["cookiesfrombrowser"] is None
+    assert opts["cookiesfrombrowser"] is None  # never touch a browser profile
     assert opts["usenetrc"] is False
     assert opts["geo_bypass"] is False
     assert opts["skip_download"] is True

@@ -94,6 +94,9 @@ const openFinance = async () => {
   );
 };
 
+// management chrome (module ×/add, source rows) lives behind this toggle
+const openManage = () => fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+
 describe("BoardsView", () => {
   it("adds a free-text user note", async () => {
     const { createNoteFn } = setup();
@@ -148,32 +151,43 @@ describe("BoardsView", () => {
 });
 
 describe("BoardsView knowledge hierarchy (M15.3)", () => {
-  it("shows board → modules → sources → tracked items, layers labeled", async () => {
+  it("reads clean by default; Manage reveals sources + module admin (2026-07-18)", async () => {
     setup();
     await openFinance();
     // modules of this board render as filter chips
     const section = screen.getByRole("region", { name: "Modules and sources" });
     expect(within(section).getByRole("button", { name: "Rates" })).toBeInTheDocument();
-    // the board's sources are listed with a module selector
-    const sources = within(section).getByRole("list", { name: "Sources in this board" });
-    expect(within(sources).getByText(/federalreserve.gov/)).toBeInTheDocument();
-    // tracked items are their own labeled layer (check badges retired by M16.1)
+    // tracked items are the reading list (check badges retired by M16.1)
     const items = within(section).getByRole("list", { name: "Tracked items in this board" });
     expect(
       within(items).getByRole("link", { name: "Board-scoped tracked item" }),
     ).toBeInTheDocument();
+    // …and titles go to the item detail page, not straight off-site
+    expect(
+      within(items).getByRole("link", { name: "Board-scoped tracked item" }),
+    ).toHaveAttribute("href", expect.stringMatching(/^\/items\//));
     // M16.3: the bilingual enrichment renders in the active locale (en default);
     // the legacy single-language line never renders (M16.1)
     expect(
-      within(items).getByText("The source says a board-scoped update landed."),
+      within(items).getByText(/The source says a board-scoped update landed./),
     ).toBeInTheDocument();
     expect(within(items).queryByText(/LEGACY-ONLY/)).toBeNull();
     expect(within(section).queryByText(/deeply checked/i)).toBeNull();
+    // the reading surface carries NO management chrome…
+    expect(within(section).queryByRole("list", { name: "Sources in this board" })).toBeNull();
+    expect(within(section).queryByLabelText("New module name")).toBeNull();
+    expect(within(section).queryByRole("button", { name: "Delete module Rates" })).toBeNull();
+    // …until Manage is on: source rows (with module selector) + module admin
+    openManage();
+    const sources = within(section).getByRole("list", { name: "Sources in this board" });
+    expect(within(sources).getByText(/federalreserve.gov/)).toBeInTheDocument();
+    expect(within(section).getByLabelText("New module name")).toBeInTheDocument();
   });
 
   it("creates a module in the board", async () => {
     const { createModuleFn } = setup();
     await openFinance();
+    openManage();
     const section = screen.getByRole("region", { name: "Modules and sources" });
     fireEvent.change(within(section).getByLabelText("New module name"), {
       target: { value: "AI chips" },
@@ -186,6 +200,7 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
   it("removes a module after an honest un-group confirm — content survives", async () => {
     const { deleteModuleFn } = setup();
     await openFinance();
+    openManage();
     const section = screen.getByRole("region", { name: "Modules and sources" });
     fireEvent.click(within(section).getByRole("button", { name: "Delete module Rates" }));
     // the confirm says exactly what happens: grouping only, content stays
@@ -205,6 +220,7 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
   it("moves a source into a module via the selector", async () => {
     const { assignModuleFn } = setup();
     await openFinance();
+    openManage();
     const section = screen.getByRole("region", { name: "Modules and sources" });
     const sources = within(section).getByRole("list", { name: "Sources in this board" });
     fireEvent.change(within(sources).getByLabelText(/Module:/), {
@@ -216,6 +232,7 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
   it("the module filter narrows sources and items; All restores", async () => {
     setup();
     await openFinance();
+    openManage();
     const section = screen.getByRole("region", { name: "Modules and sources" });
     fireEvent.click(within(section).getByRole("button", { name: "Rates" }));
     // nothing is assigned to Rates yet → both lists show their honest empty states

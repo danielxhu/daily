@@ -170,15 +170,16 @@ def test_knowledge_search_rejects_empty_query(tmp_path: Path) -> None:
 # --- M13.5 → M16.2: the answer synthesis is on-demand; search is LLM-free ---------
 
 
-def test_answer_synthesis_is_grounded_in_notes_and_labeled_apart() -> None:
-    """The prompt carries ONLY the user's saved notes (presented as the user's own
-    content) and the honesty rules — no outside knowledge, 证据不足 when the notes
-    can't answer, never a true/false judgement. The dormant facts parameter stays
-    [] (v0.13)."""
+def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
+    """Owner 2026-07-19 ("太保守了"): the prompt ANSWERS the question — analysis
+    and labeled inference welcome, never a bare 证据不足 refusal — grounded on
+    BOTH layers: the user's saved notes AND tracked-item summaries (in the
+    question's language). Honesty survives: no fabricated specifics, no buy/sell
+    instructions."""
     from datetime import UTC, datetime
 
     from app.knowledge.answer import answer_from_hits
-    from app.schemas.models import KnowledgeNote
+    from app.schemas.models import ItemEnrichment, KnowledgeNote, TrackedItemCard
 
     now = datetime(2026, 7, 6, tzinfo=UTC)
     note = KnowledgeNote(
@@ -191,23 +192,47 @@ def test_answer_synthesis_is_grounded_in_notes_and_labeled_apart() -> None:
         regenerable=False,
         created_at=now,
     )
-    llm = MockLLMClient([{"answer": "Per your saved note, the merger was approved."}])
-    out = answer_from_hits("what did the Fed do?", [note], llm=llm)
-    assert out == "Per your saved note, the merger was approved."
+    item = TrackedItemCard(
+        id="ti1",
+        board_id=BOARD,
+        url="https://example.com/fed",
+        title="Fed statement",
+        domain="example.com",
+        tier=None,
+        published=None,
+        first_seen=now,
+        status="fetched",
+        enrichment=ItemEnrichment(
+            summary_zh="来源称合并获批。", summary_en="The source says the merger was approved."
+        ),
+    )
+    llm = MockLLMClient([{"answer": "The merger was approved; based on your note and the item."}])
+    out = answer_from_hits("what did the Fed do?", [note], [item], llm=llm)
+    assert out == "The merger was approved; based on your note and the item."
     call = llm.calls[0]
     assert call["escalate"] is False
     assert "User's saved note 1: Fed approved the merger" in call["user"]
+    # the tracked item grounds the answer too — en question → en summary line
+    assert "Tracked item 1: Fed statement (example.com)" in call["user"]
+    assert "the merger was approved" in call["user"]
+    assert "来源称合并获批" not in call["user"]
     assert "what did the Fed do?" in call["user"]
-    assert "ONLY" in call["system"]
-    assert "证据不足" in call["system"]
-    assert "user's own saved" in call["system"]
-    assert "true or false" in call["system"]
+    # answer-first posture with honest limits
+    assert "Genuinely ANSWER" in call["system"]
+    assert "Never refuse to analyze" in call["system"]
+    assert "never" in call["system"] and "fabricate specifics" in call["system"]
+    assert "buy/sell" in call["system"]
+
+    # a zh question flips the item summary to the zh line
+    zh_llm = MockLLMClient([{"answer": "合并获批。"}])
+    assert answer_from_hits("美联储做了什么?", [note], [item], llm=zh_llm) == "合并获批。"
+    assert "来源称合并获批" in zh_llm.calls[0]["user"]
 
     # degradation: failure / wrong shape / blank / rambling → None, never raises
-    assert answer_from_hits("q", [note], llm=MockLLMClient([])) is None
-    assert answer_from_hits("q", [note], llm=MockLLMClient([{"reply": "x"}])) is None
-    assert answer_from_hits("q", [note], llm=MockLLMClient([{"answer": "  "}])) is None
-    assert answer_from_hits("q", [note], llm=MockLLMClient([{"answer": "x" * 2000}])) is None
+    assert answer_from_hits("q", [note], [], llm=MockLLMClient([])) is None
+    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"reply": "x"}])) is None
+    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"answer": "  "}])) is None
+    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"answer": "x" * 4000}])) is None
 
 
 def test_search_never_calls_llm_and_returns_dormant_fields_empty(tmp_path: Path) -> None:
@@ -246,9 +271,10 @@ def test_search_never_calls_llm_and_returns_dormant_fields_empty(tmp_path: Path)
     assert [i["title"] for i in body["items"]] == ["Fed merger statement"]
 
 
-def test_answer_endpoint_is_on_demand_and_grounded_in_saved_notes_only(tmp_path: Path) -> None:
-    """POST /knowledge/answer: one flash call grounded in the matching saved notes;
-    tracked items matching the same query must NOT leak into the prompt."""
+def test_answer_endpoint_grounds_on_notes_and_items_not_display_layers(tmp_path: Path) -> None:
+    """POST /knowledge/answer: one flash call grounded in the matching saved notes
+    AND tracked items (2026-07-19); display-only distilled cache lines still never
+    reach the prompt."""
     from datetime import UTC, datetime
 
     from app.db.tracked_item_store import upsert_discovered
@@ -300,13 +326,13 @@ def test_answer_endpoint_is_on_demand_and_grounded_in_saved_notes_only(tmp_path:
     assert res.status_code == 200
     body = res.json()
     assert body["answer"] == "Per your saved note, the merger was approved."
-    assert body["based_on"] == 2
+    assert body["based_on"] == 3  # 2 notes + 1 tracked item
     assert len(llm.calls) == 1
     assert "Fed approved the merger" in llm.calls[0]["user"]
     assert "my own merger note: watch the July filing" in llm.calls[0]["user"]
-    # the unverified tracked item never reaches the synthesis prompt
-    assert "UNVERIFIED" not in llm.calls[0]["user"]
-    # …and neither does the distilled display layer (M16.7)
+    # the tracked item grounds the answer too (2026-07-19)
+    assert "UNVERIFIED item about the fed merger" in llm.calls[0]["user"]
+    # …but the distilled display layer still never does (M16.7)
     assert "DISTILLED-CACHE" not in llm.calls[0]["user"]
 
 

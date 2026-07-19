@@ -1,9 +1,8 @@
 """M16.4 — the tracked-item detail payload + the manual fetch-&-summarize refresh.
 
-Detail = card + "Source says" excerpt preview + fetch-method provenance + related
-hints. Refresh = ingestion + excerpt + bilingual enrichment ONLY — deliberately
-NOT a deep check (no claims, no scoring, no memory writes; the verification
-engine stays dormant, v0.13). Failures are typed and loud: the user clicked."""
+Detail = card + "Source says" excerpt preview (the provenance/related blocks left
+the page 2026-07-13). Refresh = ingestion + excerpt + bilingual enrichment ONLY —
+deliberately NOT a deep check. Failures are typed and loud: the user clicked."""
 
 from __future__ import annotations
 
@@ -18,7 +17,6 @@ from fastapi.testclient import TestClient
 from app.db.engine import init_db
 from app.db.tracked_item_store import (
     recent_tracked_items,
-    related_tracked_items,
     upsert_discovered,
 )
 from app.ingestion.result import failed_from
@@ -182,15 +180,10 @@ def test_refresh_endpoint_maps_errors_and_honors_the_poll_mutex(
 # --- detail payload -----------------------------------------------------------
 
 
-def test_detail_returns_excerpt_preview_method_and_related(tmp_path: Path) -> None:
+def test_detail_returns_the_card_and_excerpt_preview_only(tmp_path: Path) -> None:
     db = str(tmp_path / "daily.db")
     conn = init_db(db)
     item_id = _discover(conn, "https://www.sec.gov/news/item-1", title="SEC adopts rules")
-    # the same normalized title on ANOTHER domain (the echo) + a same-domain item
-    echo = _discover(
-        conn, "https://media.example.com/sec-rules", title="sec  ADOPTS rules", sub_id="sub2"
-    )
-    same_domain = _discover(conn, "https://www.sec.gov/news/other", title="Other SEC news")
     refresh_item(conn, item_id, llm=_KeyedLLM(), ingest=_fake_ingest, now=NOW)
     conn.close()
 
@@ -200,27 +193,9 @@ def test_detail_returns_excerpt_preview_method_and_related(tmp_path: Path) -> No
     assert body["item"]["id"] == item_id
     assert body["excerpt_preview"]
     assert len(body["excerpt_preview"]) <= 2000
-    assert body["fetch_method"] is None or isinstance(body["fetch_method"], str)
-    related_ids = [r["id"] for r in body["related"]]
-    # the cross-domain echo ranks before the same-domain neighbour
-    assert related_ids[0] == echo
-    assert same_domain in related_ids
-    assert item_id not in related_ids  # never itself
+    # the provenance/related blocks left the payload with the page (2026-07-13)
+    assert set(body) == {"item", "excerpt_preview"}
     # zero check language anywhere in the payload keys/values
     assert "credibility" not in res.text and "verdict" not in res.text
 
     assert _client(db).get("/tracked-items/nope").status_code == 404
-
-
-def test_related_prefers_echo_then_domain_then_module(tmp_path: Path) -> None:
-    conn = init_db(str(tmp_path / "daily.db"))
-    me = _discover(conn, "https://www.sec.gov/news/a", title="Rules adopted", module_id="m1")
-    echo = _discover(conn, "https://media.example.com/b", title="rules  ADOPTED", sub_id="sub2")
-    domain_mate = _discover(conn, "https://www.sec.gov/news/c", title="Unrelated")
-    module_mate = _discover(
-        conn, "https://blog.example.org/d", title="Different", sub_id="sub3", module_id="m1"
-    )
-    ids = [c.id for c in related_tracked_items(conn, me)]
-    assert ids == [echo, domain_mate, module_mate]
-    assert related_tracked_items(conn, "nope") == []
-    conn.close()

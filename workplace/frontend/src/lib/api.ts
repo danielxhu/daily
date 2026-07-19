@@ -3,6 +3,7 @@ import type {
   DailyDigest,
   DiscussMessage,
   ItemDiscussReply,
+  ItemNoteDraftReply,
   KnowledgeModule,
   KnowledgeNote,
   KnowledgeAnswer,
@@ -144,6 +145,23 @@ export async function discussTrackedItem(
   opts: QueryOptions = {},
 ): Promise<ItemDiscussReply> {
   return postJson<ItemDiscussReply>(`/tracked-items/${itemId}/discuss`, { messages }, opts);
+}
+
+/** Draft (or revise) the LLM-curated knowledge note for ONE tracked item
+ * (2026-07-13): empty messages = initial draft; otherwise the revision chat
+ * (earlier drafts as assistant turns, the user's instruction last). READ-ONLY —
+ * nothing is saved until the user posts the final text via createNote. */
+export async function draftItemNote(
+  itemId: string,
+  messages: DiscussMessage[],
+  locale: "zh" | "en",
+  opts: QueryOptions = {},
+): Promise<ItemNoteDraftReply> {
+  return postJson<ItemNoteDraftReply>(
+    `/tracked-items/${itemId}/note-draft`,
+    { messages, locale },
+    opts,
+  );
 }
 
 // --- knowledge modules (M15.1/M15.3): board → module → source → item ---

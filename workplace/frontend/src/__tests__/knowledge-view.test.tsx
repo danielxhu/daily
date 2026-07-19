@@ -156,9 +156,9 @@ describe("KnowledgeView on-demand AI answer (M16.2)", () => {
     expect(
       await screen.findByText("Per your saved note, the merger was approved."),
     ).toBeInTheDocument();
-    // labeled as AI + the notes-only grounding note
+    // labeled as AI + the honest grounding note (notes + tracked items)
     expect(screen.getByText("AI answer")).toBeInTheDocument();
-    expect(screen.getByText(/only from your saved notes/)).toBeInTheDocument();
+    expect(screen.getByText(/from your saved notes and tracked items/)).toBeInTheDocument();
     // the button is consumed — one answer per turn
     expect(screen.queryByRole("button", { name: "Generate AI answer" })).toBeNull();
   });
@@ -184,7 +184,7 @@ describe("KnowledgeView on-demand AI answer (M16.2)", () => {
     expect(screen.getByText(/Fed approved the merger/)).toBeInTheDocument();
   });
 
-  it("items-only hits offer no answer action — items never ground a synthesis", async () => {
+  it("items-only hits offer the answer action too (2026-07-19: items ground it)", async () => {
     const askFn = vi.fn(async () => ({
       facts: [],
       saved: [],
@@ -216,7 +216,7 @@ describe("KnowledgeView on-demand AI answer (M16.2)", () => {
     );
     ask("market structure");
     await screen.findByRole("list", { name: "Tracked items" });
-    expect(screen.queryByRole("button", { name: "Generate AI answer" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Generate AI answer" })).toBeInTheDocument();
   });
 });
 

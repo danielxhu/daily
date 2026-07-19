@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { TrackedItemLite, trackedTitle } from "@/components/TrackedItems";
+import { trackedTitle } from "@/components/TrackedItems";
 import {
   ApiError,
   createNote,
   discussTrackedItem,
+  draftItemNote,
   getTrackedItem,
   refreshTrackedItem,
 } from "@/lib/api";
@@ -27,19 +28,21 @@ interface ItemDetailViewProps {
   refreshFn?: typeof refreshTrackedItem;
   createNoteFn?: typeof createNote;
   discussFn?: typeof discussTrackedItem;
+  draftNoteFn?: typeof draftItemNote;
 }
 
 /** The tracked-item detail page (M16.4): everything daily knows about ONE item,
  * in tracking language only — original link, the bilingual AI summary + why it
- * matters (labeled AI-generated), tags/entities, the stored source excerpt
- * ("Source says"), provenance, related items, and the user's note into the
- * board's Knowledge. No score, no verdict, no stance (v0.13). */
+ * matters (labeled AI-generated), tags/entities, the item discussion, and the
+ * LLM-curated note into the board's Knowledge (2026-07-13; the provenance and
+ * related blocks left the page the same day). */
 export function ItemDetailView({
   itemId,
   detailFn = getTrackedItem,
   refreshFn = refreshTrackedItem,
   createNoteFn = createNote,
   discussFn = discussTrackedItem,
+  draftNoteFn = draftItemNote,
 }: ItemDetailViewProps) {
   const [detail, setDetail] = useState<TrackedItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -147,6 +150,7 @@ export function ItemDetailView({
       onRefresh={() => void refresh({ auto: false, attempt: 1 })}
       createNoteFn={createNoteFn}
       discussFn={discussFn}
+      draftNoteFn={draftNoteFn}
     />
   );
 }
@@ -158,6 +162,7 @@ function ItemDetail({
   onRefresh,
   createNoteFn,
   discussFn,
+  draftNoteFn,
 }: {
   detail: TrackedItemDetail;
   refreshing: boolean;
@@ -165,6 +170,7 @@ function ItemDetail({
   onRefresh: () => void;
   createNoteFn: typeof createNote;
   discussFn: typeof discussTrackedItem;
+  draftNoteFn: typeof draftItemNote;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -172,8 +178,6 @@ function ItemDetail({
   const item = detail.item;
   const e = item.enrichment;
   const summary = e ? (locale === "zh" ? e.summary_zh : e.summary_en) : null;
-  const why = e ? (locale === "zh" ? e.why_zh : e.why_en) : null;
-  const limits = e ? (locale === "zh" ? e.limitations_zh : e.limitations_en) : null;
 
   return (
     <article aria-label={t("item.aria")} className="space-y-8">
@@ -212,35 +216,9 @@ function ItemDetail({
           <span aria-hidden="true" className="section-rule" />
         </div>
         {summary ? (
-          <>
-            <p className="max-w-[65ch] text-sm leading-relaxed text-ink">{summary}</p>
-            {why && (
-              <p className="max-w-[65ch] text-sm leading-relaxed text-muted">
-                <span className="badge mr-1.5 bg-panel text-faint">{t("item.why.heading")}</span>
-                {why}
-              </p>
-            )}
-            {(e?.tags ?? []).length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                {(e?.tags ?? []).map((tag) => (
-                  <span key={tag} className="badge bg-panel text-muted">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-            {(e?.entities ?? []).length > 0 && (
-              <p className="text-xs text-faint">
-                {t("item.entities.heading")}: {(e?.entities ?? []).join(" · ")}
-              </p>
-            )}
-            {limits && (
-              <p className="text-xs italic text-faint">
-                {t("item.limits.heading")}: {limits}
-              </p>
-            )}
-            <p className="text-xs text-faint">{t("item.ai.note")}</p>
-          </>
+          <p className="max-w-[65ch] whitespace-pre-line text-sm leading-relaxed text-ink">
+            {summary}
+          </p>
         ) : (
           <p className="max-w-[65ch] text-sm text-muted">{t("item.pending.note")}</p>
         )}
@@ -270,72 +248,13 @@ function ItemDetail({
         discussFn={discussFn}
       />
 
-      {/* provenance — tracking language only */}
-      <section aria-label={t("item.provenance.heading")} className="space-y-3">
-        <div className="section-head">
-          <h2 className="section-title">{t("item.provenance.heading")}</h2>
-          <span aria-hidden="true" className="section-rule" />
-        </div>
-        <dl className="grid max-w-[65ch] grid-cols-[auto,1fr] gap-x-6 gap-y-1.5 text-sm">
-          {item.domain && (
-            <>
-              <dt className="text-faint">{t("item.provenance.domain")}</dt>
-              <dd className="mono break-all text-muted">{item.domain}</dd>
-            </>
-          )}
-          {item.tier && (
-            <>
-              <dt className="text-faint">{t("item.provenance.tier")}</dt>
-              <dd className="text-muted">{t(TIER_KEY[item.tier])}</dd>
-            </>
-          )}
-          {detail.fetch_method && (
-            <>
-              <dt className="text-faint">{t("item.provenance.method")}</dt>
-              <dd className="mono text-muted">{detail.fetch_method}</dd>
-            </>
-          )}
-          {item.published && (
-            <>
-              <dt className="text-faint">{t("item.provenance.published")}</dt>
-              <dd className="tnum text-muted">
-                {new Date(item.published).toLocaleString(intlLocale)}
-              </dd>
-            </>
-          )}
-          <dt className="text-faint">{t("item.provenance.firstSeen")}</dt>
-          <dd className="tnum text-muted">
-            {new Date(item.first_seen).toLocaleString(intlLocale)}
-          </dd>
-          <dt className="text-faint">{t("item.provenance.status")}</dt>
-          <dd className="text-muted">{item.status}</dd>
-        </dl>
-      </section>
-
-      {/* related — hints, never corroboration */}
-      <section aria-label={t("item.related.heading")} className="space-y-3">
-        <div className="section-head">
-          <h2 className="section-title">{t("item.related.heading")}</h2>
-          {(detail.related ?? []).length > 0 && (
-            <span className="mono tnum text-[11px] text-faint">{(detail.related ?? []).length}</span>
-          )}
-          <span aria-hidden="true" className="section-rule" />
-        </div>
-        <p className="max-w-[65ch] text-xs text-faint">{t("item.related.note")}</p>
-        {(detail.related ?? []).length === 0 ? (
-          <p className="text-sm text-muted">{t("item.related.none")}</p>
-        ) : (
-          <ul className="row-list">
-            {(detail.related ?? []).map((rel) => (
-              <li key={rel.id}>
-                <TrackedItemLite item={rel} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <ItemNote boardId={item.board_id} createNoteFn={createNoteFn} />
+      <ItemNote
+        itemId={item.id}
+        boardId={item.board_id}
+        contentAvailable={item.content_available === true}
+        createNoteFn={createNoteFn}
+        draftNoteFn={draftNoteFn}
+      />
     </article>
   );
 }
@@ -403,9 +322,6 @@ function ItemDiscussPanel({
             aria-label={t("item.discuss.log.aria")}
             className="max-h-80 space-y-3 overflow-y-auto"
           >
-            {messages.length === 0 && !pending && (
-              <li className="text-xs leading-relaxed text-faint">{t("item.discuss.empty")}</li>
-            )}
             {messages.map((message, i) => (
               <li key={i} className={message.role === "user" ? "text-right" : ""}>
                 {message.role === "user" ? (
@@ -450,27 +366,60 @@ function ItemDiscussPanel({
   );
 }
 
-/** The user's note on this item — a plain user_note into the item's board, so
- * it is searchable in Knowledge (M16.2 widened the search to user notes). */
+/** The note saved into the board's Knowledge is LLM-curated first (owner
+ * 2026-07-13): daily drafts it from the item's stored material, the user revises
+ * it through chat until it reads right, and only the final click saves it as a
+ * searchable user_note. Drafting is READ-ONLY server-side. */
 function ItemNote({
+  itemId,
   boardId,
+  contentAvailable,
   createNoteFn,
+  draftNoteFn,
 }: {
+  itemId: string;
   boardId: string | null;
+  contentAvailable: boolean;
   createNoteFn: typeof createNote;
+  draftNoteFn: typeof draftItemNote;
 }) {
   const t = useT();
-  const [text, setText] = useState("");
+  const { locale } = useLocale();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [history, setHistory] = useState<DiscussMessage[]>([]);
+  const [instruction, setInstruction] = useState("");
+  const [drafting, setDrafting] = useState(false);
   const [state, setState] = useState<"idle" | "saved" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    const content = text.trim();
-    if (!content || !boardId) return;
+  async function requestDraft(messages: DiscussMessage[]) {
+    setDrafting(true);
+    setError(null);
+    setState("idle");
     try {
-      await createNoteFn(boardId, { kind: "user_note", content });
+      const res = await draftNoteFn(itemId, messages, locale);
+      setDraft(res.draft);
+      setHistory([...messages, { role: "assistant", content: res.draft }]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("item.note.err"));
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  function revise(event: React.FormEvent) {
+    event.preventDefault();
+    const ask = instruction.trim();
+    if (!ask || drafting) return;
+    setInstruction("");
+    void requestDraft([...history, { role: "user", content: ask }]);
+  }
+
+  async function save() {
+    if (!draft || !boardId) return;
+    try {
+      await createNoteFn(boardId, { kind: "user_note", content: draft });
       setState("saved");
-      setText("");
     } catch {
       setState("error");
     }
@@ -484,36 +433,72 @@ function ItemNote({
       </div>
       {boardId === null ? (
         <p className="max-w-[65ch] text-sm text-muted">{t("item.note.noBoard")}</p>
+      ) : !contentAvailable ? (
+        <p className="max-w-[65ch] text-sm text-muted">{t("item.note.needText")}</p>
       ) : (
-        <form onSubmit={save} className="flex max-w-[70ch] flex-wrap items-end gap-2">
-          <label className="block flex-1">
-            <span className="sr-only">{t("item.note.heading")}</span>
-            <input
-              type="text"
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                setState("idle");
-              }}
-              aria-label={t("item.note.heading")}
-              placeholder={t("item.note.placeholder")}
-              className="input"
-            />
-          </label>
-          <button type="submit" className="btn-primary">
-            {t("item.note.add")}
-          </button>
+        <div className="max-w-[70ch] space-y-3">
+          <p className="text-xs leading-relaxed text-faint">{t("item.note.how")}</p>
+          {draft === null ? (
+            <button
+              type="button"
+              onClick={() => void requestDraft([])}
+              disabled={drafting}
+              className="btn-primary disabled:opacity-50"
+            >
+              {drafting ? t("item.note.drafting") : t("item.note.draft")}
+            </button>
+          ) : (
+            <>
+              <div className="space-y-2 rounded-lg border border-line bg-panel px-4 py-3">
+                <span className="badge bg-bg text-faint">{t("item.note.draftLabel")}</span>
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink">
+                  {draft}
+                </p>
+              </div>
+              {drafting && <p className="text-xs text-faint">{t("item.note.drafting")}</p>}
+              <form onSubmit={revise} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  aria-label={t("item.note.revise.aria")}
+                  placeholder={t("item.note.revise.placeholder")}
+                  className="input"
+                />
+                <button
+                  type="submit"
+                  disabled={drafting || !instruction.trim()}
+                  className="btn-primary shrink-0"
+                >
+                  {t("item.note.revise")}
+                </button>
+              </form>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={drafting || state === "saved"}
+                className="btn-primary disabled:opacity-50"
+              >
+                {t("item.note.save")}
+              </button>
+            </>
+          )}
           {state === "saved" && (
-            <p role="status" className="w-full text-xs text-ok-fg">
+            <p role="status" className="text-xs text-ok-fg">
               {t("item.note.saved")}
             </p>
           )}
           {state === "error" && (
-            <p role="alert" className="w-full text-xs text-bad-fg">
+            <p role="alert" className="text-xs text-bad-fg">
               {t("item.note.err")}
             </p>
           )}
-        </form>
+          {error && (
+            <p role="alert" className="text-xs text-bad-fg">
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

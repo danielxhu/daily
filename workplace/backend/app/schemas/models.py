@@ -347,11 +347,6 @@ class TrackedItemDetail(Schema):
     # capped excerpt still grounds discussion/refresh server-side). None = no
     # stored text (legacy pre-v0.13 row or fetch-failed item).
     excerpt_preview: str | None
-    # provenance: HOW the content was obtained (trafilatura / caption / whisper …)
-    fetch_method: str | None
-    # cheap deterministic hints (same title on other domains, same domain, same
-    # module) — "you may also want to open these", never corroboration
-    related: list[TrackedItemCard] = []
 
 
 class DailyDigest(Schema):
@@ -388,6 +383,26 @@ class ItemDiscussReply(Schema):
     reply: str
 
 
+class ItemNoteDraftRequest(Schema):
+    """`POST /tracked-items/{id}/note-draft` body (2026-07-13): notes saved to
+    Knowledge are LLM-curated first. Empty messages = ask for the initial draft;
+    otherwise the revision chat so far (assistant turns are earlier drafts, the
+    last message must be the user's revision instruction). READ-ONLY: drafting
+    never writes — the user saves the final text via the notes endpoint."""
+
+    messages: list[DiscussMessage] = []
+    # the UI locale the initial draft should be written in (a user instruction
+    # in another language overrides it)
+    locale: Literal["zh", "en"] = "zh"
+
+
+class ItemNoteDraftReply(Schema):
+    """`POST /tracked-items/{id}/note-draft` reply: the current draft note text,
+    grounded in the item's stored excerpt + enrichment. Never auto-saved."""
+
+    draft: str
+
+
 class KnowledgeSearchResult(Schema):
     """`GET /knowledge/search`: deterministic SQLite keyword matching only — zero
     LLM and zero embedding in the request path (M16.2, the owner's "search is
@@ -412,7 +427,7 @@ class KnowledgeAnswer(Schema):
     (the user explicitly asked — a typed error beats a silent null)."""
 
     answer: str | None
-    based_on: int  # how many saved notes grounded the answer (0 = no call made)
+    based_on: int  # how many hits (saved notes + tracked items) grounded the answer (0 = no call)
 
 
 class StepTrace(Schema):
@@ -489,6 +504,8 @@ ALL_MODELS: list[type[Schema]] = [
     DiscussMessage,
     ItemDiscussRequest,
     ItemDiscussReply,
+    ItemNoteDraftRequest,
+    ItemNoteDraftReply,
     KnowledgeAnswer,
     KnowledgeAnswerRequest,
     KnowledgeSearchResult,

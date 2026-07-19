@@ -38,8 +38,6 @@ function detail(overrides: Partial<TrackedItemDetail> = {}): TrackedItemDetail {
   return {
     item,
     excerpt_preview: "The Commission announced its rulemaking enters a comment period.",
-    fetch_method: "trafilatura",
-    related: [],
     ...overrides,
   };
 }
@@ -66,10 +64,7 @@ describe("ItemDiscussPanel (M16.5)", () => {
     setup(detail(), discussFn as unknown as typeof discussTrackedItem);
 
     const panel = await screen.findByRole("region", { name: "Discuss this item" });
-    // honest bounds are stated up front
-    expect(
-      within(panel).getByText(/use this item's stored text and AI summary as the factual anchor/),
-    ).toBeInTheDocument();
+    expect(within(panel).getByText("Discuss this item with AI.")).toBeInTheDocument();
     fireEvent.change(within(panel).getByRole("textbox", { name: "Your question about this item" }), {
       target: { value: "评议期多久?" },
     });
@@ -127,7 +122,6 @@ describe("ItemDiscussPanel (M16.5)", () => {
     const bare = detail({
       item: { ...item, enrichment: null, content_available: false },
       excerpt_preview: null,
-      fetch_method: null,
     });
     setup(bare, vi.fn() as unknown as typeof discussTrackedItem);
 
@@ -140,7 +134,7 @@ describe("ItemDiscussPanel (M16.5)", () => {
     window.localStorage.setItem("daily.locale", "zh");
     setup(detail(), vi.fn() as unknown as typeof discussTrackedItem);
     const panel = await screen.findByRole("region", { name: "讨论这条信息" });
-    expect(within(panel).getByText(/回答以该条目已存的原文节选与 AI 摘要为事实基础/)).toBeInTheDocument();
+    expect(within(panel).getByText("和 AI 讨论一下这条消息。")).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "发送" })).toBeInTheDocument();
   });
 });

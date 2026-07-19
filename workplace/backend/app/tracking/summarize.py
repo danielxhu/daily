@@ -49,29 +49,24 @@ _ITEM_ENRICH_SYSTEM = (
     "content is NOT verified: describe what the source SAYS (attribute claims to "
     "it), never assert truth yourself, never judge credibility, never give "
     "investment advice. Neutral, plain language, no hype. Produce BOTH languages "
-    "regardless of the source language. Output JSON only: "
-    '{"summary_zh": "<4-7 句中文综述,信息密度高:核心事件、关键数字/日期、'
-    '涉及主体、来源给出的背景与后续安排;仍是来源口吻,不加外部知识>", '
-    '"summary_en": "<4-7 sentences, information-dense: the core event, key '
-    "figures/dates, the actors involved, and the background/next steps AS THE "
-    'SOURCE gives them; still attributed to the source, no outside knowledge>", '
+    "regardless of the source language. Each summary is THREE paragraphs "
+    "separated by blank lines (\\n\\n): ① the core event with the key "
+    "figures/dates and actors; ② the substantive detail — arguments, evidence, "
+    "positions, and numbers as the source gives them; ③ the background and next "
+    "steps the source mentions. Information-dense, no padding. Output JSON only: "
+    '{"summary_zh": "<三段中文综述,段落间以空行分隔,仍是来源口吻,不加外部知识>", '
+    '"summary_en": "<three paragraphs separated by blank lines, still attributed '
+    'to the source, no outside knowledge>", '
     '"title_zh": "<原标题的中文版:忠实翻译,原文已是中文则原样保留,不改写不美化>", '
     '"title_en": "<the title in English: faithful translation, keep as-is if already English>", '
-    '"why_zh": "<一句:对追踪该主题的读者为何相关,仍只基于内容>", '
-    '"why_en": "<one sentence, content-grounded>", '
-    '"entities": ["<proper nouns exactly as written, not translated>"], '
-    '"tags": ["<2-6 short lowercase topic tags>"], '
-    '"limitations_zh": "<一句:本综述的局限,例如仅基于正文节选>", '
-    '"limitations_en": "<one sentence on this briefing\'s limits>"}'
+    '"tags": ["<2-6 short lowercase topic tags>"]}'
 )
 
 # a briefing needs the lede, not the tail — and the prompt must stay flash-cheap
-# owner 2026-07-10 ('综述写多一点'): a briefing paragraph, not a teaser — more
-# input so the summary has substance, and room for it in the output caps
-_ITEM_EXCERPT_CHARS = 6000
-_MAX_SUMMARY = 1600
-_MAX_WHY = 400
-_MAX_LIMITS = 300
+# owner 2026-07-10 ('综述写多一点') then 2026-07-17 ('再长一点,三段左右'):
+# three real paragraphs need more source material and more output headroom
+_ITEM_EXCERPT_CHARS = 10000
+_MAX_SUMMARY = 3200
 
 
 def _opt_str(value: object, cap: int) -> str | None:
@@ -142,10 +137,5 @@ def enrich_fetched_item(
         summary_en=summary_en,
         title_zh=_opt_str(data.get("title_zh"), 300),
         title_en=_opt_str(data.get("title_en"), 300),
-        why_zh=_opt_str(data.get("why_zh"), _MAX_WHY),
-        why_en=_opt_str(data.get("why_en"), _MAX_WHY),
-        entities=_str_list(data.get("entities"), cap=10, item_cap=80),
         tags=_str_list(data.get("tags"), cap=8, item_cap=40),
-        limitations_zh=_opt_str(data.get("limitations_zh"), _MAX_LIMITS),
-        limitations_en=_opt_str(data.get("limitations_en"), _MAX_LIMITS),
     )

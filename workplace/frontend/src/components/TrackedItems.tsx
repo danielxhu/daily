@@ -356,7 +356,9 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
           </Link>
         </p>
         {summary ? (
-          <p className="max-w-[72ch] text-xs leading-relaxed text-muted">
+          // the (now three-paragraph) briefing lives on the detail page — the
+          // timeline shows the lede only
+          <p className="line-clamp-4 max-w-[72ch] text-xs leading-relaxed text-muted">
             <span className="badge mr-1.5 bg-surface text-faint">{t("digest.ai.label")}</span>
             {summary}
           </p>

@@ -53,11 +53,15 @@ test("knowledge hierarchy: create a module, move a source, filter items (M15.3)"
   await openFinanceBoard(page);
   const section = page.getByRole("region", { name: "Modules and sources" });
 
-  // the hierarchy renders: module chips, board sources, tracked items
+  // the reading surface: module chips + tracked items, no admin chrome yet
   await expect(section.getByRole("button", { name: "Rates", exact: true })).toBeVisible();
   await expect(
     section.getByRole("link", { name: "Board-scoped tracked item" }),
   ).toBeVisible();
+  await expect(section.getByLabel("New module name")).toHaveCount(0);
+
+  // management chrome (module add/delete, source module moves) is behind Manage
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
 
   // create a module (stateful mock: it appears as a chip)
   await section.getByLabel("New module name").fill("AI chips");

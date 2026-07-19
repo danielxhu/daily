@@ -171,6 +171,36 @@ export const handlers = [
       reply: `来源提到规则进入公开评议期;由此看,「${question}」可以从评议期的节奏与参与方式入手分析。`,
     });
   }),
+  // 2026-07-13: the LLM-curated note draft — empty messages = initial draft,
+  // otherwise the mock folds the user's latest instruction into a revision
+  http.post("*/tracked-items/:id/note-draft", async ({ params, request }) => {
+    const tracked = buildMockDigest().tracked ?? [];
+    const item = tracked.find((i) => i.id === params.id);
+    if (!item) {
+      return HttpResponse.json(
+        { detail: `no such tracked item: ${String(params.id)}` },
+        { status: 404 },
+      );
+    }
+    if (!item.content_available) {
+      return HttpResponse.json(
+        {
+          detail:
+            "this item has no stored source text yet — run fetch-&-summarize (refresh) first",
+        },
+        { status: 400 },
+      );
+    }
+    const { messages } = (await request.json()) as {
+      messages: { role: string; content: string }[];
+    };
+    const instruction = messages[messages.length - 1]?.content;
+    return HttpResponse.json({
+      draft: instruction
+        ? `修订稿(按「${instruction}」):规则进入公开评议期,关注生效时间表。`
+        : "要点:市场结构规则进入公开评议期;关注评议截止与生效时间表。",
+    });
+  }),
   // knowledge modules (M15.3): stateful within one page load so create/delete
   // flows are observable in mock mode and e2e
   http.get("*/boards/:boardId/modules", ({ params }) => {
@@ -257,8 +287,6 @@ export const handlers = [
       excerpt_preview: item.content_available
         ? "The Securities and Exchange Commission today announced that its market-structure rulemaking enters a public comment period…"
         : null,
-      fetch_method: item.content_available ? "trafilatura" : null,
-      related: tracked.filter((i) => i.id !== item.id),
     });
   }),
   // M16.4: manual fetch-&-summarize — the mock upgrades the item in place
@@ -291,8 +319,6 @@ export const handlers = [
       item: upgraded,
       excerpt_preview:
         "Transcript excerpt: markets moved on the latest rate decision…",
-      fetch_method: "whisper",
-      related: tracked.filter((i) => i.id !== item.id),
     });
   }),
   // M16.2: the on-demand AI answer over the user's saved notes

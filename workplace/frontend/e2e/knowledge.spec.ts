@@ -30,7 +30,7 @@ test("search returns hits instantly; the AI answer only appears on demand", asyn
   await page.getByRole("button", { name: "Generate AI answer" }).click();
   await expect(page.getByText(/the merger was approved/).first()).toBeVisible();
   await expect(page.getByText("AI answer", { exact: true })).toBeVisible();
-  await expect(page.getByText(/only from your saved notes/)).toBeVisible();
+  await expect(page.getByText(/from your saved notes and tracked items/)).toBeVisible();
 });
 
 // M16.7: the knowledge map — board cards with counts — and the layered search.

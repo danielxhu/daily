@@ -262,3 +262,114 @@ def test_discuss_is_read_only(tmp_path: Path) -> None:
     for table in ("knowledge_notes", "memory_items"):
         assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
     conn.close()
+
+
+# --- note drafting (2026-07-13): the saved note is LLM-curated first -----------
+
+
+class _DraftLLM:
+    """Returns a canned draft and records every prompt."""
+
+    def __init__(self, draft: str = "要点:规则进入评议期;关注生效时间表。") -> None:
+        self.draft = draft
+        self.calls: list[tuple[str, str]] = []
+
+    def complete_json(self, *, system: str, user: str, escalate: bool = False) -> dict[str, object]:
+        assert escalate is False  # flash-only
+        self.calls.append((system, user))
+        return {"draft": self.draft}
+
+
+def test_note_draft_initial_then_revision_carries_the_chat(tmp_path: Path) -> None:
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    sec = _discover(
+        conn,
+        "https://www.sec.gov/news/item-1",
+        title="SEC adopts rules",
+        excerpt=_SEC_EXCERPT,
+        enrichment=_enrichment(),
+    )
+    conn.close()
+
+    # initial draft: empty messages, zh locale
+    llm = _DraftLLM()
+    res = _client(db, llm).post(
+        f"/tracked-items/{sec}/note-draft", json={"messages": [], "locale": "zh"}
+    )
+    assert res.status_code == 200
+    assert res.json() == {"draft": "要点:规则进入评议期;关注生效时间表。"}
+    system, user = llm.calls[0]
+    assert "curating a note" in system and "in Chinese" in system
+    assert "No concrete buy/sell" in system
+    assert _SEC_EXCERPT in user and "SEC adopts rules" in user
+    assert "revision instructions" not in user  # no chat yet
+
+    # revision: the earlier draft + the user's instruction both reach the model
+    llm2 = _DraftLLM(draft="Key point: comment period opened.")
+    res = _client(db, llm2).post(
+        f"/tracked-items/{sec}/note-draft",
+        json={
+            "messages": [
+                {"role": "assistant", "content": "要点:规则进入评议期。"},
+                {"role": "user", "content": "改成英文,并只留一句"},
+            ],
+            "locale": "zh",
+        },
+    )
+    assert res.status_code == 200
+    _, user2 = llm2.calls[0]
+    assert "assistant: 要点:规则进入评议期。" in user2
+    assert "user: 改成英文,并只留一句" in user2
+
+    # en locale flips the default draft language
+    llm3 = _DraftLLM()
+    _client(db, llm3).post(f"/tracked-items/{sec}/note-draft", json={"locale": "en"})
+    assert "in English" in llm3.calls[0][0]
+
+
+def test_note_draft_typed_errors(tmp_path: Path) -> None:
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    ready = _discover(
+        conn, "https://www.sec.gov/news/item-1", title="SEC adopts rules", excerpt=_SEC_EXCERPT
+    )
+    bare = _discover(conn, "https://pod.example/ep-214", title="No text yet", sub_id="sub2")
+    conn.close()
+
+    client = _client(db, _DraftLLM())
+    assert client.post("/tracked-items/nope/note-draft", json={}).status_code == 404
+    # a revision chat must end on a non-empty user turn
+    res = client.post(
+        f"/tracked-items/{ready}/note-draft",
+        json={"messages": [{"role": "assistant", "content": "draft v1"}]},
+    )
+    assert res.status_code == 400
+    # no stored text → typed 400 pointing at fetch-&-summarize
+    res = client.post(f"/tracked-items/{bare}/note-draft", json={})
+    assert res.status_code == 400
+    assert "fetch" in res.json()["detail"]
+    # an LLM failure is a loud 502 — never a fake draft
+    res = _client(db, _BoomLLM()).post(f"/tracked-items/{ready}/note-draft", json={})
+    assert res.status_code == 502
+
+
+def test_note_draft_is_read_only(tmp_path: Path) -> None:
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    sec = _discover(
+        conn, "https://www.sec.gov/news/item-1", title="SEC adopts rules", excerpt=_SEC_EXCERPT
+    )
+    before = dict(conn.execute("SELECT * FROM tracked_items WHERE id = ?", (sec,)).fetchone())
+    conn.close()
+
+    assert (
+        _client(db, _DraftLLM()).post(f"/tracked-items/{sec}/note-draft", json={}).status_code
+        == 200
+    )
+
+    conn = init_db(db)
+    after = dict(conn.execute("SELECT * FROM tracked_items WHERE id = ?", (sec,)).fetchone())
+    assert after == before  # drafting saved nothing; only the notes endpoint writes
+    assert conn.execute("SELECT COUNT(*) FROM knowledge_notes").fetchone()[0] == 0
+    conn.close()

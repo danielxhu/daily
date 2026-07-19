@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ItemDetailView } from "@/components/ItemDetailView";
-import { createNote, getTrackedItem, refreshTrackedItem } from "@/lib/api";
+import { createNote, draftItemNote, getTrackedItem, refreshTrackedItem } from "@/lib/api";
 import { LocaleProvider } from "@/lib/i18n";
 import type { TrackedItemCard, TrackedItemDetail } from "@/types/contract";
 
@@ -34,22 +34,10 @@ const enrichedItem: TrackedItemCard = {
   similar_count: 0,
 };
 
-const related: TrackedItemCard = {
-  ...enrichedItem,
-  id: "ti2",
-  title: "Same story elsewhere",
-  domain: "media.example.com",
-  tier: "T2",
-  enrichment: null,
-  content_available: false,
-};
-
 function detail(overrides: Partial<TrackedItemDetail> = {}): TrackedItemDetail {
   return {
     item: enrichedItem,
     excerpt_preview: "The Securities and Exchange Commission today announced…",
-    fetch_method: "trafilatura",
-    related: [related],
     ...overrides,
   };
 }
@@ -57,6 +45,7 @@ function detail(overrides: Partial<TrackedItemDetail> = {}): TrackedItemDetail {
 function setup(d: TrackedItemDetail, fns: {
   refreshFn?: typeof refreshTrackedItem;
   createNoteFn?: typeof createNote;
+  draftNoteFn?: typeof draftItemNote;
 } = {}) {
   const detailFn = vi.fn(async () => d);
   render(
@@ -66,6 +55,7 @@ function setup(d: TrackedItemDetail, fns: {
         detailFn={detailFn as unknown as typeof getTrackedItem}
         refreshFn={fns.refreshFn}
         createNoteFn={fns.createNoteFn}
+        draftNoteFn={fns.draftNoteFn}
       />
     </LocaleProvider>,
   );
@@ -75,50 +65,39 @@ function setup(d: TrackedItemDetail, fns: {
 describe("ItemDetailView (M16.4)", () => {
   beforeEach(() => window.localStorage.clear());
 
-  it("renders summary, source excerpt, provenance and related — zero check language", async () => {
+  it("renders the summary — provenance/related gone (2026-07-13), zero check language", async () => {
     setup(detail());
     // header: title + original link
     expect(
       await screen.findByRole("heading", { name: "SEC adopts market-structure rules" }),
     ).toBeInTheDocument();
-    // (.getAllBy…[0]: the related row's lite card carries its own original link)
-    expect(screen.getAllByRole("link", { name: "original ↗" })[0]).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "original ↗" })).toHaveAttribute(
       "href",
       "https://www.sec.gov/news/x",
     );
-    // AI summary in the active locale (en), labeled + why/tags/entities/limits
+    // AI summary in the active locale (en); the why/tags/entities/limits block
+    // left the page (owner 2026-07-17)
     expect(
       screen.getByText("The source says the rules enter a comment period."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Relevant to market-structure regulation.")).toBeInTheDocument();
-    expect(screen.getByText("policy")).toBeInTheDocument();
-    expect(screen.getByText(/Named in the source: SEC/)).toBeInTheDocument();
-    expect(screen.getByText(/Based on an excerpt only/)).toBeInTheDocument();
-    expect(screen.getByText(/AI-generated from the source text/)).toBeInTheDocument();
+    expect(screen.queryByText("Relevant to market-structure regulation.")).toBeNull();
+    expect(screen.queryByText(/Named in the source/)).toBeNull();
+    expect(screen.queryByText(/AI-generated from the source text/)).toBeNull();
     // owner 2026-07-10: the raw excerpt no longer renders — the briefing carries it
     expect(screen.queryByRole("region", { name: "Source says" })).toBeNull();
-    // provenance
-    const prov = screen.getByRole("region", { name: "Source & provenance" });
-    expect(within(prov).getByText("trafilatura")).toBeInTheDocument();
-    expect(within(prov).getByText("T1 · primary/official")).toBeInTheDocument();
-    // related — rendered with the shared lite row, linking to ITS detail page
-    const rel = screen.getByRole("region", { name: "Similar & related" });
-    expect(within(rel).getByRole("link", { name: "Same story elsewhere" })).toHaveAttribute(
-      "href",
-      "/items/ti2",
-    );
+    // owner 2026-07-13: the provenance and related blocks left the page
+    expect(screen.queryByRole("region", { name: "Source & provenance" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Similar & related" })).toBeNull();
     // the check surface stays retired + the legacy line stays dead
     expect(document.body.textContent).not.toMatch(
       /credibility|verdict|stance|deep check|\/100|LEGACY-ONLY/i,
     );
   });
 
-  it("follows the zh locale for summary, why and limits", async () => {
+  it("follows the zh locale for the summary", async () => {
     window.localStorage.setItem("daily.locale", "zh");
     setup(detail());
     expect(await screen.findByText("来源称规则进入评议期。")).toBeInTheDocument();
-    expect(screen.getByText("与市场结构监管相关。")).toBeInTheDocument();
-    expect(screen.getByText(/仅基于节选/)).toBeInTheDocument();
     expect(
       screen.queryByText("The source says the rules enter a comment period."),
     ).toBeNull();
@@ -128,7 +107,6 @@ describe("ItemDetailView (M16.4)", () => {
     const pending = detail({
       item: { ...enrichedItem, enrichment: null, content_available: false },
       excerpt_preview: null,
-      fetch_method: null,
     });
     const refreshFn = vi.fn(async () => detail());
     setup(pending, { refreshFn: refreshFn as unknown as typeof refreshTrackedItem });
@@ -190,16 +168,51 @@ describe("ItemDetailView (M16.4)", () => {
     }
   });
 
-  it("saves a note into the item's board as a searchable user note", async () => {
+  it("drafts the note with the LLM, revises it through chat, saves only on click (2026-07-13)", async () => {
     const createNoteFn = vi.fn(async () => ({}) as never);
-    setup(detail(), { createNoteFn: createNoteFn as unknown as typeof createNote });
-    const noteBox = await screen.findByRole("textbox", { name: "Your note" });
-    fireEvent.change(noteBox, { target: { value: "watch the July filing" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+    const draftNoteFn = vi.fn(async (_id: string, messages: { content: string }[]) =>
+      messages.length === 0
+        ? { draft: "Key point: comment period opened." }
+        : { draft: "Comment period opened; effective date pending." },
+    );
+    setup(detail(), {
+      createNoteFn: createNoteFn as unknown as typeof createNote,
+      draftNoteFn: draftNoteFn as unknown as typeof draftItemNote,
+    });
+
+    // step 1: the user asks daily for the initial curated draft
+    fireEvent.click(await screen.findByRole("button", { name: "Draft a note" }));
+    await waitFor(() => expect(draftNoteFn).toHaveBeenCalledWith("ti1", [], "en"));
+    expect(await screen.findByText("Key point: comment period opened.")).toBeInTheDocument();
+    expect(screen.getByText("AI draft — not saved yet")).toBeInTheDocument();
+    // nothing saved yet
+    expect(createNoteFn).not.toHaveBeenCalled();
+
+    // step 2: a chat revision — the earlier draft + the instruction travel along
+    fireEvent.change(screen.getByRole("textbox", { name: "How should the draft change" }), {
+      target: { value: "mention the effective date" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Revise" }));
+    await waitFor(() =>
+      expect(draftNoteFn).toHaveBeenLastCalledWith(
+        "ti1",
+        [
+          { role: "assistant", content: "Key point: comment period opened." },
+          { role: "user", content: "mention the effective date" },
+        ],
+        "en",
+      ),
+    );
+    expect(
+      await screen.findByText("Comment period opened; effective date pending."),
+    ).toBeInTheDocument();
+
+    // step 3: only the explicit click saves — the CURRENT draft, as a user_note
+    fireEvent.click(screen.getByRole("button", { name: "Save to Knowledge" }));
     await waitFor(() =>
       expect(createNoteFn).toHaveBeenCalledWith("b_economy", {
         kind: "user_note",
-        content: "watch the July filing",
+        content: "Comment period opened; effective date pending.",
       }),
     );
     expect(await screen.findByText("Saved to Knowledge.")).toBeInTheDocument();
@@ -210,7 +223,7 @@ describe("ItemDetailView (M16.4)", () => {
     expect(
       await screen.findByText(/Assign this item's source to a board first/),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Save note" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Draft a note" })).toBeNull();
   });
 
   it("a missing item is a typed not-found, with a way back", async () => {

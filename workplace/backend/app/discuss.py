@@ -1,11 +1,12 @@
-"""Item discussion (M16.5; the check-era discussion shapes were removed
-2026-07-13 by owner decision).
+"""Item discussion + knowledge-note drafting (M16.5; the check-era discussion
+shapes were removed 2026-07-13 by owner decision).
 
-Chat about ONE tracked item. The item's persisted material — stored content
-excerpt, bilingual enrichment, card metadata — is the factual anchor; the
-assistant genuinely ANSWERS the question (analysis and inference welcome and
-labeled, owner 2026-07-13) instead of merely reciting the source. Flash-only,
-READ-ONLY (a discussion writes nothing), never cached.
+Chat about ONE tracked item, and draft/revise the note the user saves to
+Knowledge. The item's persisted material — stored content excerpt, bilingual
+enrichment, card metadata — is the factual anchor; the assistant genuinely
+ANSWERS the question (analysis and inference welcome and labeled, owner
+2026-07-13) instead of merely reciting the source. Flash-only, READ-ONLY
+(neither a discussion nor a draft writes anything), never cached.
 """
 
 from __future__ import annotations
@@ -95,3 +96,53 @@ def discuss_tracked_item(
     if not isinstance(reply, str) or not reply.strip():
         raise DiscussError("model returned no usable reply")
     return reply.strip()
+
+
+_NOTE_DRAFT_SYSTEM = (
+    # owner 2026-07-13: "存入知识库的笔记应该是由 llm 精选后提供的" — the note the
+    # user saves is curated by the model first, then revised through chat until
+    # the user clicks save. Drafting writes NOTHING; saving is a separate action.
+    "You are curating a note for the user's personal knowledge base about ONE "
+    "tracked item; its stored source excerpt and AI summary are given below.\n"
+    "- Distill what is worth KEEPING: the key facts, numbers, and takeaways a "
+    "reader would want to find again later — not a generic summary of "
+    "everything.\n"
+    "- Be concise: a few sentences, or short lines for distinct points.\n"
+    "- The item's material is the factual anchor: never contradict it, and "
+    "never fabricate specifics (numbers, quotes, events) that are in neither "
+    "the source nor common knowledge.\n"
+    "- If earlier drafts and user instructions follow, produce the REVISED "
+    "full note obeying the latest instruction (assistant turns are your "
+    "earlier drafts).\n"
+    "- No concrete buy/sell or investment instructions.\n"
+    "- Write the note in {language}, unless the user's instructions ask for "
+    "another language. "
+    'Output JSON only: {{"draft": "<the full note text>"}}'
+)
+
+
+def draft_item_note(
+    card: TrackedItemCard,
+    excerpt: str,
+    messages: list[DiscussMessage],
+    *,
+    locale: str = "zh",
+    llm: LLMClient,
+) -> str:
+    """Draft (or revise) the knowledge note for a tracked item — one flash call,
+    grounded in the item's persisted material. `messages` empty = initial draft;
+    otherwise the revision chat (earlier drafts as assistant turns, the user's
+    instruction last). READ-ONLY. Raises DiscussError on LLM failure."""
+    system = _NOTE_DRAFT_SYSTEM.format(language="Chinese" if locale == "zh" else "English")
+    parts = [_item_material_block(card, excerpt)]
+    if messages:
+        convo = "\n".join(f"{m.role}: {m.content}" for m in messages)
+        parts.append(f"Earlier drafts and revision instructions:\n{convo}")
+    try:
+        data = llm.complete_json(system=system, user="\n\n".join(parts), escalate=False)
+    except Exception as exc:
+        raise DiscussError(str(exc)) from exc
+    draft = data.get("draft")
+    if not isinstance(draft, str) or not draft.strip():
+        raise DiscussError("model returned no usable draft")
+    return draft.strip()

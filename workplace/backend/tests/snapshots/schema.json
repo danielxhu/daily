@@ -299,6 +299,46 @@
       "title": "ItemEnrichment",
       "type": "object"
     },
+    "ItemNoteDraftReply": {
+      "additionalProperties": false,
+      "description": "`POST /tracked-items/{id}/note-draft` reply: the current draft note text,\ngrounded in the item's stored excerpt + enrichment. Never auto-saved.",
+      "properties": {
+        "draft": {
+          "title": "Draft",
+          "type": "string"
+        }
+      },
+      "required": [
+        "draft"
+      ],
+      "title": "ItemNoteDraftReply",
+      "type": "object"
+    },
+    "ItemNoteDraftRequest": {
+      "additionalProperties": false,
+      "description": "`POST /tracked-items/{id}/note-draft` body (2026-07-13): notes saved to\nKnowledge are LLM-curated first. Empty messages = ask for the initial draft;\notherwise the revision chat so far (assistant turns are earlier drafts, the\nlast message must be the user's revision instruction). READ-ONLY: drafting\nnever writes — the user saves the final text via the notes endpoint.",
+      "properties": {
+        "locale": {
+          "default": "zh",
+          "enum": [
+            "zh",
+            "en"
+          ],
+          "title": "Locale",
+          "type": "string"
+        },
+        "messages": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiscussMessage"
+          },
+          "title": "Messages",
+          "type": "array"
+        }
+      },
+      "title": "ItemNoteDraftRequest",
+      "type": "object"
+    },
     "KnowledgeAnswer": {
       "additionalProperties": false,
       "description": "`POST /knowledge/answer` (M16.2): the on-demand AI answer — ONE flash call\n(NFR-7 exception (5)) grounded ONLY in the user's saved notes matching the\nquestion. Tracked items are never fed in; the fact layer is dormant (v0.13).\nNo matching notes → answer=None with zero LLM spend; an LLM failure is a 502\n(the user explicitly asked — a typed error beats a silent null).",
@@ -1487,33 +1527,13 @@
           ],
           "title": "Excerpt Preview"
         },
-        "fetch_method": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Fetch Method"
-        },
         "item": {
           "$ref": "#/$defs/TrackedItemCard"
-        },
-        "related": {
-          "default": [],
-          "items": {
-            "$ref": "#/$defs/TrackedItemCard"
-          },
-          "title": "Related",
-          "type": "array"
         }
       },
       "required": [
         "item",
-        "excerpt_preview",
-        "fetch_method"
+        "excerpt_preview"
       ],
       "title": "TrackedItemDetail",
       "type": "object"

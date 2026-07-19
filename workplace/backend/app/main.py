@@ -56,19 +56,20 @@ from app.db.subscription_store import (
 from app.db.tracked_item_store import (
     get_item_excerpt,
     get_tracked_item_row,
-    related_tracked_items,
     search_tracked_items,
     tracked_item_card_by_id,
 )
-from app.discuss import DiscussError, discuss_tracked_item
+from app.discuss import DiscussError, discuss_tracked_item, draft_item_note
 from app.ingestion.ingest import IngestFn
-from app.knowledge.answer import answer_from_hits
+from app.knowledge.answer import MAX_ANSWER_ITEMS, answer_from_hits
 from app.schemas.models import (
     Board,
     DailyDigest,
     IngestionResult,
     ItemDiscussReply,
     ItemDiscussRequest,
+    ItemNoteDraftReply,
+    ItemNoteDraftRequest,
     KnowledgeAnswer,
     KnowledgeAnswerRequest,
     KnowledgeModule,
@@ -598,8 +599,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         item_id: str,
         db: Annotated[sqlite3.Connection, Depends(get_db)],
     ) -> TrackedItemDetail:
-        # M16.4: the item detail page — card + source excerpt preview + provenance
-        # + related hints. Read-only, deterministic, zero LLM.
+        # M16.4: the item detail page — card + source excerpt preview. Read-only,
+        # deterministic, zero LLM. (Provenance/related left the page 2026-07-13.)
         card = tracked_item_card_by_id(db, item_id)
         if card is None:
             raise HTTPException(status_code=404, detail=f"no such tracked item: {item_id}")
@@ -609,8 +610,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return TrackedItemDetail(
             item=card,
             excerpt_preview=excerpt[:_EXCERPT_PREVIEW_CHARS] if excerpt else None,
-            fetch_method=row["extraction_method"],
-            related=related_tracked_items(db, item_id),
         )
 
     @app.post(
@@ -687,6 +686,51 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=502, detail=f"discussion failed: {exc}") from exc
         return ItemDiscussReply(reply=reply)
 
+    @app.post(
+        "/tracked-items/{item_id}/note-draft",
+        response_model=ItemNoteDraftReply,
+        responses={
+            400: {
+                "description": "Messages malformed, or the item has no stored "
+                "source text yet (fetch & summarize first)."
+            },
+            404: {"description": "No such tracked item."},
+            502: {"description": "Note drafting (LLM) failed."},
+        },
+    )
+    def item_note_draft(
+        item_id: str,
+        body: ItemNoteDraftRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+        llm: Annotated[LLMClient, Depends(get_llm)],
+    ) -> ItemNoteDraftReply:
+        # 2026-07-13 (owner): the note saved to Knowledge is LLM-curated first —
+        # the user revises it through chat, then saves the final text via the
+        # notes endpoint. Same grounding as /discuss (persisted excerpt +
+        # enrichment only). READ-ONLY: drafting never writes anything.
+        if body.messages:
+            last = body.messages[-1]
+            if last.role != "user" or not last.content.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="revision messages must end with a non-empty user turn",
+                )
+        card = tracked_item_card_by_id(db, item_id)
+        if card is None:
+            raise HTTPException(status_code=404, detail=f"no such tracked item: {item_id}")
+        excerpt = get_item_excerpt(db, item_id)
+        if excerpt is None:
+            raise HTTPException(
+                status_code=400,
+                detail="this item has no stored source text yet — "
+                "run fetch-&-summarize (refresh) first",
+            )
+        try:
+            draft = draft_item_note(card, excerpt, body.messages, locale=body.locale, llm=llm)
+        except DiscussError as exc:
+            raise HTTPException(status_code=502, detail=f"note drafting failed: {exc}") from exc
+        return ItemNoteDraftReply(draft=draft)
+
     # --- daily digest (FR-13): read-only JSON / RSS over the tracked-items channel ---
 
     def _digest_response(built: DailyDigest, fmt: str) -> DailyDigest | Response:
@@ -756,8 +800,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not q.strip():
             raise HTTPException(status_code=400, detail="query 'q' must be non-empty")
         saved = search_saved_notes(db, q)
-        # tracked items match by keyword in their own labeled list — never fed
-        # into any answer synthesis (the answer grounds on the user's notes only)
+        # tracked items match by keyword in their own labeled list; since
+        # 2026-07-19 they also ground the on-demand answer below
         items = search_tracked_items(db, q)
         return KnowledgeSearchResult(saved=saved, items=items)
 
@@ -774,20 +818,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         llm: Annotated[LLMClient, Depends(get_llm)],
         body: KnowledgeAnswerRequest,
     ) -> KnowledgeAnswer:
-        # M16.2: the AI answer is an explicit user action now (NFR-7 exception (5),
-        # unchanged semantics: grounded ONLY in the user's saved notes; tracked
-        # items never leak in; the fact layer is dormant). No matching notes → no
-        # LLM call at all; a failed call is a typed 502 because the user asked.
+        # M16.2: the AI answer is an explicit user action (NFR-7 exception (5)).
+        # Grounding = the user's saved notes + tracked-item summaries (owner
+        # 2026-07-19: notes-only starved the answer of most of the knowledge
+        # base). No hits at all → no LLM call; a failed call is a typed 502
+        # because the user asked.
         q = body.q.strip()
         if not q:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
         saved = search_saved_notes(db, q)
-        if not saved:
+        items = search_tracked_items(db, q)
+        if not saved and not items:
             return KnowledgeAnswer(answer=None, based_on=0)
-        answer = answer_from_hits(q, saved, llm=llm)
+        answer = answer_from_hits(q, saved, items, llm=llm)
         if answer is None:
             raise HTTPException(status_code=502, detail="answer synthesis failed — try again")
-        return KnowledgeAnswer(answer=answer, based_on=len(saved))
+        return KnowledgeAnswer(
+            answer=answer, based_on=len(saved) + min(len(items), MAX_ANSWER_ITEMS)
+        )
 
     # --- run trace (§4/§7): read-only debug list of verify/poll/digest runs ---
 

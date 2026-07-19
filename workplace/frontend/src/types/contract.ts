@@ -132,8 +132,6 @@ export interface KnowledgeNote {
 export interface TrackedItemDetail {
   item: TrackedItemCard;
   excerpt_preview: string | null;
-  fetch_method: string | null;
-  related?: TrackedItemCard[];
 }
 
 export interface ItemEnrichment {
@@ -185,6 +183,15 @@ export interface ItemDiscussRequest {
 
 export interface ItemDiscussReply {
   reply: string;
+}
+
+export interface ItemNoteDraftRequest {
+  messages?: DiscussMessage[];
+  locale?: "zh" | "en";
+}
+
+export interface ItemNoteDraftReply {
+  draft: string;
 }
 
 export interface KnowledgeAnswer {

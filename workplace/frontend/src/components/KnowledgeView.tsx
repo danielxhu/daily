@@ -34,8 +34,8 @@ interface KnowledgeViewProps {
  * matching over what your sources published (tracked items) and what you saved
  * (notes) — it returns instantly and never calls an LLM (M16.2; the synchronous
  * synthesis was why search felt slow). The AI answer is an explicit per-turn
- * action: "Generate AI answer" synthesizes ONE reply grounded only in the
- * matching saved notes. */
+ * action: "Generate AI answer" synthesizes ONE reply grounded in the matching
+ * saved notes and tracked-item summaries (2026-07-19). */
 export function KnowledgeView({
   askFn = searchKnowledge,
   answerFn = answerKnowledge,
@@ -181,9 +181,11 @@ function Answer({ turn, onGenerate }: { turn: Turn; onGenerate: () => void }) {
   }
   return (
     <div className="space-y-3">
-      {/* M16.2: the AI answer is on demand — grounded ONLY in the saved notes,
-          so the affordance exists only when notes matched */}
-      {turn.saved.length > 0 && <OnDemandAnswer answer={turn.answer} onGenerate={onGenerate} />}
+      {/* M16.2: the AI answer is on demand — grounded in the saved notes AND
+          tracked-item summaries (2026-07-19), so any hit offers it */}
+      {(turn.saved.length > 0 || turn.items.length > 0) && (
+        <OnDemandAnswer answer={turn.answer} onGenerate={onGenerate} />
+      )}
       {/* M15.2: tracked items (keyword hits) — the SAME lite expression as
           Today/Digest: tier, date, echo hint, typed status (M15.4) */}
       {turn.items.length > 0 && (

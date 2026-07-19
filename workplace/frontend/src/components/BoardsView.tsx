@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import {
   ApiError,
@@ -44,10 +45,10 @@ function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
 }
 
-/** Knowledge boards (FR-15): single-operator topic collections. A board shows
- * its module/source/item hierarchy, an **AI summary** (a regenerable cache,
- * never a source of truth), and the operator's own **notes**. The verified-fact
- * region left the surface with the check retirement (M16.1, owner 2026-07-08). */
+/** Knowledge boards (FR-15): single-operator topic collections. A board reads
+ * as module chips → tracked items → the operator's own **notes**; management
+ * chrome (module add/delete, source module moves) lives behind the Manage
+ * toggle (owner 2026-07-18: "知识库太杂乱"). */
 export function BoardsView({
   boardsFn = queryBoards,
   notesFn = queryBoardNotes,
@@ -258,6 +259,10 @@ function BoardDetail({
   const [items, setItems] = useState<TrackedItemCard[] | null>(null);
   // M15.3: the module filter narrows sources + items; notes stay board-level
   const [moduleFilter, setModuleFilter] = useState<string | null>(null);
+  // owner 2026-07-18 ("知识库太杂乱"): the reading surface (chips → items →
+  // notes) is the default;管理 chrome (module ×/add, source URLs + module
+  // selects) only exists while this is on
+  const [managing, setManaging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
   const [moduleName, setModuleName] = useState("");
@@ -354,6 +359,19 @@ function BoardDetail({
     <div className="space-y-6 border-t border-line pt-6">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold">{board.name}</h2>
+        <button
+          type="button"
+          aria-pressed={managing}
+          onClick={() => {
+            setConfirmingModuleDelete(null);
+            setManaging((prev) => !prev);
+          }}
+          className={`text-xs underline underline-offset-2 transition-colors ${
+            managing ? "text-accent" : "text-faint hover:text-muted"
+          }`}
+        >
+          {t("boards.manage")}
+        </button>
         {!confirmingDelete ? (
           <button
             type="button"
@@ -395,9 +413,10 @@ function BoardDetail({
       )}
 
       {/* M15.3 — the knowledge hierarchy: board → module → source → item. The
-          module filter narrows sources + items; notes below stay board-level. */}
-      <section aria-label={t("boards.modules.aria")} className="space-y-3">
-        <h3 className="text-sm font-semibold">{t("boards.modules.heading")}</h3>
+          module filter narrows sources + items; notes below stay board-level.
+          Reading first (owner 2026-07-18): chips filter, items read; the module
+          ×/add form and the source-URL admin rows exist only in manage mode. */}
+      <section aria-label={t("boards.modules.aria")} className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -423,125 +442,122 @@ function BoardDetail({
               >
                 {module.name}
               </button>
-              {confirmingModuleDelete === module.id ? (
-                <span className="flex items-center gap-1 text-xs">
-                  <span className="text-muted">{t("boards.modules.delete.confirmText")}</span>
+              {managing &&
+                (confirmingModuleDelete === module.id ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <span className="text-muted">{t("boards.modules.delete.confirmText")}</span>
+                    <button
+                      type="button"
+                      onClick={() => void removeModule(module.id)}
+                      className="font-medium text-bad-fg underline underline-offset-2"
+                    >
+                      {t("boards.modules.delete.confirmYes")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingModuleDelete(null)}
+                      className="text-muted underline underline-offset-2"
+                    >
+                      {t("boards.delete.cancel")}
+                    </button>
+                  </span>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => void removeModule(module.id)}
-                    className="font-medium text-bad-fg underline underline-offset-2"
+                    aria-label={t("boards.modules.delete.aria", { name: module.name })}
+                    onClick={() => setConfirmingModuleDelete(module.id)}
+                    className="text-xs text-faint transition-colors hover:text-bad-fg"
                   >
-                    {t("boards.modules.delete.confirmYes")}
+                    ×
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingModuleDelete(null)}
-                    className="text-muted underline underline-offset-2"
-                  >
-                    {t("boards.delete.cancel")}
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  aria-label={t("boards.modules.delete.aria", { name: module.name })}
-                  onClick={() => setConfirmingModuleDelete(module.id)}
-                  className="text-xs text-faint transition-colors hover:text-bad-fg"
-                >
-                  ×
-                </button>
-              )}
+                ))}
             </span>
           ))}
-          <form onSubmit={addModule} className="flex items-center gap-1" noValidate>
-            <input
-              type="text"
-              value={moduleName}
-              onChange={(e) => setModuleName(e.target.value)}
-              aria-label={t("boards.modules.add.aria")}
-              placeholder={t("boards.modules.add.placeholder")}
-              className="w-28 rounded border border-line px-2 py-0.5 text-xs"
-            />
-            <button type="submit" className="text-xs text-accent underline">
-              {t("boards.modules.add")}
-            </button>
-          </form>
-        </div>
-
-        {/* sources in this board — each can be moved between modules */}
-        <div className="space-y-1.5">
-          <h4 className="text-xs font-medium text-muted">{t("boards.sources.heading")}</h4>
-          {sources &&
-            sources.filter((s) => moduleFilter === null || s.module_id === moduleFilter)
-              .length === 0 && <p className="text-xs text-muted">{t("boards.sources.none")}</p>}
-          <ul className="space-y-1.5" aria-label={t("boards.sources.aria")}>
-            {sources
-              ?.filter((s) => moduleFilter === null || s.module_id === moduleFilter)
-              .map((sub) => (
-                <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="mono min-w-0 break-all text-xs text-ink">{sub.input_url}</span>
-                  <label className="flex items-center gap-1 text-xs text-faint">
-                    {t("boards.sources.moveLabel")}
-                    <select
-                      value={sub.module_id ?? ""}
-                      onChange={(e) => void moveSource(sub, e.target.value || null)}
-                      className="rounded border border-line bg-panel px-1.5 py-0.5 text-xs text-muted"
-                    >
-                      <option value="">{t("boards.sources.unassigned")}</option>
-                      {modules?.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </li>
-              ))}
-          </ul>
-        </div>
-
-        {/* tracked items in this board — what the polls brought in */}
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <h4 className="text-xs font-medium text-muted">{t("boards.items.heading")}</h4>
-          </div>
-          {items && items.filter((i) => moduleFilter === null || i.module_id === moduleFilter).length === 0 && (
-            <p className="text-xs text-muted">{t("boards.items.none")}</p>
+          {managing && (
+            <form onSubmit={addModule} className="flex items-center gap-1" noValidate>
+              <input
+                type="text"
+                value={moduleName}
+                onChange={(e) => setModuleName(e.target.value)}
+                aria-label={t("boards.modules.add.aria")}
+                placeholder={t("boards.modules.add.placeholder")}
+                className="w-28 rounded border border-line px-2 py-0.5 text-xs"
+              />
+              <button type="submit" className="text-xs text-accent underline">
+                {t("boards.modules.add")}
+              </button>
+            </form>
           )}
-          <ul className="space-y-1.5" aria-label={t("boards.items.aria")}>
-            {items
-              ?.filter((i) => moduleFilter === null || i.module_id === moduleFilter)
-              .map((item) => (
-                <li key={item.id} className="min-w-0">
-                  <p className="break-words text-sm text-ink">
-                    {item.url ? (
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="transition-colors hover:text-accent"
-                      >
-                        {trackedTitle(item, locale) ?? item.url}
-                      </a>
-                    ) : (
-                      (trackedTitle(item, locale) ?? item.domain ?? "—")
-                    )}
-                  </p>
-                  {/* M16.3: the bilingual enrichment follows the locale; the
-                      legacy single-language summary is never rendered (M16.1) */}
-                  {item.enrichment && (
-                    <p className="max-w-[65ch] text-xs leading-relaxed text-muted">
-                      <span className="badge mr-1.5 bg-panel text-faint">
-                        {t("digest.ai.label")}
-                      </span>
-                      {locale === "zh" ? item.enrichment.summary_zh : item.enrichment.summary_en}
-                    </p>
-                  )}
-                  {item.domain && <p className="mono text-xs text-faint">{item.domain}</p>}
-                </li>
-              ))}
-          </ul>
         </div>
+
+        {/* sources in this board (manage mode only) — raw URLs + module moves
+            are admin work, not reading */}
+        {managing && (
+          <div className="space-y-1.5 rounded-lg border border-line bg-panel p-3">
+            <h4 className="text-xs font-medium text-muted">{t("boards.sources.heading")}</h4>
+            {sources &&
+              sources.filter((s) => moduleFilter === null || s.module_id === moduleFilter)
+                .length === 0 && <p className="text-xs text-muted">{t("boards.sources.none")}</p>}
+            <ul className="space-y-1.5" aria-label={t("boards.sources.aria")}>
+              {sources
+                ?.filter((s) => moduleFilter === null || s.module_id === moduleFilter)
+                .map((sub) => (
+                  <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="mono min-w-0 break-all text-xs text-ink">{sub.input_url}</span>
+                    <label className="flex items-center gap-1 text-xs text-faint">
+                      {t("boards.sources.moveLabel")}
+                      <select
+                        value={sub.module_id ?? ""}
+                        onChange={(e) => void moveSource(sub, e.target.value || null)}
+                        className="rounded border border-line bg-surface px-1.5 py-0.5 text-xs text-muted"
+                      >
+                        <option value="">{t("boards.sources.unassigned")}</option>
+                        {modules?.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+
+        {/* tracked items in this board — the reading list. Titles go to the
+            item detail page (the original link lives there); summaries show the
+            lede only. */}
+        {items &&
+          items.filter((i) => moduleFilter === null || i.module_id === moduleFilter).length ===
+            0 && <p className="text-sm text-muted">{t("boards.items.none")}</p>}
+        <ul className="space-y-4" aria-label={t("boards.items.aria")}>
+          {items
+            ?.filter((i) => moduleFilter === null || i.module_id === moduleFilter)
+            .map((item) => (
+              <li key={item.id} className="min-w-0 space-y-1">
+                <p className="break-words text-[15px] font-medium leading-snug text-ink">
+                  <Link
+                    href={`/items/${item.id}`}
+                    className="transition-colors hover:text-accent"
+                  >
+                    {trackedTitle(item, locale) ?? item.url ?? item.domain ?? "—"}
+                  </Link>
+                </p>
+                {/* M16.3: the bilingual enrichment follows the locale; clamp to
+                    the lede — the three-paragraph briefing lives on the detail */}
+                {item.enrichment && (
+                  <p className="line-clamp-2 max-w-[72ch] text-xs leading-relaxed text-muted">
+                    <span className="badge mr-1.5 bg-panel text-faint">
+                      {t("digest.ai.label")}
+                    </span>
+                    {locale === "zh" ? item.enrichment.summary_zh : item.enrichment.summary_en}
+                  </p>
+                )}
+                {item.domain && <p className="mono text-xs text-faint">{item.domain}</p>}
+              </li>
+            ))}
+        </ul>
       </section>
 
       {/* Operator notes — human-authored */}
