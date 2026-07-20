@@ -1265,6 +1265,18 @@
           "default": null,
           "title": "Module Id"
         },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
         "subscription_failure_kind": {
           "anyOf": [
             {

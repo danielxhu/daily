@@ -85,6 +85,8 @@ class Subscription(Schema):
     # M15.1 (v0.12): which module WITHIN the board this source belongs to —
     # board → module → source → item is the knowledge hierarchy; None = ungrouped.
     module_id: str | None = None
+    # user-given display name (2026-07-19); None = unnamed, UI falls back to the URL
+    name: str | None = None
     input_url: str
     feed_url: str | None  # None => homepage-diff mode
     mode: Literal["direct", "autodiscover", "platform", "homepage_diff"]

@@ -297,6 +297,7 @@ interface SubscriptionInput {
   input_url: string;
   mode: Subscription["mode"];
   board_id?: string | null;
+  name?: string | null; // user-given display name (2026-07-19)
   feed_url?: string | null;
   interval_minutes?: number;
 }
@@ -310,6 +311,33 @@ export async function createSubscription(
 
 export async function deleteSubscription(id: string, opts: QueryOptions = {}): Promise<void> {
   return deleteRequest(`/subscriptions/${id}`, opts);
+}
+
+/** Rename a source (2026-07-19) — null/empty clears back to unnamed. */
+export async function renameSubscription(
+  id: string,
+  name: string | null,
+  opts: QueryOptions = {},
+): Promise<Subscription> {
+  const fetchFn = opts.fetchFn ?? fetch;
+  await waitForMock();
+  const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/subscriptions/${id}/name`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    let detail = `request failed (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (typeof errBody?.detail === "string") detail = errBody.detail;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as Subscription;
 }
 
 /** One new item that failed ingestion during a poll (M13.1) — the tracked-path

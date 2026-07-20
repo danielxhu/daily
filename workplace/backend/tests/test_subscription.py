@@ -312,3 +312,55 @@ def test_scheduler_tick_purges_orphans_even_with_no_subscriptions(tmp_path: Path
     )
     assert out is None  # nothing due — and the orphan is STILL gone
     assert recent_tracked_items(conn, since=now.replace(year=2025)) == []
+
+
+# --- source naming (owner 2026-07-19 "全是url不知道哪个是哪个") -----------------
+
+
+def test_create_with_name_and_rename_endpoint(tmp_path: Path) -> None:
+    db = str(tmp_path / "daily.db")
+    init_db(db).close()
+    client = _client(db)
+
+    created = client.post(
+        "/subscriptions",
+        json={
+            "input_url": "https://a.example/feed.xml",
+            "mode": "direct",
+            "name": " 美联储新闻稿 ",
+        },
+    )
+    assert created.status_code == 201
+    sub = created.json()
+    assert sub["name"] == "美联储新闻稿"  # stored trimmed
+
+    # rename; blank clears back to unnamed (UI falls back to the URL)
+    sub_id = sub["id"]
+    renamed = client.put(f"/subscriptions/{sub_id}/name", json={"name": "Fed 官方"})
+    assert renamed.status_code == 200 and renamed.json()["name"] == "Fed 官方"
+    cleared = client.put(f"/subscriptions/{sub_id}/name", json={"name": "  "})
+    assert cleared.status_code == 200 and cleared.json()["name"] is None
+    # the list reflects the change
+    listed = client.get("/subscriptions").json()
+    assert [s["name"] for s in listed if s["id"] == sub_id] == [None]
+
+    assert client.put("/subscriptions/nope/name", json={"name": "x"}).status_code == 404
+
+
+def test_delete_subscription_never_touches_knowledge_notes(tmp_path: Path) -> None:
+    # owner 2026-07-20: deleting a source takes its items/seen-set with it, but
+    # the knowledge the user distilled and SAVED must survive — notes are the
+    # user's, not the source's.
+    from app.db.knowledge_store import create_note, list_notes
+
+    conn = init_db(str(tmp_path / "daily.db"))
+    board = create_board(conn, "finance")
+    sub = create_subscription(
+        conn, input_url="https://a.example/feed.xml", mode="direct", board_id=board.id
+    )
+    note = create_note(conn, board.id, "user_note", "Distilled: the Fed held rates.")
+
+    assert delete_subscription(conn, sub.id) is True
+    kept = list_notes(conn, board.id)
+    assert [n.id for n in kept] == [note.id]
+    assert kept[0].content == "Distilled: the Fed held rates."

@@ -98,13 +98,37 @@ export function ItemDetailView({
 
   const AUTO_RETRY_MS = 10_000;
   const AUTO_MAX_TRIES = 30; // ~5 minutes of quiet patience, then a visible error
+  const POLL_MS = 15_000;
+  const POLL_MAX_TRIES = 60; // ~15 minutes — local whisper on a long video is slow
+
+  // owner 2026-07-19: transcription runs in the BACKGROUND worker now — the
+  // page just re-reads the item (cheap GET, no refetch side effects) until the
+  // content lands, instead of re-firing POST /refresh at a throttled site.
+  function pollForContent(attempt: number) {
+    retryTimer.current = setTimeout(() => {
+      detailFn(itemId)
+        .then((d) => {
+          setDetail(d);
+          const landed = d.item.content_available && d.item.enrichment;
+          if (!landed && attempt < POLL_MAX_TRIES) pollForContent(attempt + 1);
+        })
+        .catch(() => {
+          if (attempt < POLL_MAX_TRIES) pollForContent(attempt + 1);
+        });
+    }, POLL_MS);
+  }
 
   async function refresh(opts: { auto: boolean; attempt: number } = { auto: false, attempt: 1 }) {
     setRefreshing(true);
     setRefreshErr(null);
     try {
-      setDetail(await refreshFn(itemId));
+      const d = await refreshFn(itemId);
+      setDetail(d);
       setRefreshing(false);
+      if (d.item.status === "deferred" && !d.item.content_available) {
+        pollForContent(1);
+      }
+      return;
     } catch (err) {
       const busy = err instanceof ApiError && err.status === 409;
       const transient = busy || !(err instanceof ApiError); // 409 or network/restart
@@ -222,15 +246,22 @@ function ItemDetail({
         ) : (
           <p className="max-w-[65ch] text-sm text-muted">{t("item.pending.note")}</p>
         )}
-        {item.url && (!e || !item.content_available) && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="btn-primary disabled:opacity-50"
-          >
-            {refreshing ? t("item.refreshing") : t("item.refresh")}
-          </button>
+        {item.status === "deferred" && !item.content_available ? (
+          // owner 2026-07-19: transcription happens in the background worker —
+          // an honest queued state instead of a spinner tied to an open request
+          <p className="max-w-[65ch] text-sm text-muted">{t("item.transcribe.queued")}</p>
+        ) : (
+          item.url &&
+          (!e || !item.content_available) && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="btn-primary disabled:opacity-50"
+            >
+              {refreshing ? t("item.refreshing") : t("item.refresh")}
+            </button>
+          )
         )}
         {refreshErr && (
           <p role="alert" className="text-xs text-bad-fg">

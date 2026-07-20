@@ -71,6 +71,8 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "item.pending.note": "No AI summary yet — daily fetches and summarizes automatically in the background; the button below is the manual retry.",
     "item.refresh": "Fetch & summarize",
     "item.refreshing": "Fetching the source and writing the summary…",
+    "item.transcribe.queued":
+      "No transcript on the source — the audio is queued for local transcription in the background. The summary appears here automatically (a long video can take a few minutes).",
     "item.note.heading": "Save to Knowledge",
     "item.note.how":
       "daily drafts the note from this item's stored material; tell it what to change, then save the final text into this board's Knowledge.",
@@ -290,6 +292,15 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.list.aria": "Your sources",
     "tracking.remove": "Remove",
     "tracking.remove.aria": "Remove {url}",
+    "tracking.board.remove.aria": "Delete board {name}",
+    "tracking.name.label": "Name (optional)",
+    "tracking.name.placeholder": "e.g. Fed press releases",
+    "tracking.rename": "Rename",
+    "tracking.rename.aria": "Rename {url}",
+    "tracking.rename.input.aria": "New name",
+    "tracking.rename.save": "Save",
+    "tracking.rename.cancel": "Cancel",
+    "tracking.rename.err": "Couldn't rename the source.",
     "tracking.health.ok": "ok",
     "tracking.health.unhealthy": "unhealthy",
     "tracking.lastError": "Last error: {error}",
@@ -323,7 +334,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.summary.backlog":
       "{count} older items skipped (a first check picks up the latest only; later checks are incremental)",
     "tracking.summary.deferred":
-      "{count} audio/video items awaiting on-demand transcription (open the item → Fetch & summarize)",
+      "{count} audio/video items queued for background transcription",
     "tracking.checking.already":
       "A source poll is already running — new items keep landing as it progresses.",
 
@@ -677,6 +688,8 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "item.pending.note": "还没有 AI 综述——daily 会在后台自动抓取并生成;下方按钮仅作手动重试。",
     "item.refresh": "获取并生成摘要",
     "item.refreshing": "正在抓取原文并生成综述…",
+    "item.transcribe.queued":
+      "来源没有现成字幕——音频已排队后台本地转写,综述完成后会自动出现(长视频可能需要几分钟)。",
     "item.note.heading": "存入知识库",
     "item.note.how":
       "daily 会基于这条内容的已存文本起草笔记;告诉它怎么改,满意后再存入所属板块的知识库。",
@@ -885,6 +898,15 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.list.aria": "你的来源",
     "tracking.remove": "移除",
     "tracking.remove.aria": "移除 {url}",
+    "tracking.board.remove.aria": "删除板块 {name}",
+    "tracking.name.label": "名称（可选）",
+    "tracking.name.placeholder": "例：美联储新闻稿",
+    "tracking.rename": "命名",
+    "tracking.rename.aria": "为 {url} 命名",
+    "tracking.rename.input.aria": "新名称",
+    "tracking.rename.save": "保存",
+    "tracking.rename.cancel": "取消",
+    "tracking.rename.err": "无法重命名该来源。",
     "tracking.health.ok": "正常",
     "tracking.health.unhealthy": "异常",
     "tracking.lastError": "上次错误：{error}",
@@ -914,7 +936,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.summary.itemsFailed": "{count} 条内容抓取失败（见下）",
     "tracking.summary.itemsFailed_plural": "{count} 条内容抓取失败（见下）",
     "tracking.summary.backlog": "{count} 条较旧内容已跳过（首轮只取最新，之后增量）",
-    "tracking.summary.deferred": "{count} 条音视频条目待按需转写（打开条目点「获取并生成摘要」）",
+    "tracking.summary.deferred": "{count} 条音视频条目已排队后台转写",
     "tracking.checking.already": "已有一次来源轮询在进行中——内容会随进度陆续进入。",
 
     // KnowledgeView

@@ -31,7 +31,7 @@ def _backoff(interval_minutes: int) -> int:
 
 
 _COLUMNS = (
-    "id, board_id, module_id, input_url, feed_url, mode, interval_minutes, last_polled,"
+    "id, board_id, module_id, name, input_url, feed_url, mode, interval_minutes, last_polled,"
     " last_seen_item_key_for_display, consecutive_failures, health, last_error,"
     " subscription_failure_kind"
 )
@@ -43,6 +43,7 @@ def _row_to_subscription(row: sqlite3.Row) -> Subscription:
         id=row["id"],
         board_id=row["board_id"],
         module_id=row["module_id"],
+        name=row["name"],
         input_url=row["input_url"],
         feed_url=row["feed_url"],
         mode=row["mode"],
@@ -63,6 +64,7 @@ def create_subscription(
     mode: SubscriptionMode,
     board_id: str | None = None,
     module_id: str | None = None,
+    name: str | None = None,
     feed_url: str | None = None,
     interval_minutes: int = 60,
 ) -> Subscription:
@@ -72,6 +74,7 @@ def create_subscription(
         id=uuid.uuid4().hex,
         board_id=board_id,
         module_id=module_id,
+        name=name,
         input_url=input_url,
         feed_url=feed_url,
         mode=mode,
@@ -80,11 +83,12 @@ def create_subscription(
         last_seen_item_key_for_display=None,
     )
     conn.execute(
-        f"INSERT INTO subscriptions ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        f"INSERT INTO subscriptions ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             sub.id,
             sub.board_id,
             sub.module_id,
+            sub.name,
             sub.input_url,
             sub.feed_url,
             sub.mode,
@@ -99,6 +103,15 @@ def create_subscription(
     )
     conn.commit()
     return sub
+
+
+def set_subscription_name(
+    conn: sqlite3.Connection, subscription_id: str, name: str | None
+) -> Subscription | None:
+    """Rename a source (owner 2026-07-19) — None/empty clears back to unnamed."""
+    conn.execute("UPDATE subscriptions SET name = ? WHERE id = ?", (name, subscription_id))
+    conn.commit()
+    return get_subscription(conn, subscription_id)
 
 
 def get_subscription(conn: sqlite3.Connection, subscription_id: str) -> Subscription | None:

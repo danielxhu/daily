@@ -26,6 +26,7 @@ export interface Subscription {
   id: string;
   board_id?: string | null;
   module_id?: string | null;
+  name?: string | null;
   input_url: string;
   feed_url: string | null;
   mode: "direct" | "autodiscover" | "platform" | "homepage_diff";

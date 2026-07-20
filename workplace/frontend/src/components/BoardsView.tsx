@@ -503,7 +503,10 @@ function BoardDetail({
                 ?.filter((s) => moduleFilter === null || s.module_id === moduleFilter)
                 .map((sub) => (
                   <li key={sub.id} className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="mono min-w-0 break-all text-xs text-ink">{sub.input_url}</span>
+                    <span className="min-w-0 break-all text-xs text-ink">
+                      {sub.name && <span className="mr-1.5 font-medium">{sub.name}</span>}
+                      <span className="mono text-faint">{sub.input_url}</span>
+                    </span>
                     <label className="flex items-center gap-1 text-xs text-faint">
                       {t("boards.sources.moveLabel")}
                       <select

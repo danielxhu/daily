@@ -103,6 +103,29 @@ describe("ItemDetailView (M16.4)", () => {
     ).toBeNull();
   });
 
+  it("a caption-less video shows the queued-transcription state, no spinner (2026-07-19)", async () => {
+    const deferredDetail = detail({
+      item: {
+        ...enrichedItem,
+        status: "deferred",
+        failure_kind: "transcription_deferred",
+        enrichment: null,
+        content_available: false,
+      },
+      excerpt_preview: null,
+    });
+    const refreshFn = vi.fn(async () => deferredDetail);
+    setup(deferredDetail, { refreshFn: refreshFn as unknown as typeof refreshTrackedItem });
+
+    // the auto refresh returns fast (worker owns whisper) → honest queued line,
+    // no "fetching…" spinner button stuck for minutes
+    await waitFor(() => expect(refreshFn).toHaveBeenCalledWith("ti1"));
+    expect(
+      await screen.findByText(/音频已排队后台本地转写|queued for local transcription/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Fetch & summarize|获取并生成摘要/ })).toBeNull();
+  });
+
   it("a pending item fetches + summarizes AUTOMATICALLY on open (2026-07-10)", async () => {
     const pending = detail({
       item: { ...enrichedItem, enrichment: null, content_available: false },

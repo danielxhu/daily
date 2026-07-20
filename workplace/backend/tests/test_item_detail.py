@@ -20,7 +20,7 @@ from app.db.tracked_item_store import (
     upsert_discovered,
 )
 from app.ingestion.result import failed_from
-from app.main import create_app, get_db, get_ingest, get_llm
+from app.main import create_app, get_db, get_ingest, get_ingest_first, get_llm
 from app.schemas.models import IngestionResult, SourceRequest
 from app.tracking.feed import FeedItem
 from app.tracking.refresh import RefreshFailedError, refresh_item
@@ -72,6 +72,8 @@ def _client(db_path: str) -> TestClient:
     app.dependency_overrides[get_db] = _db_override(db_path)
     app.dependency_overrides[get_llm] = lambda: _KeyedLLM()
     app.dependency_overrides[get_ingest] = lambda: _fake_ingest
+    # the refresh endpoint uses the whisper-free ingest (2026-07-19)
+    app.dependency_overrides[get_ingest_first] = lambda: _fake_ingest
     return TestClient(app)
 
 
@@ -126,6 +128,31 @@ def test_refresh_fetch_failure_leaves_the_row_untouched(tmp_path: Path) -> None:
     # a failed RETRY downgraded nothing: still the freshly-discovered state
     cards = recent_tracked_items(conn, since=NOW.replace(year=NOW.year - 1))
     assert cards[0].status == "new" and cards[0].content_available is False
+
+
+def test_refresh_never_transcribes_synchronously_it_defers_to_the_worker(
+    tmp_path: Path,
+) -> None:
+    # owner 2026-07-19 ("这他妈抓了快十分钟了"): a caption-less video used to
+    # download throttled audio + run whisper INSIDE the request. Now the refresh
+    # returns immediately with the item queued (deferred) for the background
+    # worker — no error, no LLM call.
+    def _defer_ingest(req: SourceRequest) -> IngestionResult:
+        return failed_from(req, "transcription_deferred", reason="no captions; audio needs whisper")
+
+    conn = init_db(str(tmp_path / "daily.db"))
+    item_id = _discover(conn, "https://www.bilibili.com/video/BV1demo", title="A video")
+    quiet = _KeyedLLM()
+    card = refresh_item(conn, item_id, llm=quiet, ingest=_defer_ingest, now=NOW)
+    assert card.status == "deferred"
+    assert card.failure_kind == "transcription_deferred"
+    assert card.content_available is False and card.enrichment is None
+    # …and the worker's transcribe query now matches this row
+    row = conn.execute(
+        "SELECT COUNT(*) FROM tracked_items WHERE status = 'deferred'"
+        " AND enrichment IS NULL AND url IS NOT NULL"
+    ).fetchone()
+    assert row[0] == 1
 
 
 def test_refresh_enrichment_failure_keeps_the_excerpt(tmp_path: Path) -> None:

@@ -5,10 +5,12 @@ import { TrackingView } from "@/components/TrackingView";
 import {
   createBoard,
   createSubscription,
+  deleteBoard,
   deleteSubscription,
   pollNow,
   queryBoards,
   querySubscriptions,
+  renameSubscription,
 } from "@/lib/api";
 import type { PollReport } from "@/lib/api";
 import { buildMockBoards, buildMockSubscriptions } from "@/mocks/fixtures";
@@ -54,17 +56,24 @@ function setup(
   const pollFn = vi.fn(overrides.pollFn ?? (async () => EMPTY_POLL));
   const boardsFn = vi.fn(async () => buildMockBoards());
   const createBoardFn = vi.fn(overrides.createBoardFn ?? (async () => buildMockBoards()[0]));
+  const deleteBoardFn = vi.fn(async () => undefined);
+  const renameFn = vi.fn(async (id: string, name: string | null) => ({
+    ...buildMockSubscriptions().find((s) => s.id === id)!,
+    name,
+  }));
   render(
     <TrackingView
       subscriptionsFn={subscriptionsFn as unknown as typeof querySubscriptions}
       createFn={createFn as unknown as typeof createSubscription}
       deleteFn={deleteFn as unknown as typeof deleteSubscription}
       createBoardFn={createBoardFn as unknown as typeof createBoard}
+      deleteBoardFn={deleteBoardFn as unknown as typeof deleteBoard}
+      renameFn={renameFn as unknown as typeof renameSubscription}
       pollFn={pollFn as unknown as typeof pollNow}
       boardsFn={boardsFn as unknown as typeof queryBoards}
     />,
   );
-  return { subscriptionsFn, createFn, deleteFn, pollFn };
+  return { subscriptionsFn, createFn, deleteFn, pollFn, deleteBoardFn, renameFn };
 }
 
 describe("TrackingView", () => {
@@ -119,6 +128,7 @@ describe("TrackingView", () => {
         input_url: "https://x.example/feed.xml",
         mode: "platform",
         board_id: null,
+        name: null,
       }),
     );
     expect(await screen.findByText("https://x.example/feed.xml")).toBeInTheDocument();
@@ -131,6 +141,9 @@ describe("TrackingView", () => {
     // the ungrouped bucket
     expect(within(list).getByText("Finance")).toBeInTheDocument();
     expect(within(list).getByText("No board")).toBeInTheDocument();
+    // owner 2026-07-19: EMPTY boards render too — a board with no sources must
+    // still be visible so it can be deleted from this page
+    expect(within(list).getByText("政治")).toBeInTheDocument();
     // the add form offers the preset topic boards (政治/经济/科技)
     const select = screen.getByLabelText("Board (optional)");
     expect(within(select).getByRole("option", { name: "政治" })).toBeInTheDocument();
@@ -147,6 +160,7 @@ describe("TrackingView", () => {
         input_url: "https://politics.example/feed.xml",
         mode: "direct",
         board_id: "b_politics",
+        name: null,
       }),
     );
   });
@@ -305,7 +319,7 @@ describe("TrackingView", () => {
     await screen.findByRole("list", { name: "Your sources" });
     fireEvent.click(screen.getByRole("button", { name: "Check for new items" }));
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "2 audio/video items awaiting on-demand transcription (open the item → Fetch & summarize)",
+      "2 audio/video items queued for background transcription",
     );
     // deferral is not a failure: no flagged-sources block appears
     expect(screen.queryByRole("list", { name: "Sources this check flagged" })).toBeNull();
@@ -345,6 +359,83 @@ describe("TrackingView", () => {
       "A source poll is already running — new items keep landing as it progresses.",
     );
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
+// owner 2026-07-19 "全是url不知道哪个是哪个": sources are nameable
+describe("TrackingView source naming", () => {
+  it("renames a source inline; the name leads and the URL stays visible", async () => {
+    const { renameFn } = setup();
+    const list = await screen.findByRole("list", { name: "Your sources" });
+    const fedUrl = "https://www.federalreserve.gov/feeds/press_all.xml";
+
+    fireEvent.click(within(list).getByRole("button", { name: `Rename ${fedUrl}` }));
+    fireEvent.change(within(list).getByLabelText("New name"), {
+      target: { value: "Fed press releases" },
+    });
+    fireEvent.click(within(list).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(renameFn).toHaveBeenCalledWith("sub_fed", "Fed press releases"),
+    );
+    // the name is now the primary line; the URL is still on the row
+    expect(await within(list).findByText("Fed press releases")).toBeInTheDocument();
+    expect(within(list).getByText(fedUrl)).toBeInTheDocument();
+  });
+
+  it("the add form submits the optional name (trimmed, empty → null)", async () => {
+    const { createFn } = setup();
+    await screen.findByRole("list", { name: "Your sources" });
+    fireEvent.change(screen.getByLabelText("Source URL"), {
+      target: { value: "https://x.example/feed.xml" },
+    });
+    fireEvent.change(screen.getByLabelText("Name (optional)"), {
+      target: { value: "  My feed  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add source" }));
+    await waitFor(() =>
+      expect(createFn).toHaveBeenCalledWith({
+        input_url: "https://x.example/feed.xml",
+        mode: "direct",
+        board_id: null,
+        name: "My feed",
+      }),
+    );
+  });
+});
+
+// owner 2026-07-19: boards are deleted HERE too — per-group button, two-step confirm
+describe("TrackingView board deletion", () => {
+  it("deletes a board after the confirm; its sources leave the list", async () => {
+    const { deleteBoardFn } = setup();
+    const list = await screen.findByRole("list", { name: "Your sources" });
+    expect(within(list).getByText(/federalreserve.gov/)).toBeInTheDocument();
+
+    fireEvent.click(within(list).getByRole("button", { name: "Delete board Finance" }));
+    // step 2: the cascade is stated before anything happens
+    expect(
+      within(list).getByText(/removes this board, the tracked sources assigned to it/),
+    ).toBeInTheDocument();
+    expect(deleteBoardFn).not.toHaveBeenCalled();
+    fireEvent.click(within(list).getByRole("button", { name: "Delete it" }));
+
+    await waitFor(() => expect(deleteBoardFn).toHaveBeenCalledWith("b_finance"));
+    // the group header AND its sources are gone; other groups stay
+    expect(within(list).queryByText("Finance")).toBeNull();
+    expect(within(list).queryByText(/federalreserve.gov/)).toBeNull();
+    expect(within(list).getByText("No board")).toBeInTheDocument();
+  });
+
+  it("cancelling the board delete changes nothing", async () => {
+    const { deleteBoardFn } = setup();
+    const list = await screen.findByRole("list", { name: "Your sources" });
+    fireEvent.click(within(list).getByRole("button", { name: "Delete board Finance" }));
+    fireEvent.click(within(list).getByRole("button", { name: "Keep it" }));
+    expect(deleteBoardFn).not.toHaveBeenCalled();
+    expect(within(list).getByText("Finance")).toBeInTheDocument();
+    expect(
+      within(list).getByRole("button", { name: "Delete board Finance" }),
+    ).toBeInTheDocument();
   });
 });
 

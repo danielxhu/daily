@@ -8,6 +8,8 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from app.db.engine import init_db
 from app.db.tracked_item_store import upsert_discovered
 from app.ingestion.result import failed_from
@@ -22,7 +24,8 @@ NOW = datetime(2026, 7, 10, 8, 0, tzinfo=UTC)
 
 
 def _reset_worker_state() -> None:
-    worker._fetch_attempted.clear()
+    worker._fetch_attempts.clear()
+    worker._fetch_next_try.clear()
     worker._summary_failures.clear()
 
 
@@ -86,7 +89,12 @@ def test_worker_processes_all_three_classes_in_priority_order(tmp_path: Path) ->
     assert transcribed == ["https://pod.example/ep"]  # only the deferred item
 
 
-def test_worker_never_rehammers_a_blocked_site(tmp_path: Path) -> None:
+def test_worker_retries_a_blocked_site_with_a_cooldown_not_every_tick(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-07-19: temporary blocks (bilibili 412) lift on their own — a bounded
+    # retry budget with a cooldown replaces one-attempt-per-process, and ticks
+    # inside the cooldown never touch the site.
     _reset_worker_state()
     conn = init_db(str(tmp_path / "daily.db"))
     _seed(conn, "https://blocked.example/a")
@@ -97,9 +105,21 @@ def test_worker_never_rehammers_a_blocked_site(tmp_path: Path) -> None:
         calls["n"] += 1
         return failed_from(req, "anti_bot", reason="blocked", requested_url=req.url)
 
-    for _ in range(3):  # three ticks
+    for _ in range(3):  # three ticks inside the cooldown window → one attempt
         work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
-    assert calls["n"] == 1  # one attempt per app run, not one per tick
+    assert calls["n"] == 1
+    # cooldown elapsed (simulated: drop the scheduled next-try timestamps) →
+    # the next ticks retry, up to the bounded budget
+    monkeypatch.setattr(worker, "_RETRY_COOLDOWN_SECONDS", 0.0)
+    worker._fetch_next_try.clear()
+    for _ in range(10):
+        work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
+    assert calls["n"] == worker._FETCH_MAX_TRIES  # budget spent, then it rests
+    # a manual refresh resets the budget — the user explicitly asked
+    row = conn.execute("SELECT id FROM tracked_items").fetchone()
+    worker.reset_attempts(str(row["id"]))
+    work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
+    assert calls["n"] == worker._FETCH_MAX_TRIES + 1
 
 
 def test_worker_skips_cleanly_while_a_poll_is_running(tmp_path: Path) -> None:

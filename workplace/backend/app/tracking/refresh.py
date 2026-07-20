@@ -8,8 +8,10 @@ alignment, no scoring, no memory writes. The verification engine stays dormant
 (v0.13); refresh only feeds the tracking/knowledge read surface.
 
 Synchronous, one item per call (single-operator, local-first — same stance as
-deep_check). Lock discipline (owner 2026-07-13 "这他妈是我自己点了才显示…"): the
-slow parts — network fetch, whisper, the LLM call — run OUTSIDE the poll mutex;
+deep_check), but NEVER whisper (owner 2026-07-19): a caption-less video is
+marked deferred for the background worker instead of downloading audio inside
+the request. Lock discipline (owner 2026-07-13 "这他妈是我自己点了才显示…"): the
+slow parts — network fetch, the LLM call — run OUTSIDE the poll mutex;
 only the millisecond DB writes take it (blocking, bounded wait). The old
 whole-call lock meant one background transcription blocked every open page's
 auto-refresh with an instant 409, which read as "automatic did nothing".
@@ -111,6 +113,24 @@ def refresh_item(
         # the stored text is still perfectly good grounding. Summarize from it
         # instead of failing on a fetch we don't actually need.
         text, domain = row["content_excerpt"], normalize_domain(url)
+    elif result.failure is not None and result.failure.kind == "transcription_deferred":
+        # owner 2026-07-19 ("这他妈抓了快十分钟了"): a caption-less video means
+        # audio download + whisper — minutes of throttled CDN trickle that used
+        # to run INSIDE this request. Never transcribe synchronously: mark the
+        # item deferred and return; the background worker (one per 30s tick)
+        # owns transcription, and the UI polls the item until content lands.
+        with _locked_writes():
+            set_status_by_url(
+                conn,
+                subscription_id=sub_id,
+                item_key=item_key,
+                status="deferred",
+                now=now,
+                failure_kind="transcription_deferred",
+            )
+        card = tracked_item_card_by_id(conn, item_id)
+        assert card is not None
+        return card
     else:
         kind = result.failure.kind if result.failure else "timeout"
         # the existing row is untouched — a failed RETRY must not downgrade

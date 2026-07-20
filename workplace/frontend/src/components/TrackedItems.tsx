@@ -33,7 +33,9 @@ function trackedStatus(item: TrackedItemCard, t: (k: string) => string): string 
   if (item.status === "failed" && item.failure_kind) {
     return t(`verify.failure.${item.failure_kind}`);
   }
-  if (item.status === "deferred") return t("verify.failure.transcription_deferred");
+  // deferred = queued for the background transcriber (2026-07-20): no stale
+  // "click to fetch" instruction — the worker handles it, the row stays quiet
+  if (item.status === "deferred") return null;
   if (item.status === "new") return t("today.tracked.processing");
   if (item.degraded_reason) return t("today.tracked.degraded");
   return null;

@@ -52,6 +52,7 @@ from app.db.subscription_store import (
     get_subscription,
     list_subscriptions,
     set_subscription_module,
+    set_subscription_name,
 )
 from app.db.tracked_item_store import (
     get_item_excerpt,
@@ -128,6 +129,7 @@ class SubscriptionCreateRequest(BaseModel):
     mode: Literal["direct", "autodiscover", "platform", "homepage_diff"]
     board_id: str | None = None
     module_id: str | None = None  # M15.1: the source's module within its board
+    name: str | None = None  # user-given display name (2026-07-19); None = unnamed
     feed_url: str | None = None
     interval_minutes: int = Field(default=60, ge=1)
 
@@ -146,6 +148,14 @@ class ModuleAssignRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     module_id: str | None = None
+
+
+class SubscriptionRenameRequest(BaseModel):
+    """Rename a source (2026-07-19) — None/empty clears back to unnamed."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
 
 
 def get_llm() -> LLMClient:
@@ -550,9 +560,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             mode=body.mode,
             board_id=body.board_id,
             module_id=body.module_id,
+            name=(body.name or "").strip() or None,
             feed_url=body.feed_url,
             interval_minutes=body.interval_minutes,
         )
+
+    @app.put(
+        "/subscriptions/{subscription_id}/name",
+        response_model=Subscription,
+        responses={404: {"description": "No such subscription."}},
+    )
+    def rename_subscription_endpoint(
+        subscription_id: str,
+        body: SubscriptionRenameRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> Subscription:
+        # owner 2026-07-19 "全是url不知道哪个是哪个": a display name per source;
+        # empty/None clears back to unnamed (the UI falls back to the URL)
+        if get_subscription(db, subscription_id) is None:
+            raise HTTPException(status_code=404, detail=f"no such subscription: {subscription_id}")
+        updated = set_subscription_name(db, subscription_id, (body.name or "").strip() or None)
+        assert updated is not None  # existence checked above
+        return updated
 
     @app.delete(
         "/subscriptions/{subscription_id}",
@@ -626,13 +655,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         item_id: str,
         db: Annotated[sqlite3.Connection, Depends(get_db)],
         llm: Annotated[LLMClient, Depends(get_llm)],
-        ingest: Annotated[IngestFn, Depends(get_ingest)],
+        # whisper-free ingest (2026-07-19): a manual refresh must return in
+        # seconds — caption-less video goes to the background transcribe queue
+        ingest: Annotated[IngestFn, Depends(get_ingest_first)],
     ) -> TrackedItemDetail:
         # M16.4: manual fetch-&-summarize — the way a legacy (pre-v0.13) item gets
         # its bilingual enrichment and discussion grounding. NOT a deep check: no
         # claims, no scoring, no memory writes (the engine stays dormant).
         try:
-            refresh_item(db, item_id, llm=llm, ingest=ingest)
+            card = refresh_item(db, item_id, llm=llm, ingest=ingest)
         except RefreshError as exc:
             status = 404 if "no such tracked item" in str(exc) else 400
             raise HTTPException(status_code=status, detail=str(exc)) from exc
@@ -640,6 +671,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except RefreshFailedError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if card.status == "deferred":
+            # the user explicitly asked — refresh the worker's per-run attempt
+            # budget so background transcription retries now, not next restart
+            from app.tracking.worker import reset_attempts
+
+            reset_attempts(item_id)
         return tracked_item_detail(item_id, db)
 
     @app.post(

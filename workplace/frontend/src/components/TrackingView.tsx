@@ -9,7 +9,9 @@ import {
   deleteSubscription,
   pollNow,
   createBoard,
+  deleteBoard,
   queryBoards,
+  renameSubscription,
   querySubscriptions,
 } from "@/lib/api";
 import type { PollReport, PollSubReport } from "@/lib/api";
@@ -46,6 +48,8 @@ interface TrackingViewProps {
   pollFn?: typeof pollNow;
   boardsFn?: typeof queryBoards;
   createBoardFn?: typeof createBoard;
+  deleteBoardFn?: typeof deleteBoard;
+  renameFn?: typeof renameSubscription;
 }
 
 function message(err: unknown, fallback: string): string {
@@ -131,17 +135,25 @@ export function TrackingView({
   pollFn = pollNow,
   boardsFn = queryBoards,
   createBoardFn = createBoard,
+  deleteBoardFn = deleteBoard,
+  renameFn = renameSubscription,
 }: TrackingViewProps) {
   const [subs, setSubs] = useState<Subscription[] | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState("");
+  const [name, setName] = useState(""); // optional display name (2026-07-19)
   const [mode, setMode] = useState<Subscription["mode"]>("direct");
   const [boardId, setBoardId] = useState("");
+  // inline rename: which source row is being renamed, and the draft text
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   // owner 2026-07-13: boards are CREATED here, where sources are added — not in
   // Knowledge (deleting the last board left no way to make one at add time)
   const [newBoardName, setNewBoardName] = useState("");
   const [boardErr, setBoardErr] = useState<string | null>(null);
+  // owner 2026-07-19: boards are DELETED here too — two-step confirm per group
+  const [confirmingBoardDelete, setConfirmingBoardDelete] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<string | null>(null);
   const [checkReport, setCheckReport] = useState<PollReport | null>(null);
@@ -187,12 +199,40 @@ export function TrackingView({
         input_url: trimmed,
         mode,
         board_id: boardId.trim() || null,
+        name: name.trim() || null,
       });
       setSubs((prev) => [created, ...(prev ?? [])]);
       setUrl("");
+      setName("");
       setBoardId("");
     } catch (err) {
       setError(message(err, t("tracking.errAdd")));
+    }
+  }
+
+  async function handleBoardDelete(id: string) {
+    setConfirmingBoardDelete(null);
+    setError(null);
+    try {
+      await deleteBoardFn(id);
+      // the backend cascades: the board's sources (and their items) go with it
+      setBoards((prev) => prev.filter((b) => b.id !== id));
+      setSubs((prev) => (prev ?? []).filter((s) => s.board_id !== id));
+      setBoardId((prev) => (prev === id ? "" : prev));
+    } catch (err) {
+      setError(message(err, t("boards.errDelete")));
+    }
+  }
+
+  async function handleRename(id: string) {
+    setError(null);
+    try {
+      const updated = await renameFn(id, renameDraft.trim() || null);
+      setSubs((prev) => (prev ?? []).map((s) => (s.id === id ? updated : s)));
+      setRenamingId(null);
+      setRenameDraft("");
+    } catch (err) {
+      setError(message(err, t("tracking.rename.err")));
     }
   }
 
@@ -276,6 +316,18 @@ export function TrackingView({
             className="input mt-1"
           />
         </label>
+        {/* owner 2026-07-19 "全是url不知道哪个是哪个": an optional display name */}
+        <label className="block text-sm font-medium text-ink">
+          {t("tracking.name.label")}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            aria-label={t("tracking.name.label")}
+            placeholder={t("tracking.name.placeholder")}
+            className="input mt-1"
+          />
+        </label>
         <div className="flex flex-wrap gap-3">
           <label className="block text-sm font-medium text-ink">
             {t("tracking.mode.label")}
@@ -346,21 +398,66 @@ export function TrackingView({
       )}
 
       {!error && subs === null && <p className="text-sm text-muted">{t("tracking.loading")}</p>}
-      {subs && subs.length === 0 && <p className="text-sm text-muted">{t("tracking.none")}</p>}
-      {subs && subs.length > 0 && (
+      {subs && subs.length === 0 && boards.length === 0 && (
+        <p className="text-sm text-muted">{t("tracking.none")}</p>
+      )}
+      {subs && (subs.length > 0 || boards.length > 0) && (
         <ul className="row-list" aria-label={t("tracking.list.aria")}>
           {groupByBoard(subs, boards, t("tracking.group.none")).map((group) => (
             <Fragment key={group.id ?? "none"}>
-              {/* board group header — presentation row, not a source item */}
+              {/* board group header — presentation row, not a source item. Every
+                  board renders (even empty) so it can be deleted here (owner
+                  2026-07-19); deletion is a two-step confirm, cascade stated. */}
               <li role="presentation" className="!py-1.5" style={{ background: "rgb(var(--panel) / 0.4)" }}>
-                <span className="text-[11px] font-semibold text-faint">{group.name}</span>
-                <span className="mono tnum ml-2 text-[11px] text-faint">{group.items.length}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span className="text-[11px] font-semibold text-faint">{group.name}</span>
+                    <span className="mono tnum ml-2 text-[11px] text-faint">{group.items.length}</span>
+                  </span>
+                  {group.id !== null &&
+                    boards.some((b) => b.id === group.id) &&
+                    (confirmingBoardDelete === group.id ? (
+                      <span className="flex flex-wrap items-center gap-2 text-[11px]">
+                        <span className="text-muted">{t("boards.delete.confirmText")}</span>
+                        <button
+                          type="button"
+                          onClick={() => void handleBoardDelete(group.id as string)}
+                          className="font-medium text-bad-fg underline underline-offset-2"
+                        >
+                          {t("boards.delete.confirmYes")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingBoardDelete(null)}
+                          className="text-muted underline underline-offset-2"
+                        >
+                          {t("boards.delete.cancel")}
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingBoardDelete(group.id as string)}
+                        aria-label={t("tracking.board.remove.aria", { name: group.name })}
+                        className="text-[11px] text-faint underline underline-offset-2 transition-colors hover:text-bad-fg"
+                      >
+                        {t("boards.delete")}
+                      </button>
+                    ))}
+                </div>
               </li>
               {group.items.map((sub) => (
             <li key={sub.id} className="space-y-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{sub.input_url}</p>
+                  {/* the user-given name leads; the URL stays visible below it
+                      (owner 2026-07-19 "全是url不知道哪个是哪个") */}
+                  <p className="truncate text-sm font-medium text-ink">
+                    {sub.name || sub.input_url}
+                  </p>
+                  {sub.name && (
+                    <p className="mono truncate text-xs text-faint">{sub.input_url}</p>
+                  )}
                   <p className="text-xs text-faint">{t(MODE_KEY[sub.mode])}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -377,6 +474,17 @@ export function TrackingView({
                   </span>
                   <button
                     type="button"
+                    onClick={() => {
+                      setRenamingId(sub.id);
+                      setRenameDraft(sub.name ?? "");
+                    }}
+                    aria-label={t("tracking.rename.aria", { url: sub.input_url })}
+                    className="text-xs text-muted underline underline-offset-2 hover:text-ink"
+                  >
+                    {t("tracking.rename")}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleRemove(sub.id)}
                     aria-label={t("tracking.remove.aria", { url: sub.input_url })}
                     className="text-xs text-muted underline underline-offset-2 hover:text-ink"
@@ -385,6 +493,36 @@ export function TrackingView({
                   </button>
                 </div>
               </div>
+              {renamingId === sub.id && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleRename(sub.id);
+                  }}
+                  className="flex items-center gap-2"
+                  noValidate
+                >
+                  <input
+                    type="text"
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    aria-label={t("tracking.rename.input.aria")}
+                    placeholder={t("tracking.name.placeholder")}
+                    className="block w-56 rounded-lg border border-line bg-panel px-2 py-1 text-xs text-ink"
+                    autoFocus
+                  />
+                  <button type="submit" className="text-xs text-accent underline underline-offset-2">
+                    {t("tracking.rename.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRenamingId(null)}
+                    className="text-xs text-muted underline underline-offset-2"
+                  >
+                    {t("tracking.rename.cancel")}
+                  </button>
+                </form>
+              )}
               {(sub.subscription_failure_kind || sub.last_error) && (
                 <div className="text-xs">
                   {sub.subscription_failure_kind && (
@@ -406,8 +544,9 @@ export function TrackingView({
 }
 
 /** Group subscriptions by topic board for display: known boards first (in board
- * order), then boards the list no longer knows (deleted — shown by raw id), then
- * the ungrouped bucket. Pure presentation — ordering never changes the data. */
+ * order, INCLUDING empty ones — an empty board must still render so it can be
+ * deleted, owner 2026-07-19), then boards the list no longer knows (deleted —
+ * shown by raw id), then the ungrouped bucket. Pure presentation. */
 function groupByBoard(
   subs: Subscription[],
   boards: Board[],
@@ -422,8 +561,7 @@ function groupByBoard(
   }
   const groups: { id: string | null; name: string; items: Subscription[] }[] = [];
   for (const board of boards) {
-    const items = byBoard.get(board.id);
-    if (items) groups.push({ id: board.id, name: board.name, items });
+    groups.push({ id: board.id, name: board.name, items: byBoard.get(board.id) ?? [] });
   }
   for (const [key, items] of byBoard) {
     if (key !== null && !boards.some((b) => b.id === key)) {

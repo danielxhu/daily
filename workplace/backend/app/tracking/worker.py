@@ -11,16 +11,20 @@ works a small, bounded batch in priority order:
   3. transcribe — deferred audio/video: the full ingest with whisper, ONE per
      tick (CPU-heavy minutes; the heaviest work goes last and never queues up).
 
-Classes 2/3 get ONE attempt per app run per item (anti-bot sites must not be
-hammered every 30 seconds; the manual detail-page button remains the retry).
-Class 1 gets two tries (an LLM outage mid-run shouldn't permanently skip items).
-Every item is processed under the poll mutex, non-blocking: while a poll or a
-manual refresh runs, the tick simply skips — nothing ever interleaves.
+Classes 2/3 get a FEW attempts per app run per item, spaced by a cooldown
+(2026-07-19: bilibili's 412/SSL blocks are TEMPORARY — one-attempt-per-process
+meant "自动出现" was a lie until the next restart; but anti-bot sites still must
+not be hammered every 30 seconds). A manual refresh resets the item's budget —
+opening its page is an explicit retry request. Class 1 gets two tries (an LLM
+outage mid-run shouldn't permanently skip items). Every item is processed under
+the poll mutex, non-blocking: while a poll or a manual refresh runs, the tick
+simply skips — nothing ever interleaves.
 """
 
 from __future__ import annotations
 
 import sqlite3
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from app.clients.base import LLMClient
@@ -36,10 +40,21 @@ _SUMMARY_BATCH = 4
 _FETCH_BATCH = 2
 _TRANSCRIBE_BATCH = 1
 
-# per-app-run attempt bookkeeping — never hammer a blocked site tick after tick
-_fetch_attempted: set[str] = set()
+# per-app-run attempt bookkeeping — never hammer a blocked site tick after tick,
+# but retry a few times with a cooldown (temporary blocks lift on their own)
+_fetch_attempts: dict[str, int] = {}
+_fetch_next_try: dict[str, float] = {}
+_FETCH_MAX_TRIES = 4
+_RETRY_COOLDOWN_SECONDS = 600.0
 _summary_failures: dict[str, int] = {}
 _SUMMARY_MAX_TRIES = 2
+
+
+def reset_attempts(item_id: str) -> None:
+    """A manual refresh is an explicit retry request — give this item a fresh
+    per-run attempt budget so the worker picks it up on the next tick."""
+    _fetch_attempts.pop(item_id, None)
+    _fetch_next_try.pop(item_id, None)
 
 
 def work_once(
@@ -131,25 +146,32 @@ def _refresh_batch(
     llm: LLMClient,
     ingest: IngestFn,
 ) -> int:
-    """Refresh up to `limit` not-yet-attempted items through the shared manual
-    path (mutex-honest, typed failures). A failure marks the item attempted for
-    this app run and moves on — the backlog never wedges on one hostile site."""
+    """Refresh up to `limit` eligible items through the shared manual path
+    (mutex-honest, typed failures). A failure spends one of the item's bounded
+    attempts and starts its cooldown — the backlog never wedges on one hostile
+    site, and a temporarily-blocked site gets another chance later."""
     from app.tracking.runtime import PollInProgressError
 
     done = 0
+    now = time.monotonic()
     for row in conn.execute(query).fetchall():
         if done >= limit:
             break
         item_id = str(row["id"])
-        if item_id in _fetch_attempted:
+        if _fetch_attempts.get(item_id, 0) >= _FETCH_MAX_TRIES:
             continue
-        _fetch_attempted.add(item_id)
+        if now < _fetch_next_try.get(item_id, 0.0):
+            continue
+        _fetch_attempts[item_id] = _fetch_attempts.get(item_id, 0) + 1
+        _fetch_next_try[item_id] = now + _RETRY_COOLDOWN_SECONDS
         try:
             refresh_item(conn, item_id, llm=llm, ingest=ingest)
             done += 1
         except PollInProgressError:
-            _fetch_attempted.discard(item_id)  # not this item's fault — retry later
+            # not this item's fault — refund the attempt and retry next tick
+            _fetch_attempts[item_id] -= 1
+            _fetch_next_try.pop(item_id, None)
             break
         except (RefreshError, RefreshFailedError):
-            continue  # typed + already visible on the item; manual retry exists
+            continue  # typed + already visible on the item; cooldown then retry
     return done

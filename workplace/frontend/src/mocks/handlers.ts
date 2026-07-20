@@ -63,6 +63,7 @@ export const handlers = [
       input_url: string;
       mode: string;
       board_id?: string | null;
+      name?: string | null;
       feed_url?: string | null;
       interval_minutes?: number;
     };
@@ -70,6 +71,7 @@ export const handlers = [
       {
         id: "sub_new",
         board_id: body.board_id ?? null,
+        name: body.name ?? null,
         input_url: body.input_url,
         feed_url: body.feed_url ?? null,
         mode: body.mode,
@@ -83,6 +85,13 @@ export const handlers = [
       },
       { status: 201 },
     );
+  }),
+  // rename a source (2026-07-19): echo the renamed subscription back
+  http.put("*/subscriptions/:id/name", async ({ params, request }) => {
+    const body = (await request.json()) as { name?: string | null };
+    const sub = buildMockSubscriptions().find((s) => s.id === params.id);
+    if (!sub) return new HttpResponse(null, { status: 404 });
+    return HttpResponse.json({ ...sub, name: body.name?.trim() || null });
   }),
   http.delete("*/boards/:id", () => new HttpResponse(null, { status: 204 })),
   http.delete(

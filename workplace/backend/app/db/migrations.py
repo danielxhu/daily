@@ -299,6 +299,13 @@ MIGRATIONS: dict[str, list[Migration]] = {
             "add_tracked_item_extraction_method",
             ("ALTER TABLE tracked_items ADD COLUMN extraction_method TEXT",),
         ),
+        # owner 2026-07-19 "全是url不知道哪个是哪个": a user-given display name per
+        # source. NULL = unnamed (all pre-v12 rows) — the UI falls back to the URL.
+        Migration(
+            12,
+            "add_subscription_name",
+            ("ALTER TABLE subscriptions ADD COLUMN name TEXT",),
+        ),
     ],
     "events": [
         # Beta usage/feedback signals (X0.9, FR-17 / §8.2): local-only, no external
