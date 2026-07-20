@@ -277,6 +277,9 @@ class Settings(BaseSettings):
     # --- Local models (free; NFR-2) ---
     whisper_model_size: str = "medium"  # multilingual, NOT the .en variant
     whisper_compute_type: str = "int8"
+    # ctranslate2 intra-op threads — pin to the performance-core count (owner
+    # 2026-07-20: long-video transcription was leaving cores idle)
+    whisper_cpu_threads: int = 4
 
     # --- Coverage toggles (best-effort, degradable) ---
     enable_pdf_text: bool = True  # text-layer PDF extraction (M1B.3)

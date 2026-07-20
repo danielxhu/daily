@@ -1,8 +1,15 @@
 """Local transcription adapter (M1A.6, SSOT §10).
 
-A `faster-whisper` implementation of the X0.3 `Transcriber` interface, producing
-`TranscriptResult` segments with **word-level timestamps** (whisperX-style forced
-alignment) so a claim can later map to char-span + audio time + vision frame (FR-8).
+A `faster-whisper` implementation of the X0.3 `Transcriber` interface. Since the
+verification engine left (2026-07-13) nothing consumes word-level timestamps, so
+they are OFF; the transcript feeds the item excerpt + bilingual summary only.
+
+Speed (owner 2026-07-20 "为什么这三个还是这么慢"): long caption-less videos
+(hours of forum replay) used to be transcribed sequentially, window by window.
+We now run faster-whisper's `BatchedInferencePipeline` — VAD splits the audio at
+silence, segments are batched through the model, non-speech (music/applause) is
+skipped — with `cpu_threads` pinned to the performance cores. Same model, same
+output shape, several times faster on long audio.
 
 `faster-whisper` is heavy and downloads models, so it is **lazy-imported and the
 model is loaded only on first `transcribe()`** — never at import, never in the
@@ -17,6 +24,10 @@ from typing import Any
 
 from app.clients.base import TranscriptResult, TranscriptSegment
 from app.core.config import get_settings
+
+# segments batched through the model per step — 8 is the faster-whisper default
+# sweet spot on CPU; raising it mostly raises memory, not speed
+_BATCH_SIZE = 8
 
 
 def _ms(seconds: float) -> int:
@@ -55,15 +66,21 @@ class FasterWhisperTranscriber:
         settings = get_settings()
         self._model_size = model_size or settings.whisper_model_size
         self._compute_type = compute_type or settings.whisper_compute_type
+        self._cpu_threads = settings.whisper_cpu_threads
         self._model_loader = model_loader  # injectable for tests
         self._model: Any | None = None  # lazy
 
     def _load_model(self) -> Any:
         # Imported here, not at module top, so importing this module never pulls
         # faster-whisper and the offline suite stays light.
-        from faster_whisper import WhisperModel
+        from faster_whisper import BatchedInferencePipeline, WhisperModel
 
-        return WhisperModel(self._model_size, compute_type=self._compute_type)
+        model = WhisperModel(
+            self._model_size,
+            compute_type=self._compute_type,
+            cpu_threads=self._cpu_threads,
+        )
+        return BatchedInferencePipeline(model)
 
     def _get_model(self) -> Any:
         if self._model is None:
@@ -72,7 +89,9 @@ class FasterWhisperTranscriber:
 
     def transcribe(self, audio_path: str) -> TranscriptResult:
         model = self._get_model()
-        segments, info = model.transcribe(audio_path, word_timestamps=True)
+        # VAD is what makes batching possible (and skips silence/music); word
+        # timestamps stay off — nothing consumes them since the engine removal
+        segments, info = model.transcribe(audio_path, batch_size=_BATCH_SIZE, vad_filter=True)
         return _to_transcript(segments, getattr(info, "language", None))
 
 

@@ -1,5 +1,5 @@
-"""M1A.6 — local transcription adapter: segment + word timestamps, lazy model
-load, and the real faster-whisper model is never loaded in tests (NFR-3)."""
+"""M1A.6 — local transcription adapter: batched+VAD segments, lazy model load,
+and the real faster-whisper model is never loaded in tests (NFR-3)."""
 
 from __future__ import annotations
 
@@ -26,8 +26,9 @@ def _fake_segments() -> list[SimpleNamespace]:
 
 
 class _FakeModel:
-    def transcribe(self, audio_path: str, *, word_timestamps: bool):  # type: ignore[no-untyped-def]
-        assert word_timestamps is True
+    def transcribe(self, audio_path: str, *, batch_size: int, vad_filter: bool):  # type: ignore[no-untyped-def]
+        # 2026-07-20: batched + VAD replaces the sequential word-timestamp run
+        assert batch_size >= 1 and vad_filter is True
         return _fake_segments(), SimpleNamespace(language="en")
 
 
