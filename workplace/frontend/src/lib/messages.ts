@@ -73,6 +73,8 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "item.refreshing": "Fetching the source and writing the summary…",
     "item.transcribe.queued":
       "No transcript on the source — the audio is queued for local transcription in the background. The summary appears here automatically (a long video can take a few minutes).",
+    "item.progress.downloading": "Downloading the audio…",
+    "item.progress.transcribing": "Transcribing locally…",
     "item.note.heading": "Save to Knowledge",
     "item.note.how":
       "daily drafts the note from this item's stored material; tell it what to change, then save the final text into this board's Knowledge.",
@@ -690,6 +692,8 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "item.refreshing": "正在抓取原文并生成综述…",
     "item.transcribe.queued":
       "来源没有现成字幕——音频已排队后台本地转写,综述完成后会自动出现(长视频可能需要几分钟)。",
+    "item.progress.downloading": "正在下载音频…",
+    "item.progress.transcribing": "正在本地转写…",
     "item.note.heading": "存入知识库",
     "item.note.how":
       "daily 会基于这条内容的已存文本起草笔记;告诉它怎么改,满意后再存入所属板块的知识库。",

@@ -15,7 +15,7 @@ import sqlite3
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,6 +61,7 @@ from app.db.tracked_item_store import (
     tracked_item_card_by_id,
 )
 from app.discuss import DiscussError, discuss_tracked_item, draft_item_note
+from app.ingestion import progress as transcribe_progress
 from app.ingestion.ingest import IngestFn
 from app.knowledge.answer import MAX_ANSWER_ITEMS, answer_from_hits
 from app.knowledge.semantic import get_semantic_index, resolve_hits
@@ -72,6 +73,7 @@ from app.schemas.models import (
     ItemDiscussRequest,
     ItemNoteDraftReply,
     ItemNoteDraftRequest,
+    ItemProgress,
     KnowledgeAnswer,
     KnowledgeAnswerRequest,
     KnowledgeModule,
@@ -681,6 +683,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
             reset_attempts(item_id)
         return tracked_item_detail(item_id, db)
+
+    @app.get(
+        "/tracked-items/{item_id}/progress",
+        response_model=ItemProgress,
+        responses={404: {"description": "No such tracked item."}},
+    )
+    def item_progress(
+        item_id: str,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> ItemProgress:
+        # owner 2026-07-21 "加个进度条": live download/transcribe progress for
+        # THIS item, matched on its URL against the single in-flight job slot.
+        # stage None = not being worked on right now (queued / done / restarted).
+        card = tracked_item_card_by_id(db, item_id)
+        if card is None:
+            raise HTTPException(status_code=404, detail=f"no such tracked item: {item_id}")
+        snap = transcribe_progress.snapshot(card.url) if card.url else None
+        if snap is None:
+            return ItemProgress(stage=None, pct=None)
+        stage, pct = snap
+        if stage in ("downloading", "transcribing"):
+            return ItemProgress(stage=cast(Literal["downloading", "transcribing"], stage), pct=pct)
+        return ItemProgress(stage=None, pct=None)  # future-proof the Literal
 
     @app.post(
         "/tracked-items/{item_id}/discuss",

@@ -226,3 +226,33 @@ def test_detail_returns_the_card_and_excerpt_preview_only(tmp_path: Path) -> Non
     assert "credibility" not in res.text and "verdict" not in res.text
 
     assert _client(db).get("/tracked-items/nope").status_code == 404
+
+
+def test_progress_endpoint_reports_the_in_flight_job_by_url(tmp_path: Path) -> None:
+    # owner 2026-07-21 "加个进度条": live stage/pct while the background job is
+    # on THIS item's URL; stage None when idle; slot cleanup leaves None again.
+    from app.ingestion import progress
+
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    item_id = _discover(conn, "https://www.bilibili.com/video/BV1demo")
+    other = _discover(conn, "https://www.bilibili.com/video/BV2other")
+    conn.close()
+    client = _client(db)
+
+    # idle: no job in flight
+    assert client.get(f"/tracked-items/{item_id}/progress").json() == {
+        "stage": None,
+        "pct": None,
+    }
+    progress.begin("https://www.bilibili.com/video/BV1demo")
+    progress.update("transcribing", 0.42)
+    try:
+        body = client.get(f"/tracked-items/{item_id}/progress").json()
+        assert body == {"stage": "transcribing", "pct": 0.42}
+        # a different item is NOT the in-flight job
+        assert client.get(f"/tracked-items/{other}/progress").json()["stage"] is None
+    finally:
+        progress.finish()
+    assert client.get(f"/tracked-items/{item_id}/progress").json()["stage"] is None
+    assert client.get("/tracked-items/nope/progress").status_code == 404

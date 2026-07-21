@@ -18,6 +18,7 @@ from typing import Any
 import httpx
 
 from app.clients.base import Transcriber, TranscriptResult
+from app.ingestion import progress
 from app.ingestion.fetch_policy import typed_skip
 from app.ingestion.youtube import fetch_captions, yt_dlp_opts
 from app.schemas.models import SourceFailure
@@ -51,7 +52,15 @@ def download_audio(
         return downloader(url, out_dir)
     from yt_dlp import YoutubeDL  # lazy: heavy + network
 
-    with YoutubeDL(yt_dlp_audio_opts(out_dir)) as ydl:
+    def _hook(d: dict[str, Any]) -> None:  # live download progress (2026-07-21)
+        if d.get("status") == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate")
+            if total:
+                progress.update("downloading", float(d.get("downloaded_bytes", 0)) / float(total))
+
+    opts = yt_dlp_audio_opts(out_dir)
+    opts["progress_hooks"] = [_hook]
+    with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         return str(ydl.prepare_filename(info))
 
@@ -103,30 +112,37 @@ def ingest_youtube(
             ),
         )
     target_dir = out_dir or tempfile.mkdtemp(prefix="daily_yt_")
+    # the audio path is the slow one — publish live progress for the UI's bar
+    # (owner 2026-07-21); the slot ALWAYS empties, success or typed failure
+    progress.begin(url)
     try:
-        audio_path = download_audio(url, target_dir, downloader=downloader)
-    except Exception as exc:  # best-effort: any download error → typed skip
-        return YoutubeIngest(
-            transcript=None,
-            used=None,
-            failure=typed_skip(
-                "fetch_blocked",
-                reason=f"{prefix}audio download failed: {exc}",
-                requested_url=url,
-                source_type="youtube",
-            ),
-        )
-    try:
-        transcript = transcriber.transcribe(audio_path)
-    except Exception as exc:  # best-effort: any transcription error → typed skip
-        return YoutubeIngest(
-            transcript=None,
-            used=None,
-            failure=typed_skip(
-                "transcribe_failed",
-                reason=f"{prefix}transcription failed: {exc}",
-                requested_url=url,
-                source_type="youtube",
-            ),
-        )
-    return YoutubeIngest(transcript=transcript, used="audio", failure=None)
+        try:
+            audio_path = download_audio(url, target_dir, downloader=downloader)
+        except Exception as exc:  # best-effort: any download error → typed skip
+            return YoutubeIngest(
+                transcript=None,
+                used=None,
+                failure=typed_skip(
+                    "fetch_blocked",
+                    reason=f"{prefix}audio download failed: {exc}",
+                    requested_url=url,
+                    source_type="youtube",
+                ),
+            )
+        progress.update("transcribing", 0.0)
+        try:
+            transcript = transcriber.transcribe(audio_path)
+        except Exception as exc:  # best-effort: any transcription error → typed skip
+            return YoutubeIngest(
+                transcript=None,
+                used=None,
+                failure=typed_skip(
+                    "transcribe_failed",
+                    reason=f"{prefix}transcription failed: {exc}",
+                    requested_url=url,
+                    source_type="youtube",
+                ),
+            )
+        return YoutubeIngest(transcript=transcript, used="audio", failure=None)
+    finally:
+        progress.finish()

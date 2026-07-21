@@ -4,6 +4,7 @@ import type {
   DiscussMessage,
   ItemDiscussReply,
   ItemNoteDraftReply,
+  ItemProgress,
   KnowledgeModule,
   KnowledgeNote,
   KnowledgeAnswer,
@@ -311,6 +312,15 @@ export async function createSubscription(
 
 export async function deleteSubscription(id: string, opts: QueryOptions = {}): Promise<void> {
   return deleteRequest(`/subscriptions/${id}`, opts);
+}
+
+/** Live download/transcribe progress for one item (2026-07-21) — stage null =
+ * nothing in flight right now (queued, done, or the backend restarted). */
+export async function getItemProgress(
+  id: string,
+  opts: QueryOptions = {},
+): Promise<ItemProgress> {
+  return getJson<ItemProgress>(`/tracked-items/${id}/progress`, opts);
 }
 
 /** Rename a source (2026-07-19) — null/empty clears back to unnamed. */

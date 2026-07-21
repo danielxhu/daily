@@ -339,6 +339,42 @@
       "title": "ItemNoteDraftRequest",
       "type": "object"
     },
+    "ItemProgress": {
+      "additionalProperties": false,
+      "description": "`GET /tracked-items/{id}/progress` (owner 2026-07-21 \"加个进度条\"): live\nstage + percent while the background job downloads/transcribes THIS item's\naudio. stage None = nothing in flight for this item right now (queued, done,\nor the app restarted — progress is in-memory only, never persisted).",
+      "properties": {
+        "pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pct"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "enum": [
+                "downloading",
+                "transcribing"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stage"
+        }
+      },
+      "title": "ItemProgress",
+      "type": "object"
+    },
     "KnowledgeAnswer": {
       "additionalProperties": false,
       "description": "`POST /knowledge/answer` (M16.2): the on-demand AI answer — ONE flash call\n(NFR-7 exception (5)) grounded ONLY in the user's saved notes matching the\nquestion. Tracked items are never fed in; the fact layer is dormant (v0.13).\nNo matching notes → answer=None with zero LLM spend; an LLM failure is a 502\n(the user explicitly asked — a typed error beats a silent null).",

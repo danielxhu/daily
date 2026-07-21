@@ -351,6 +351,16 @@ class TrackedItemDetail(Schema):
     excerpt_preview: str | None
 
 
+class ItemProgress(Schema):
+    """`GET /tracked-items/{id}/progress` (owner 2026-07-21 "加个进度条"): live
+    stage + percent while the background job downloads/transcribes THIS item's
+    audio. stage None = nothing in flight for this item right now (queued, done,
+    or the app restarted — progress is in-memory only, never persisted)."""
+
+    stage: Literal["downloading", "transcribing"] | None = None
+    pct: float | None = None  # 0..1 within the current stage
+
+
 class DailyDigest(Schema):
     date: date
     generated_at: datetime
@@ -499,6 +509,7 @@ ALL_MODELS: list[type[Schema]] = [
     Board,
     KnowledgeModule,
     KnowledgeNote,
+    ItemProgress,
     TrackedItemDetail,
     ItemEnrichment,
     TrackedItemCard,

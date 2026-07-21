@@ -282,6 +282,10 @@ export const handlers = [
     });
   }),
   // M16.4: the item detail page — card + Source says + provenance + related
+  // live transcribe progress (2026-07-21): the mock has no background job
+  http.get("*/tracked-items/:id/progress", () =>
+    HttpResponse.json({ stage: null, pct: null }),
+  ),
   http.get("*/tracked-items/:id", ({ params }) => {
     const tracked = buildMockDigest().tracked ?? [];
     const item = tracked.find((i) => i.id === params.id);

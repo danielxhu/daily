@@ -130,6 +130,11 @@ export interface KnowledgeNote {
   created_at: string;
 }
 
+export interface ItemProgress {
+  stage?: "downloading" | "transcribing" | null;
+  pct?: number | null;
+}
+
 export interface TrackedItemDetail {
   item: TrackedItemCard;
   excerpt_preview: string | null;

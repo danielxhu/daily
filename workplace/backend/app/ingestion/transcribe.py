@@ -24,6 +24,7 @@ from typing import Any
 
 from app.clients.base import TranscriptResult, TranscriptSegment
 from app.core.config import get_settings
+from app.ingestion import progress
 
 # segments batched through the model per step — 8 is the faster-whisper default
 # sweet spot on CPU; raising it mostly raises memory, not speed
@@ -34,8 +35,11 @@ def _ms(seconds: float) -> int:
     return int(round(seconds * 1000))
 
 
-def _to_transcript(segments: Iterable[Any], language: str | None) -> TranscriptResult:
-    """Map faster-whisper segments/words → `TranscriptResult` (ms timestamps)."""
+def _to_transcript(
+    segments: Iterable[Any], language: str | None, *, duration_s: float = 0.0
+) -> TranscriptResult:
+    """Map faster-whisper segments/words → `TranscriptResult` (ms timestamps).
+    Segments stream in order, so seg.end / duration is live progress (2026-07-21)."""
     out: list[TranscriptSegment] = []
     for seg in segments:
         words = [
@@ -50,6 +54,8 @@ def _to_transcript(segments: Iterable[Any], language: str | None) -> TranscriptR
                 words=words,
             )
         )
+        if duration_s > 0:
+            progress.update("transcribing", float(seg.end) / duration_s)
     return TranscriptResult(language=language, segments=out)
 
 
@@ -92,7 +98,11 @@ class FasterWhisperTranscriber:
         # VAD is what makes batching possible (and skips silence/music); word
         # timestamps stay off — nothing consumes them since the engine removal
         segments, info = model.transcribe(audio_path, batch_size=_BATCH_SIZE, vad_filter=True)
-        return _to_transcript(segments, getattr(info, "language", None))
+        return _to_transcript(
+            segments,
+            getattr(info, "language", None),
+            duration_s=float(getattr(info, "duration", 0.0) or 0.0),
+        )
 
 
 def get_transcriber() -> FasterWhisperTranscriber:

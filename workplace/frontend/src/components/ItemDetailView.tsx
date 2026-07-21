@@ -9,11 +9,12 @@ import {
   createNote,
   discussTrackedItem,
   draftItemNote,
+  getItemProgress,
   getTrackedItem,
   refreshTrackedItem,
 } from "@/lib/api";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
-import type { DiscussMessage, TrackedItemDetail } from "@/types/contract";
+import type { DiscussMessage, ItemProgress, TrackedItemDetail } from "@/types/contract";
 
 const TIER_KEY: Record<string, string> = {
   T1: "verify.tier.T1",
@@ -29,6 +30,7 @@ interface ItemDetailViewProps {
   createNoteFn?: typeof createNote;
   discussFn?: typeof discussTrackedItem;
   draftNoteFn?: typeof draftItemNote;
+  progressFn?: typeof getItemProgress;
 }
 
 /** The tracked-item detail page (M16.4): everything daily knows about ONE item,
@@ -43,21 +45,50 @@ export function ItemDetailView({
   createNoteFn = createNote,
   discussFn = discussTrackedItem,
   draftNoteFn = draftItemNote,
+  progressFn = getItemProgress,
 }: ItemDetailViewProps) {
   const [detail, setDetail] = useState<TrackedItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshErr, setRefreshErr] = useState<string | null>(null);
+  // live download/transcribe progress while the item is queued (2026-07-21)
+  const [progress, setProgress] = useState<ItemProgress | null>(null);
   const autoStarted = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const t = useT();
 
   useEffect(
     () => () => {
       if (retryTimer.current) clearTimeout(retryTimer.current);
+      if (progressTimer.current) clearInterval(progressTimer.current);
     },
     [],
   );
+
+  // while the item sits in the background transcribe queue, poll the live
+  // stage/percent every few seconds so the queued line becomes a progress bar
+  const queued = detail !== null && detail.item.status === "deferred" && !detail.item.content_available;
+  useEffect(() => {
+    if (!queued) {
+      if (progressTimer.current) clearInterval(progressTimer.current);
+      progressTimer.current = null;
+      setProgress(null);
+      return;
+    }
+    const tick = () => {
+      progressFn(itemId)
+        .then(setProgress)
+        .catch(() => setProgress(null)); // progress is garnish — never an error
+    };
+    tick();
+    progressTimer.current = setInterval(tick, 5_000);
+    return () => {
+      if (progressTimer.current) clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queued, itemId]);
 
   useEffect(() => {
     let active = true;
@@ -171,6 +202,7 @@ export function ItemDetailView({
       detail={detail}
       refreshing={refreshing}
       refreshErr={refreshErr}
+      progress={progress}
       onRefresh={() => void refresh({ auto: false, attempt: 1 })}
       createNoteFn={createNoteFn}
       discussFn={discussFn}
@@ -183,6 +215,7 @@ function ItemDetail({
   detail,
   refreshing,
   refreshErr,
+  progress,
   onRefresh,
   createNoteFn,
   discussFn,
@@ -191,6 +224,7 @@ function ItemDetail({
   detail: TrackedItemDetail;
   refreshing: boolean;
   refreshErr: string | null;
+  progress: ItemProgress | null;
   onRefresh: () => void;
   createNoteFn: typeof createNote;
   discussFn: typeof discussTrackedItem;
@@ -248,8 +282,34 @@ function ItemDetail({
         )}
         {item.status === "deferred" && !item.content_available ? (
           // owner 2026-07-19: transcription happens in the background worker —
-          // an honest queued state instead of a spinner tied to an open request
-          <p className="max-w-[65ch] text-sm text-muted">{t("item.transcribe.queued")}</p>
+          // an honest queued state; with a live job on THIS item it becomes a
+          // real progress bar (owner 2026-07-21 "能不能加个进度条")
+          <div className="max-w-[65ch] space-y-2">
+            {progress?.stage ? (
+              <div role="status" className="space-y-1.5">
+                <p className="flex items-baseline justify-between text-sm text-muted">
+                  <span>
+                    {t(
+                      progress.stage === "downloading"
+                        ? "item.progress.downloading"
+                        : "item.progress.transcribing",
+                    )}
+                  </span>
+                  <span className="mono tnum text-xs text-faint">
+                    {Math.round((progress.pct ?? 0) * 100)}%
+                  </span>
+                </p>
+                <div className="h-1.5 overflow-hidden rounded-full bg-panel">
+                  <div
+                    className="h-full rounded-full bg-accent transition-[width] duration-700 ease-out"
+                    style={{ width: `${Math.round((progress.pct ?? 0) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">{t("item.transcribe.queued")}</p>
+            )}
+          </div>
         ) : (
           item.url &&
           (!e || !item.content_available) && (

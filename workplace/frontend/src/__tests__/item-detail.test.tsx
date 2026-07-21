@@ -2,7 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ItemDetailView } from "@/components/ItemDetailView";
-import { createNote, draftItemNote, getTrackedItem, refreshTrackedItem } from "@/lib/api";
+import {
+  createNote,
+  draftItemNote,
+  getItemProgress,
+  getTrackedItem,
+  refreshTrackedItem,
+} from "@/lib/api";
 import { LocaleProvider } from "@/lib/i18n";
 import type { TrackedItemCard, TrackedItemDetail } from "@/types/contract";
 
@@ -46,8 +52,12 @@ function setup(d: TrackedItemDetail, fns: {
   refreshFn?: typeof refreshTrackedItem;
   createNoteFn?: typeof createNote;
   draftNoteFn?: typeof draftItemNote;
+  progressFn?: typeof getItemProgress;
 } = {}) {
   const detailFn = vi.fn(async () => d);
+  // default: no background job in flight (progress is garnish, never required)
+  const progressFn =
+    fns.progressFn ?? (vi.fn(async () => ({ stage: null, pct: null })) as never);
   render(
     <LocaleProvider>
       <ItemDetailView
@@ -56,6 +66,7 @@ function setup(d: TrackedItemDetail, fns: {
         refreshFn={fns.refreshFn}
         createNoteFn={fns.createNoteFn}
         draftNoteFn={fns.draftNoteFn}
+        progressFn={progressFn}
       />
     </LocaleProvider>,
   );
@@ -124,6 +135,31 @@ describe("ItemDetailView (M16.4)", () => {
       await screen.findByText(/音频已排队后台本地转写|queued for local transcription/),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Fetch & summarize|获取并生成摘要/ })).toBeNull();
+  });
+
+  it("a queued item shows the LIVE progress bar when the job is on it (2026-07-21)", async () => {
+    const deferredDetail = detail({
+      item: {
+        ...enrichedItem,
+        status: "deferred",
+        failure_kind: "transcription_deferred",
+        enrichment: null,
+        content_available: false,
+      },
+      excerpt_preview: null,
+    });
+    const refreshFn = vi.fn(async () => deferredDetail);
+    const progressFn = vi.fn(async () => ({ stage: "transcribing" as const, pct: 0.42 }));
+    setup(deferredDetail, {
+      refreshFn: refreshFn as unknown as typeof refreshTrackedItem,
+      progressFn: progressFn as unknown as typeof getItemProgress,
+    });
+
+    // the queued line becomes a live stage + percent bar
+    expect(
+      await screen.findByText(/正在本地转写|Transcribing locally/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("42%")).toBeInTheDocument();
   });
 
   it("a pending item fetches + summarizes AUTOMATICALLY on open (2026-07-10)", async () => {
