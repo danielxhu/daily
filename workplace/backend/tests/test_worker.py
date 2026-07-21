@@ -78,7 +78,7 @@ def test_worker_processes_all_three_classes_in_priority_order(tmp_path: Path) ->
         return _fake_ingest(req)
 
     counts = work_once(conn, llm=_KeyedLLM(), ingest=_fake_ingest, transcribe_ingest=transcribe)
-    assert counts == {"summarized": 1, "fetched": 1, "transcribed": 1}
+    assert counts == {"summarized": 1, "fetched": 1, "transcribed": 1, "indexed": 0}
     enriched = {
         r["id"]
         for r in conn.execute(
@@ -134,7 +134,7 @@ def test_worker_skips_cleanly_while_a_poll_is_running(tmp_path: Path) -> None:
         )
     finally:
         _POLL_MUTEX.release()
-    assert counts == {"summarized": 0, "fetched": 0, "transcribed": 0}
+    assert counts == {"summarized": 0, "fetched": 0, "transcribed": 0, "indexed": 0}
     # nothing consumed the attempt budget — the next tick picks the items up
     counts = work_once(conn, llm=_KeyedLLM(), ingest=_fake_ingest, transcribe_ingest=_fake_ingest)
     assert counts["summarized"] == 1

@@ -63,6 +63,7 @@ from app.db.tracked_item_store import (
 from app.discuss import DiscussError, discuss_tracked_item, draft_item_note
 from app.ingestion.ingest import IngestFn
 from app.knowledge.answer import MAX_ANSWER_ITEMS, answer_from_hits
+from app.knowledge.semantic import get_semantic_index, resolve_hits
 from app.schemas.models import (
     Board,
     DailyDigest,
@@ -80,6 +81,7 @@ from app.schemas.models import (
     SourcePackEntry,
     SourceRequest,
     Subscription,
+    TrackedItemCard,
     TrackedItemDetail,
 )
 from app.source_pack import default_source_pack
@@ -268,6 +270,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 llm=get_llm_client(),
                 ingest=get_ingest_first(),  # articles: fast path, whisper deferred
                 transcribe_ingest=ingest_one,  # deferred audio/video: full path
+                semantic_index=get_semantic_index(),  # None = feature off
             )
         except Exception:  # noqa: BLE001 — a tick must never kill the scheduler
             pass
@@ -828,19 +831,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db: Annotated[sqlite3.Connection, Depends(get_db)],
         q: str,
     ) -> KnowledgeSearchResult:
-        # M16.2: search is deterministic SQLite keyword matching ONLY — no LLM and
-        # no embedding in the request path (the endpoint used to wait on a
-        # synchronous answer synthesis; that was the owner's "search is very slow").
-        # The signature enforces it: there is no llm/index dependency to call.
-        # facts stays [] (v0.13 dormant layer) and answer stays None (moved to the
-        # on-demand POST /knowledge/answer below).
+        # M16.2: no LLM in the request path (the synchronous answer synthesis was
+        # the owner's "search is very slow"; the answer moved to POST
+        # /knowledge/answer). 2026-07-21: keyword hits first, then semantic
+        # recall (one local query embedding, ~ms) merged in — this is what lets
+        # a Chinese query find an English-summarized item. facts stays [] (v0.13).
         if not q.strip():
             raise HTTPException(status_code=400, detail="query 'q' must be non-empty")
         saved = search_saved_notes(db, q)
-        # tracked items match by keyword in their own labeled list; since
-        # 2026-07-19 they also ground the on-demand answer below
         items = search_tracked_items(db, q)
+        saved, items = _merge_semantic_hits(db, q, saved, items)
         return KnowledgeSearchResult(saved=saved, items=items)
+
+    def _merge_semantic_hits(
+        db: sqlite3.Connection,
+        q: str,
+        saved: list[KnowledgeNote],
+        items: list[TrackedItemCard],
+    ) -> tuple[list[KnowledgeNote], list[TrackedItemCard]]:
+        # semantic recall (owner 2026-07-21): local Chroma + multilingual
+        # embeddings, feature-gated; keyword hits keep their rank, semantic-only
+        # hits are appended. Any index failure = keyword results unchanged.
+        index = get_semantic_index()
+        if index is None:
+            return saved, items
+        sem_notes, sem_items = resolve_hits(db, index.search(q))
+        seen_notes = {n.id for n in saved}
+        seen_items = {i.id for i in items}
+        saved = saved + [n for n in sem_notes if n.id not in seen_notes]
+        items = items + [i for i in sem_items if i.id not in seen_items]
+        return saved, items
 
     @app.post(
         "/knowledge/answer",
@@ -865,6 +885,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
         saved = search_saved_notes(db, q)
         items = search_tracked_items(db, q)
+        # the answer grounds on the same recall as the search surface (2026-07-21)
+        saved, items = _merge_semantic_hits(db, q, saved, items)
         if not saved and not items:
             return KnowledgeAnswer(answer=None, based_on=0)
         answer = answer_from_hits(q, saved, items, llm=llm)

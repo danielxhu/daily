@@ -33,6 +33,10 @@ dev = [
 # (NFR-3). Install with `pip install -e ".[ml]"` to transcribe for real.
 ml = [
     "faster-whisper>=1.0",
+    # semantic knowledge recall (owner 2026-07-21): local embeddings + local
+    # vector store — lazy-imported, offline tests inject fakes (NFR-3)
+    "chromadb>=0.5",
+    "sentence-transformers>=3.0",
 ]
 youtube = [
     "yt-dlp>=2024.1",
@@ -81,6 +85,8 @@ module = [
     "apscheduler.*",
     "transformers.*",
     "qwen_vl_utils.*",
+    "chromadb.*",
+    "sentence_transformers.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

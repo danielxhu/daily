@@ -8,6 +8,13 @@ the source says. The product surface is **tracking + knowledge** (Today / Source
 Knowledge): no scores or verdicts anywhere — daily tells you what's new and where
 it came from, and answers only from what it has stored.
 
+Knowledge search runs two channels: deterministic keyword matching, plus a
+**local semantic recall layer** — multilingual sentence-transformers embeddings
+in a persistent **Chroma** collection, maintained incrementally by the
+background worker — so a Chinese query finds an English-summarized item and
+vice versa. Local-first like everything else (no external vector service); if
+the index is unavailable, search degrades to keyword-only.
+
 ## Layout
 
 ```

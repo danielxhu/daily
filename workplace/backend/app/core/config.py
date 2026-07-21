@@ -280,6 +280,13 @@ class Settings(BaseSettings):
     # ctranslate2 intra-op threads — pin to the performance-core count (owner
     # 2026-07-20: long-video transcription was leaving cores idle)
     whisper_cpu_threads: int = 4
+    # Semantic recall over the knowledge base (owner 2026-07-21): local
+    # sentence-transformers embeddings + a persistent local Chroma collection.
+    # OFF by default — fresh installs and the offline suite never download an
+    # embedding model; the local runtime opts in via ENABLE_SEMANTIC_SEARCH.
+    enable_semantic_search: bool = False
+    semantic_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
+    chroma_knowledge_path: str = "data/chroma_knowledge"
 
     # --- Coverage toggles (best-effort, degradable) ---
     enable_pdf_text: bool = True  # text-layer PDF extraction (M1B.3)

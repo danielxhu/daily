@@ -32,6 +32,7 @@ from app.db.subscription_store import purge_orphaned_items
 from app.db.tracked_item_store import set_item_enrichment
 from app.ingestion.domains import normalize_domain
 from app.ingestion.ingest import IngestFn
+from app.knowledge.semantic import SemanticIndex
 from app.tracking.refresh import RefreshError, RefreshFailedError, refresh_item
 from app.tracking.runtime import _POLL_MUTEX
 from app.tracking.summarize import enrich_fetched_item
@@ -63,11 +64,12 @@ def work_once(
     llm: LLMClient,
     ingest: IngestFn,
     transcribe_ingest: IngestFn,
+    semantic_index: SemanticIndex | None = None,
 ) -> dict[str, int]:
     """One bounded pass over the pending backlog; returns per-class counts.
     Safe to call every few seconds — every wave holds the poll mutex and skips
     outright when a poll / manual refresh is running."""
-    counts = {"summarized": 0, "fetched": 0, "transcribed": 0}
+    counts = {"summarized": 0, "fetched": 0, "transcribed": 0, "indexed": 0}
 
     # self-heal every tick (owner 2026-07-13): items of a deleted source must
     # disappear within seconds, whatever code path did the deleting
@@ -135,6 +137,11 @@ def work_once(
         llm=llm,
         ingest=transcribe_ingest,
     )
+
+    # -- class 4: semantic index upkeep (owner 2026-07-21) — a few entries per
+    # tick until every enriched item + saved note is embedded; fails soft ------
+    if semantic_index is not None:
+        counts["indexed"] = semantic_index.index_pending(conn)
     return counts
 
 
