@@ -22,11 +22,28 @@ fi
 export NEXT_TELEMETRY_DISABLED=1
 
 # self-heal: clear stale daily processes (orphans keep polling the same SQLite
-# DB and hold the poll mutex — stuck refreshes and 409s)
+# DB and hold the poll mutex — stuck refreshes and 409s). SIGTERM alone is NOT
+# enough: a uvicorn mid-transcription waits on its whisper thread for minutes
+# and five half-dead multi-GB servers once piled up (owner 2026-07-21 "为什么
+# 你占用进程这么多") — so wait briefly, then force-kill whatever still holds
+# the ports, and never start until both ports are actually free.
 pkill -f "uvicorn app.main:app" 2>/dev/null
 pkill -f "next dev" 2>/dev/null
 pkill -f "next start" 2>/dev/null
-sleep 1
+for _ in 1 2 3 4 5; do
+  [ -z "$(lsof -ti :8000 -ti :3000 2>/dev/null)" ] && break
+  sleep 1
+done
+STALE="$(lsof -ti :8000 -ti :3000 2>/dev/null)"
+if [ -n "$STALE" ]; then
+  echo "force-killing stale daily processes still on :8000/:3000…"
+  echo "$STALE" | xargs kill -9 2>/dev/null
+  sleep 1
+fi
+if [ -n "$(lsof -ti :8000 -ti :3000 2>/dev/null)" ]; then
+  echo "ports 8000/3000 still occupied by a process this script may not kill — aborting" >&2
+  exit 2
+fi
 
 echo "building the frontend (production, ~30-60s once)…"
 (cd "$FRONTEND" && npm run build) || exit 1
