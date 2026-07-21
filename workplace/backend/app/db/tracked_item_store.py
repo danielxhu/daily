@@ -186,8 +186,10 @@ def recent_tracked_items(
     return cards
 
 
-# a discussion/re-enrich grounding needs the lede and body, not unbounded pages
-_CONTENT_EXCERPT_CAP = 20_000
+# a discussion/re-enrich grounding needs the lede and body, not unbounded pages.
+# 40k (owner 2026-07-21): keeps enough of an hours-long transcript that the
+# long-tier summary (30k window) can regenerate from storage, not just the lede
+_CONTENT_EXCERPT_CAP = 40_000
 
 
 def set_item_enrichment(

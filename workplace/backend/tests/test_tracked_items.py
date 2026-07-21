@@ -332,8 +332,21 @@ def test_enrich_prompt_is_source_attributed_and_validated() -> None:
     assert "never give investment advice" in call["system"].lower() or (
         "investment advice" in call["system"]
     )
-    assert "THREE paragraphs" in call["system"]  # owner 2026-07-17: 三段左右
+    # owner 2026-07-21: the paragraph plan follows the content length — this
+    # short sentence gets the tight plan, not a padded three-parter
+    assert "1-2 tight paragraphs" in call["system"]
     assert "Fed holds rates" in call["user"] and "reuters.com" in call["user"]
+
+    # medium tier (a typical article): the 2026-07-17 three-paragraph plan
+    med = MockLLMClient([_enrichment_json()])
+    assert enrich_fetched_item("m" * 5_000, title=None, domain=None, llm=med) is not None
+    assert "THREE paragraphs" in med.calls[0]["system"]
+
+    # long tier (an hours-long transcript): more paragraphs AND a wider excerpt
+    long_llm = MockLLMClient([_enrichment_json()])
+    assert enrich_fetched_item("y" * 40_000, title=None, domain=None, llm=long_llm) is not None
+    assert "4-6 paragraphs" in long_llm.calls[0]["system"]
+    assert long_llm.calls[0]["user"].count("y") == 30_000  # not just the 10k lede
 
     # a missing/blank/oversized summary in EITHER language sinks the enrichment
     bad = dict(_enrichment_json())
@@ -343,7 +356,7 @@ def test_enrich_prompt_is_source_attributed_and_validated() -> None:
     bad2["summary_zh"] = "  "
     assert enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([bad2])) is None
     bad3 = dict(_enrichment_json())
-    bad3["summary_en"] = "x" * 4000
+    bad3["summary_en"] = "x" * 9000  # beyond the runaway-output guard
     assert enrich_fetched_item("x", title=None, domain=None, llm=MockLLMClient([bad3])) is None
     # … but a broken optional field only drops that field
     partial = dict(_enrichment_json())

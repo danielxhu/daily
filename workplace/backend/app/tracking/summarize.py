@@ -41,7 +41,7 @@ _SUMMARIZE_SYSTEM = (
 )
 
 
-_ITEM_ENRICH_SYSTEM = (
+_ITEM_ENRICH_BASE = (
     "You brief ONE source item a tracking tool just fetched (a news article, "
     "transcript, or page text; topics span politics, economics, and technology). "
     "Ground EVERYTHING only in the given content excerpt, title, and source "
@@ -49,24 +49,63 @@ _ITEM_ENRICH_SYSTEM = (
     "content is NOT verified: describe what the source SAYS (attribute claims to "
     "it), never assert truth yourself, never judge credibility, never give "
     "investment advice. Neutral, plain language, no hype. Produce BOTH languages "
-    "regardless of the source language. Each summary is THREE paragraphs "
-    "separated by blank lines (\\n\\n): ① the core event with the key "
-    "figures/dates and actors; ② the substantive detail — arguments, evidence, "
-    "positions, and numbers as the source gives them; ③ the background and next "
-    "steps the source mentions. Information-dense, no padding. Output JSON only: "
-    '{"summary_zh": "<三段中文综述,段落间以空行分隔,仍是来源口吻,不加外部知识>", '
-    '"summary_en": "<three paragraphs separated by blank lines, still attributed '
-    'to the source, no outside knowledge>", '
+    "regardless of the source language. "
+)
+
+_ITEM_ENRICH_JSON = (
+    " Information-dense, no padding. Output JSON only: "
+    '{"summary_zh": "<中文综述,按上述段落规划,段落间以空行分隔,仍是来源口吻,不加外部知识>", '
+    '"summary_en": "<the summary in English, same paragraph plan, blank lines '
+    'between paragraphs, still attributed to the source, no outside knowledge>", '
     '"title_zh": "<原标题的中文版:忠实翻译,原文已是中文则原样保留,不改写不美化>", '
     '"title_en": "<the title in English: faithful translation, keep as-is if already English>", '
     '"tags": ["<2-6 short lowercase topic tags>"]}'
 )
 
-# a briefing needs the lede, not the tail — and the prompt must stay flash-cheap
-# owner 2026-07-10 ('综述写多一点') then 2026-07-17 ('再长一点,三段左右'):
-# three real paragraphs need more source material and more output headroom
-_ITEM_EXCERPT_CHARS = 10000
-_MAX_SUMMARY = 3200
+# owner 2026-07-21 ("综述长度根据内容长度来"): the paragraph plan AND how much
+# source material the model sees both scale with the content. Three tiers keyed
+# on the full text length; each tuple = (excerpt chars fed to the LLM, plan).
+_ENRICH_TIERS: list[tuple[int, int, str]] = [
+    # short pieces: forcing three paragraphs onto a 500-word brief = padding
+    (
+        3_000,
+        10_000,
+        "Each summary is 1-2 tight paragraphs (blank line between two): the core "
+        "event with the key figures/dates and actors, then the substantive detail "
+        "and any background or next steps the source mentions.",
+    ),
+    # the typical article (owner 2026-07-17 '三段左右')
+    (
+        15_000,
+        10_000,
+        "Each summary is THREE paragraphs separated by blank lines (\\n\\n): "
+        "① the core event with the key figures/dates and actors; ② the "
+        "substantive detail — arguments, evidence, positions, and numbers as the "
+        "source gives them; ③ the background and next steps the source mentions.",
+    ),
+    # hours-long transcripts / long reports: cover the whole arc, not the lede
+    (
+        2**63,
+        30_000,
+        "The material is LONG (an hours-long talk, stream, or report). Each "
+        "summary is 4-6 paragraphs separated by blank lines, organized by theme "
+        "in the source's order: open with the core message, then walk the major "
+        "sections/arguments with their figures and positions as the source gives "
+        "them, and close with the background and next steps it mentions. Cover "
+        "the WHOLE excerpt — the later parts matter as much as the start.",
+    ),
+]
+
+# sanity guard against runaway output, not a style control (style = the plan)
+_MAX_SUMMARY = 8000
+
+
+def _enrich_plan(text_len: int) -> tuple[int, str]:
+    """(excerpt chars to feed, paragraph plan) for this content length."""
+    for cutoff, excerpt_chars, plan in _ENRICH_TIERS:
+        if text_len <= cutoff:
+            return excerpt_chars, plan
+    raise AssertionError("unreachable — the last tier cutoff is unbounded")
 
 
 def _opt_str(value: object, cap: int) -> str | None:
@@ -107,15 +146,21 @@ def enrich_fetched_item(
     replaces. None on any failure or unusable summaries (both languages are the
     contract; optional fields degrade individually); the caller persists nothing
     on None — the UI shows an honest pending state, never a fabricated line."""
-    excerpt = text.strip()[:_ITEM_EXCERPT_CHARS]
-    if not excerpt:
+    stripped = text.strip()
+    if not stripped:
         return None
+    # summary length follows content length (owner 2026-07-21): a 2h transcript
+    # gets a wider excerpt AND a longer paragraph plan than a short article
+    excerpt_chars, plan = _enrich_plan(len(stripped))
+    excerpt = stripped[:excerpt_chars]
     user = (
         f"Title: {title or 'unknown'}\nSource domain: {domain or 'unknown'}\n"
         f"Content excerpt:\n{excerpt}"
     )
     try:
-        data = llm.complete_json(system=_ITEM_ENRICH_SYSTEM, user=user, escalate=False)
+        data = llm.complete_json(
+            system=_ITEM_ENRICH_BASE + plan + _ITEM_ENRICH_JSON, user=user, escalate=False
+        )
     except Exception as exc:
         # degrade to None (poll path), but let a manual caller see WHY — e.g. an
         # API-balance error must reach the user, not hide behind "failed"
