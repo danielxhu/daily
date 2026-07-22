@@ -33,6 +33,7 @@ from app.db.tracked_item_store import set_item_enrichment
 from app.ingestion.domains import normalize_domain
 from app.ingestion.ingest import IngestFn
 from app.knowledge.semantic import SemanticIndex
+from app.tracking.domain_backoff import blocked_until
 from app.tracking.refresh import RefreshError, RefreshFailedError, refresh_item
 from app.tracking.runtime import _POLL_MUTEX
 from app.tracking.summarize import enrich_fetched_item
@@ -42,11 +43,14 @@ _FETCH_BATCH = 2
 _TRANSCRIBE_BATCH = 1
 
 # per-app-run attempt bookkeeping — never hammer a blocked site tick after tick,
-# but retry a few times with a cooldown (temporary blocks lift on their own)
+# but retry a few times with a cooldown (temporary blocks lift on their own).
+# The cooldown ESCALATES (2026-07-21 audit: a fixed 10-minute clock burned the
+# whole budget inside one hour-scale bilibili risk-control window — four shots
+# at the same locked door): 10 min, then 1 h, then 6 h between attempts.
 _fetch_attempts: dict[str, int] = {}
 _fetch_next_try: dict[str, float] = {}
 _FETCH_MAX_TRIES = 4
-_RETRY_COOLDOWN_SECONDS = 600.0
+_RETRY_COOLDOWNS: tuple[float, ...] = (600.0, 3600.0, 21600.0)
 _summary_failures: dict[str, int] = {}
 _SUMMARY_MAX_TRIES = 2
 
@@ -118,7 +122,7 @@ def work_once(
     # -- class 2: no stored text yet — re-fetch + summarize (one attempt/run) --
     counts["fetched"] = _refresh_batch(
         conn,
-        "SELECT id FROM tracked_items"
+        "SELECT id, url FROM tracked_items"
         " WHERE content_excerpt IS NULL AND enrichment IS NULL AND url IS NOT NULL"
         " AND status IN ('new', 'fetched', 'failed')"
         " ORDER BY first_seen DESC",
@@ -130,7 +134,7 @@ def work_once(
     # -- class 3: deferred audio/video — transcribe, ONE per tick --------------
     counts["transcribed"] = _refresh_batch(
         conn,
-        "SELECT id FROM tracked_items"
+        "SELECT id, url FROM tracked_items"
         " WHERE status = 'deferred' AND enrichment IS NULL AND url IS NOT NULL"
         " ORDER BY first_seen DESC",
         limit=_TRANSCRIBE_BATCH,
@@ -165,12 +169,18 @@ def _refresh_batch(
         if done >= limit:
             break
         item_id = str(row["id"])
-        if _fetch_attempts.get(item_id, 0) >= _FETCH_MAX_TRIES:
+        # domain frozen by risk control → not this item's fault: skip WITHOUT
+        # consuming an attempt; the item wakes up when the domain thaws
+        if blocked_until(conn, normalize_domain(row["url"])) is not None:
+            continue
+        attempts = _fetch_attempts.get(item_id, 0)
+        if attempts >= _FETCH_MAX_TRIES:
             continue
         if now < _fetch_next_try.get(item_id, 0.0):
             continue
-        _fetch_attempts[item_id] = _fetch_attempts.get(item_id, 0) + 1
-        _fetch_next_try[item_id] = now + _RETRY_COOLDOWN_SECONDS
+        _fetch_attempts[item_id] = attempts + 1
+        cooldown = _RETRY_COOLDOWNS[min(attempts, len(_RETRY_COOLDOWNS) - 1)]
+        _fetch_next_try[item_id] = now + cooldown
         try:
             refresh_item(conn, item_id, llm=llm, ingest=ingest)
             done += 1

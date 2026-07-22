@@ -17,6 +17,7 @@ Section references in comments point there.
 from __future__ import annotations
 
 import functools
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -277,6 +278,12 @@ class Settings(BaseSettings):
     # --- Local models (free; NFR-2) ---
     whisper_model_size: str = "medium"  # multilingual, NOT the .en variant
     whisper_compute_type: str = "int8"
+    # transcription backend (owner 2026-07-22): "auto" picks the Apple-GPU mlx
+    # path when mlx-whisper is importable (Apple Silicon), else the portable
+    # CPU faster-whisper path — a Linux server deploys with zero changes.
+    whisper_backend: Literal["auto", "mlx", "faster"] = "auto"
+    # an HF repo id, or a local directory with config.json + weights
+    whisper_mlx_model: str = "mlx-community/whisper-large-v3-turbo"
     # ctranslate2 intra-op threads — pin to the performance-core count (owner
     # 2026-07-20: long-video transcription was leaving cores idle)
     whisper_cpu_threads: int = 4

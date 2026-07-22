@@ -40,6 +40,7 @@ from app.db.tracked_item_store import (
 from app.ingestion.domains import normalize_domain
 from app.ingestion.ingest import IngestFn
 from app.schemas.models import SourceRequest, TrackedItemCard
+from app.tracking.domain_backoff import is_risk_control, record_risk_control, record_success
 from app.tracking.runtime import _POLL_MUTEX, PollInProgressError
 from app.tracking.summarize import enrich_fetched_item
 
@@ -107,6 +108,9 @@ def refresh_item(
             set_status_by_url(
                 conn, subscription_id=sub_id, item_key=item_key, status="fetched", now=now
             )
+            # a success proves the domain is open again — lift any freeze
+            # (keyed by the item URL's domain — the same key the failure path uses)
+            record_success(conn, normalize_domain(url))
     elif row["content_excerpt"]:
         # owner 2026-07-10: a poll stored this item's text but its summary was
         # never generated (LLM outage), and the site now blocks re-fetching —
@@ -133,6 +137,13 @@ def refresh_item(
         return card
     else:
         kind = result.failure.kind if result.failure else "timeout"
+        reason = result.failure.reason if result.failure else ""
+        # platform risk control (bilibili 412, HTTP 429…) is domain-wide and
+        # hour-scale — freeze the whole domain for the background paths so
+        # retries stop deepening the block (2026-07-21 audit)
+        if is_risk_control(reason, kind=kind):
+            with _locked_writes():
+                record_risk_control(conn, normalize_domain(url), reason)
         # the existing row is untouched — a failed RETRY must not downgrade
         # what the user already has (status, old excerpt, old enrichment)
         raise RefreshFailedError(f"fetch failed ({kind}) — try again later")

@@ -78,9 +78,10 @@ def test_parse_rss1_rdf_feed() -> None:
     assert first.published == datetime.fromisoformat("2026-06-09T08:00:00+00:00")
 
 
-def test_malformed_xml_raises() -> None:
+def test_non_xml_garbage_raises() -> None:
+    # beyond even loose recovery: not XML, not a feed — the STRICT error surfaces
     with pytest.raises(FeedParseError):
-        parse_feed(b"<rss><channel><item><title>oops")
+        parse_feed(b"total garbage \x00\x01 not xml")
 
 
 def test_non_feed_xml_raises() -> None:
@@ -102,3 +103,46 @@ def test_dtd_bearing_feed_is_refused() -> None:
 def test_accepts_str_input() -> None:
     items = parse_feed(_rss().decode("utf-8"))
     assert isinstance(items[0], FeedItem) and len(items) == 3
+
+
+# --- loose recovery tier (2026-07-21 audit: 36/127 production failures were
+# real feeds the strict tier refused) ---------------------------------------
+
+
+def test_benign_doctype_feed_recovers_via_loose_tier() -> None:
+    # the production shape: a DOCTYPE with a PUBLIC identifier and NO entity
+    # definitions — strict refuses (DTD), loose recovers the entries
+    feed = (
+        b'<?xml version="1.0"?><!DOCTYPE rss PUBLIC "-//Netscape//DTD RSS 0.91//EN" '
+        b'"http://my.netscape.com/publish/formats/rss-0.91.dtd">'
+        b'<rss version="0.91"><channel><title>t</title>'
+        b"<item><title>hello</title><link>https://e.com/1</link></item></channel></rss>"
+    )
+    items = parse_feed(feed)
+    assert len(items) == 1
+    assert items[0].title == "hello" and items[0].url == "https://e.com/1"
+
+
+def test_unclosed_cdata_feed_recovers_via_loose_tier() -> None:
+    # 7 production polls died on "unclosed CDATA section" — loose recovers the
+    # items that were complete before the truncation point
+    feed = (
+        b"<rss><channel><item><title>ok item</title><link>https://e.com/2</link>"
+        b"<description><![CDATA[ broken"
+    )
+    items = parse_feed(feed)
+    assert any(i.title == "ok item" for i in items)
+
+
+def test_entity_defining_dtd_never_recovers() -> None:
+    # feedparser WOULD expand internal-subset entities (measured 2026-07-21) —
+    # a prolog that DEFINES entities is refused by BOTH tiers, whatever else
+    # the document contains
+    deep = (
+        b'<?xml version="1.0"?><!DOCTYPE rss [<!ENTITY a "aaaaaaaaaa">'
+        b'<!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">]>'
+        b"<rss><channel><item><title>&b;</title>"
+        b"<link>https://e.com/3</link></item></channel></rss>"
+    )
+    with pytest.raises(FeedParseError):
+        parse_feed(deep)

@@ -19,6 +19,10 @@ dependencies = [
     # recommended local run must start cleanly. Lightweight, pure-Python, no network;
     # the wrapper still lazy-imports it and tests inject a fake backend (NFR-3).
     "apscheduler>=3.10,<4",
+    # Loose-recovery tier for dirty real-world feeds (2026-07-21 audit: DOCTYPE
+    # prologs / unclosed CDATA broke 36 polls). Pure-Python, parses bytes locally
+    # (no network), never loads external DTDs or expands entities.
+    "feedparser>=6.0.11",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +50,13 @@ youtube = [
 # Install with `pip install -e ".[render]" && playwright install chromium`.
 render = [
     "playwright>=1.40",
+]
+# Apple-Silicon GPU transcription (owner 2026-07-22): mlx-whisper runs
+# large-v3-turbo on Metal — measured 5.7x realtime vs 2.3x on the CPU path.
+# arm64-macOS only; get_transcriber() auto-falls back to faster-whisper
+# elsewhere, so a Linux server installs ".[ml]" and skips this extra.
+mlx = [
+    "mlx-whisper>=0.4",
 ]
 [build-system]
 requires = ["setuptools>=68"]
@@ -87,6 +98,8 @@ module = [
     "qwen_vl_utils.*",
     "chromadb.*",
     "sentence_transformers.*",
+    "feedparser.*",
+    "mlx_whisper.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

@@ -6,15 +6,25 @@ scheduler fetches (M7.7), and the dedup key + SeenItem set membership are M7.6.
 Best-effort — malformed or non-feed XML raises `FeedParseError`; an item missing a
 field keeps it as None rather than failing the whole feed.
 
-Safe XML: a DTD declaration is rejected before parsing, so stdlib ElementTree's
-expat never expands custom entities (the XXE / billion-laughs vectors on a hostile
-feed), and no external resource is ever resolved.
+Two-tier parsing (2026-07-21 audit: 36 of 127 production failures were REAL
+feeds the strict tier refused — 28 DTD declarations, 7 unclosed CDATA):
+1. strict — stdlib ElementTree with the DTD refused before parsing, so expat
+   never expands custom entities (XXE / billion-laughs) and no external
+   resource is ever resolved. Well-formed feeds never leave this tier.
+2. loose — `feedparser` recovery for the dirty real world (benign DOCTYPE
+   prologs, unclosed CDATA, stray control chars). Measured 2026-07-21:
+   feedparser DOES expand internal-subset entities, so any prolog that
+   DEFINES entities (`<!ENTITY` — the billion-laughs vector) is refused even
+   here; real feeds' DOCTYPEs (PUBLIC identifiers) define none. If even loose
+   parsing finds no entries (an HTML page is not a feed), the STRICT tier's
+   error is raised — it names the actual problem.
 """
 
 from __future__ import annotations
 
+import time as _time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
 
@@ -119,9 +129,19 @@ def parse_feed(content: bytes | str) -> list[FeedItem]:
     """Parse a direct RSS/Atom feed into items, in the feed's own order (typically
     newest-first). Raises FeedParseError on malformed or non-feed content."""
     raw = content.encode("utf-8") if isinstance(content, str) else content
+    try:
+        return _parse_strict(raw)
+    except FeedParseError as strict_error:
+        loose = _parse_loose(raw)
+        if loose is not None:
+            return loose
+        raise strict_error
+
+
+def _parse_strict(raw: bytes) -> list[FeedItem]:
     # safe XML: a DTD is where custom entities live (XXE / entity-expansion); refuse
-    # it outright. Real feeds never declare one. (Scan the prolog — DTDs precede the
-    # root element.)
+    # it here — the loose tier recovers legitimate DOCTYPE-carrying feeds without
+    # ever expanding entities. (Scan the prolog — DTDs precede the root element.)
     if b"<!doctype" in raw[:8192].lower():
         raise FeedParseError("feed declares a DTD; refusing to parse (safe-XML)")
     try:
@@ -137,3 +157,37 @@ def parse_feed(content: bytes | str) -> list[FeedItem]:
     if kind == "feed":  # Atom
         return [_atom_entry(e) for e in root.iter() if _local(e.tag).lower() == "entry"]
     raise FeedParseError(f"not an RSS/Atom feed (root <{root_local}>)")
+
+
+def _parse_loose(raw: bytes) -> list[FeedItem] | None:
+    """Recovery tier: parse a dirty-but-real feed with feedparser. Returns None
+    when the content must not or cannot be recovered — entity definitions in
+    the prolog (feedparser WOULD expand them; measured 2026-07-21), or no
+    entries found (an HTML page, an error body) — and the strict error
+    surfaces instead."""
+    if b"<!entity" in raw[:8192].lower():
+        return None  # entity definitions = expansion bombs live here; never recover
+
+    import feedparser  # lazy: only dirty feeds pay the import
+
+    parsed = feedparser.parse(raw)  # bytes in → local parse only, no network
+    if not parsed.entries:
+        return None
+    return [
+        FeedItem(
+            guid=entry.get("id"),
+            url=entry.get("link"),
+            title=entry.get("title"),
+            summary=entry.get("summary"),
+            published=_struct_time_to_datetime(
+                entry.get("published_parsed") or entry.get("updated_parsed")
+            ),
+        )
+        for entry in parsed.entries
+    ]
+
+
+def _struct_time_to_datetime(value: _time.struct_time | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime(*value[:6], tzinfo=UTC)  # feedparser normalizes to UTC

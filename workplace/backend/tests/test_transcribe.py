@@ -67,3 +67,80 @@ def test_transcribe_uses_injected_model_without_loading_faster_whisper() -> None
 
 def test_importing_module_does_not_import_faster_whisper() -> None:
     assert "faster_whisper" not in sys.modules
+
+
+# --- MLX (Apple-GPU) adapter (owner 2026-07-22) -------------------------------
+
+
+def _fake_decode(_path: str):  # type: ignore[no-untyped-def]
+    import numpy as np
+
+    return np.zeros(16000 * 20, dtype=np.float32)  # "20 seconds of audio"
+
+
+def _fake_vad(audio):  # type: ignore[no-untyped-def]
+    # two speech regions; the silence between them must be cut before the model
+    return [{"start": 0, "end": 16000 * 5}, {"start": 16000 * 15, "end": len(audio)}]
+
+
+def _fake_mlx(chunk, **_: object):  # type: ignore[no-untyped-def]
+    return {
+        "language": "zh",
+        "segments": [
+            {"start": 0.0, "end": 2.0, "text": " 来源说了一件事。"},
+            {"start": 2.0, "end": 4.0, "text": ""},  # blank → dropped
+        ],
+    }
+
+
+def test_mlx_adapter_vad_filters_then_maps_segments() -> None:
+    from app.ingestion import progress
+    from app.ingestion.transcribe import MlxWhisperTranscriber
+
+    t = MlxWhisperTranscriber(
+        model="unused", transcribe_fn=_fake_mlx, decode_fn=_fake_decode, vad_fn=_fake_vad
+    )
+    progress.begin("https://v.example/x")
+    try:
+        result = t.transcribe("/tmp/a.m4a")
+        # 10s of speech (5+5) in one chunk → one fake call's worth of segments
+        assert [s.text for s in result.segments] == ["来源说了一件事。"]
+        assert result.language == "zh"
+        assert isinstance(t, Transcriber)
+        # chunk-level progress reached 100% of the speech-only audio
+        snap = progress.snapshot("https://v.example/x")
+        assert snap == ("transcribing", 1.0)
+    finally:
+        progress.finish()
+
+
+def test_mlx_adapter_no_speech_returns_empty() -> None:
+    from app.ingestion.transcribe import MlxWhisperTranscriber
+
+    t = MlxWhisperTranscriber(
+        model="unused", transcribe_fn=_fake_mlx, decode_fn=_fake_decode, vad_fn=lambda _a: []
+    )
+    result = t.transcribe("/tmp/a.m4a")
+    assert result.segments == [] and result.language is None
+
+
+def test_backend_selection_is_config_driven(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.core.config import Settings
+    from app.ingestion import transcribe as mod
+
+    monkeypatch.setattr(
+        mod, "get_settings", lambda: Settings.model_construct(whisper_backend="faster")
+    )
+    assert isinstance(mod.get_transcriber(), mod.FasterWhisperTranscriber)
+    monkeypatch.setattr(
+        mod, "get_settings", lambda: Settings.model_construct(whisper_backend="mlx")
+    )
+    assert isinstance(mod.get_transcriber(), mod.MlxWhisperTranscriber)
+    # auto: probe decides — force the probe both ways
+    monkeypatch.setattr(
+        mod, "get_settings", lambda: Settings.model_construct(whisper_backend="auto")
+    )
+    monkeypatch.setattr(mod, "_mlx_available", lambda: True)
+    assert isinstance(mod.get_transcriber(), mod.MlxWhisperTranscriber)
+    monkeypatch.setattr(mod, "_mlx_available", lambda: False)
+    assert isinstance(mod.get_transcriber(), mod.FasterWhisperTranscriber)

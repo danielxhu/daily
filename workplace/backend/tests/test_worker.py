@@ -89,37 +89,82 @@ def test_worker_processes_all_three_classes_in_priority_order(tmp_path: Path) ->
     assert transcribed == ["https://pod.example/ep"]  # only the deferred item
 
 
-def test_worker_retries_a_blocked_site_with_a_cooldown_not_every_tick(
+def test_worker_retries_a_failing_site_with_a_cooldown_not_every_tick(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # 2026-07-19: temporary blocks (bilibili 412) lift on their own — a bounded
-    # retry budget with a cooldown replaces one-attempt-per-process, and ticks
-    # inside the cooldown never touch the site.
+    # 2026-07-19: temporary failures lift on their own — a bounded retry budget
+    # with an escalating cooldown replaces one-attempt-per-process, and ticks
+    # inside the cooldown never touch the site. (A non-risk-control failure:
+    # risk control now freezes the whole DOMAIN — tested separately below.)
     _reset_worker_state()
     conn = init_db(str(tmp_path / "daily.db"))
-    _seed(conn, "https://blocked.example/a")
+    _seed(conn, "https://flaky.example/a")
 
     calls = {"n": 0}
 
-    def blocked(req: SourceRequest) -> IngestionResult:
+    def flaky(req: SourceRequest) -> IngestionResult:
         calls["n"] += 1
-        return failed_from(req, "anti_bot", reason="blocked", requested_url=req.url)
+        return failed_from(req, "parse_empty", reason="no main text", requested_url=req.url)
 
     for _ in range(3):  # three ticks inside the cooldown window → one attempt
-        work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
+        work_once(conn, llm=_KeyedLLM(), ingest=flaky, transcribe_ingest=flaky)
     assert calls["n"] == 1
     # cooldown elapsed (simulated: drop the scheduled next-try timestamps) →
     # the next ticks retry, up to the bounded budget
-    monkeypatch.setattr(worker, "_RETRY_COOLDOWN_SECONDS", 0.0)
+    monkeypatch.setattr(worker, "_RETRY_COOLDOWNS", (0.0,))
     worker._fetch_next_try.clear()
     for _ in range(10):
-        work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
+        work_once(conn, llm=_KeyedLLM(), ingest=flaky, transcribe_ingest=flaky)
     assert calls["n"] == worker._FETCH_MAX_TRIES  # budget spent, then it rests
     # a manual refresh resets the budget — the user explicitly asked
     row = conn.execute("SELECT id FROM tracked_items").fetchone()
     worker.reset_attempts(str(row["id"]))
-    work_once(conn, llm=_KeyedLLM(), ingest=blocked, transcribe_ingest=blocked)
+    work_once(conn, llm=_KeyedLLM(), ingest=flaky, transcribe_ingest=flaky)
     assert calls["n"] == worker._FETCH_MAX_TRIES + 1
+
+
+def test_risk_control_failure_freezes_the_whole_domain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 2026-07-21 audit: bilibili 412 is domain-wide and hour-scale. ONE such
+    # failure must stop every background request to that domain — including
+    # OTHER items — while an unrelated domain keeps processing.
+    _reset_worker_state()
+    conn = init_db(str(tmp_path / "daily.db"))
+    _seed(conn, "https://hostile.example/video1")
+    _seed(conn, "https://hostile.example/video2", sub="sub2")
+    ok_item = _seed(conn, "https://calm.example/post", sub="sub3")
+
+    calls: dict[str, int] = {}
+
+    def ingest(req: SourceRequest) -> IngestionResult:
+        calls[req.url or "?"] = calls.get(req.url or "?", 0) + 1
+        if "hostile.example" in (req.url or ""):
+            return failed_from(
+                req,
+                "fetch_blocked",
+                reason="Request is blocked by server (412), please wait",
+                requested_url=req.url,
+            )
+        return _fake_ingest(req)
+
+    monkeypatch.setattr(worker, "_RETRY_COOLDOWNS", (0.0,))
+    for _ in range(6):
+        work_once(conn, llm=_KeyedLLM(), ingest=ingest, transcribe_ingest=ingest)
+
+    # exactly ONE knock on the frozen domain — the second item never even tried
+    assert sum(n for url, n in calls.items() if "hostile.example" in url) == 1
+    assert (
+        conn.execute(
+            "SELECT consecutive FROM domain_backoff WHERE domain = 'hostile.example'"
+        ).fetchone()
+        is not None
+    )
+    # the unrelated domain was unaffected
+    enriched = conn.execute(
+        "SELECT enrichment FROM tracked_items WHERE id = ?", (ok_item,)
+    ).fetchone()
+    assert enriched["enrichment"] is not None
 
 
 def test_worker_skips_cleanly_while_a_poll_is_running(tmp_path: Path) -> None:

@@ -25,9 +25,11 @@ from urllib.parse import quote, urlsplit
 import app.core.config as config
 from app.db.subscription_store import list_subscriptions
 from app.db.tracked_item_store import upsert_discovered
+from app.ingestion.domains import normalize_domain
 from app.ingestion.router import is_youtube
 from app.schemas.models import SourceRequest, Subscription
 from app.tracking.dedup import dedup_key, mark_items_seen, select_new_items
+from app.tracking.domain_backoff import blocked_until, is_risk_control, record_risk_control
 from app.tracking.feed import FeedItem, FeedParseError, parse_feed
 from app.tracking.homepage import extract_candidate_links
 
@@ -381,6 +383,17 @@ def poll_subscription(
     is marked seen and skipped FOR GOOD — old items are old news, and draining a
     20-item backlog through the pipeline blocks the first check for minutes. The
     skip is reported (`backlog_skipped`), never silent. Later polls are incremental."""
+    domain = normalize_domain(sub.input_url)
+    # domain frozen by risk control (2026-07-21 audit): polling it again only
+    # deepens the block — skip honestly, the freeze lifts on its own clock
+    if (until := blocked_until(conn, domain)) is not None:
+        return PollOutcome(
+            sub.id,
+            ok=False,
+            new_count=0,
+            dispatched=[],
+            error=f"domain under risk-control backoff until {until.isoformat(timespec='minutes')}",
+        )
     try:
         if (msg := _unsupported_platform(sub.input_url)) is not None:
             raise FeedParseError(msg)
@@ -446,6 +459,8 @@ def poll_subscription(
             dispatched_keys=dispatched_keys,
         )
     except Exception as exc:  # isolation: a broken source must not crash the run
+        if is_risk_control(str(exc)):
+            record_risk_control(conn, domain, str(exc))
         return PollOutcome(sub.id, ok=False, new_count=0, dispatched=[], error=str(exc), exc=exc)
 
 

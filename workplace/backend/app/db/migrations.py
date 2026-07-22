@@ -306,6 +306,23 @@ MIGRATIONS: dict[str, list[Migration]] = {
             "add_subscription_name",
             ("ALTER TABLE subscriptions ADD COLUMN name TEXT",),
         ),
+        # owner 2026-07-21 — per-domain risk-control circuit breaker (audit: bilibili
+        # 412 bans are HOUR-scale and IP-wide; per-item retries just deepened them).
+        # Persistent so a restart's fresh in-memory budgets never re-hammer a domain
+        # that banned us an hour ago. One row per blocked domain; success deletes.
+        Migration(
+            13,
+            "create_domain_backoff",
+            (
+                "CREATE TABLE domain_backoff ("
+                "  domain TEXT PRIMARY KEY,"
+                "  blocked_until TEXT NOT NULL,"
+                "  consecutive INTEGER NOT NULL DEFAULT 1,"
+                "  last_reason TEXT,"
+                "  updated_at TEXT NOT NULL"
+                ")",
+            ),
+        ),
     ],
     "events": [
         # Beta usage/feedback signals (X0.9, FR-17 / §8.2): local-only, no external

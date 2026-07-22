@@ -56,7 +56,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-(cd "$BACKEND" && ENABLE_TRACKING_SCHEDULER=true \
+# ENABLE_HTML_RENDER (owner 2026-07-21): the Playwright tier-3 fallback existed in
+# code but the [render] extra was never installed, so JS-heavy pages silently died
+# as parse_empty in production. Requires: .venv has `.[render]` + chromium
+# (uv pip install -e ".[render]" && .venv/bin/playwright install chromium).
+(cd "$BACKEND" && ENABLE_TRACKING_SCHEDULER=true ENABLE_HTML_RENDER=true \
   exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000) &
 pids+=($!)
 (cd "$FRONTEND" && exec npm run start) &
