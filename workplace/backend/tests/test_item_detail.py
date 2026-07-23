@@ -155,6 +155,64 @@ def test_refresh_never_transcribes_synchronously_it_defers_to_the_worker(
     assert row[0] == 1
 
 
+def test_refresh_settles_a_contentless_deferred_item_to_a_typed_failure(
+    tmp_path: Path,
+) -> None:
+    # owner 2026-07-23: an XHS 图文 note wedged as "deferred" forever — the
+    # worker's yt-dlp attempts failed permanently ("No video formats found")
+    # but the failure never reached the row, so the UI kept promising a
+    # transcription. A deferred item has no content to protect: settle it to a
+    # visible typed failure.
+    conn = init_db(str(tmp_path / "daily.db"))
+    item_id = _discover(conn, "https://www.xiaohongshu.com/explore/abc", title="图文")
+    conn.execute(
+        "UPDATE tracked_items SET status = 'deferred',"
+        " failure_kind = 'transcription_deferred' WHERE id = ?",
+        (item_id,),
+    )
+    conn.commit()
+
+    def _no_video_ingest(req: SourceRequest) -> IngestionResult:
+        return failed_from(
+            req, "fetch_blocked", reason="audio download failed: No video formats found!"
+        )
+
+    with pytest.raises(RefreshFailedError):
+        refresh_item(conn, item_id, llm=_KeyedLLM(), ingest=_no_video_ingest, now=NOW)
+    row = conn.execute(
+        "SELECT status, failure_kind, degraded_reason FROM tracked_items WHERE id = ?",
+        (item_id,),
+    ).fetchone()
+    assert row["status"] == "failed"
+    assert row["failure_kind"] == "fetch_blocked"
+    assert "No video formats" in row["degraded_reason"]
+
+
+def test_refresh_risk_control_failure_keeps_a_deferred_item_deferred(
+    tmp_path: Path,
+) -> None:
+    # a platform risk-control block is domain-wide and transient — the domain
+    # freezes (backoff) and the item stays deferred for the retry after the thaw
+    conn = init_db(str(tmp_path / "daily.db"))
+    item_id = _discover(conn, "https://www.bilibili.com/video/BV1demo", title="A video")
+    conn.execute(
+        "UPDATE tracked_items SET status = 'deferred',"
+        " failure_kind = 'transcription_deferred' WHERE id = ?",
+        (item_id,),
+    )
+    conn.commit()
+
+    def _risk_ingest(req: SourceRequest) -> IngestionResult:
+        return failed_from(req, "fetch_blocked", reason="HTTP Error 412: Precondition Failed")
+
+    with pytest.raises(RefreshFailedError):
+        refresh_item(conn, item_id, llm=_KeyedLLM(), ingest=_risk_ingest, now=NOW)
+    row = conn.execute("SELECT status FROM tracked_items WHERE id = ?", (item_id,)).fetchone()
+    assert row["status"] == "deferred"
+    frozen = conn.execute("SELECT domain FROM domain_backoff").fetchall()
+    assert [r["domain"] for r in frozen] == ["bilibili.com"]
+
+
 def test_refresh_enrichment_failure_keeps_the_excerpt(tmp_path: Path) -> None:
     class _Boom:
         def complete_json(self, **_: object) -> dict[str, object]:

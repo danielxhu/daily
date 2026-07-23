@@ -97,6 +97,19 @@ def is_bilibili_video(url: str) -> bool:
     )
 
 
+def is_xiaohongshu_note(url: str) -> bool:
+    """A single Xiaohongshu note URL (or an xhslink short link to one). Routed
+    with a page peek first (owner 2026-07-23): many notes are image/text posts
+    with NO video, where yt-dlp fails deterministically ("No video formats
+    found") while the note body sits in the page HTML."""
+    parts = urlsplit(url)
+    host = _strip_host_prefix(parts.netloc.lower()).removeprefix("www.").removeprefix("m.")
+    return host == "xhslink.com" or (
+        host == "xiaohongshu.com"
+        and (parts.path.startswith("/explore/") or parts.path.startswith("/discovery/item/"))
+    )
+
+
 def is_video_platform(url: str) -> bool:
     """Any single-video/note page whose content must come via yt-dlp rather than
     the webpage extractor (owner 2026-07-10: 主流平台兼容): YouTube, Bilibili,
@@ -108,12 +121,7 @@ def is_video_platform(url: str) -> bool:
     host = _strip_host_prefix(parts.netloc.lower()).removeprefix("www.").removeprefix("m.")
     if host == "v.douyin.com" or (host == "douyin.com" and parts.path.startswith("/video/")):
         return True
-    if host == "xhslink.com" or (
-        host == "xiaohongshu.com"
-        and (parts.path.startswith("/explore/") or parts.path.startswith("/discovery/item/"))
-    ):
-        return True
-    return False
+    return is_xiaohongshu_note(url)
 
 
 def _looks_like_audio(b: bytes) -> bool:

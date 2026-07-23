@@ -144,8 +144,25 @@ def refresh_item(
         if is_risk_control(reason, kind=kind):
             with _locked_writes():
                 record_risk_control(conn, normalize_domain(url), reason)
-        # the existing row is untouched — a failed RETRY must not downgrade
-        # what the user already has (status, old excerpt, old enrichment)
+        elif row["status"] == "deferred":
+            # owner 2026-07-23: a deferred item has no content to protect, and
+            # leaving it "deferred" keeps the UI promising a transcription that
+            # may never arrive (yt-dlp "No video formats found" is permanent).
+            # Settle it to a visible typed failure; a later successful retry
+            # upgrades it to fetched. Risk-control blocks stay deferred above —
+            # the domain thaws and the worker retries.
+            with _locked_writes():
+                set_status_by_url(
+                    conn,
+                    subscription_id=sub_id,
+                    item_key=item_key,
+                    status="failed",
+                    now=now,
+                    failure_kind=kind,
+                    degraded_reason=reason or None,
+                )
+        # otherwise the existing row is untouched — a failed RETRY must not
+        # downgrade what the user already has (status, old excerpt, old enrichment)
         raise RefreshFailedError(f"fetch failed ({kind}) — try again later")
     # slow phase 2: the LLM call — NO lock held
     llm_errors: list[str] = []

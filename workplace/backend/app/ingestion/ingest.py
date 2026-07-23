@@ -44,8 +44,9 @@ from app.ingestion.normalize import normalize_transcript
 from app.ingestion.pdf import PdfParseError, build_pdf_source, extract_pdf_text, is_pdf_bytes
 from app.ingestion.podcast import is_direct_audio_url, is_unsupported_podcast_page, resolve_audio
 from app.ingestion.result import failed_from, failed_result, ok_result
-from app.ingestion.router import is_video_platform, normalize_url
+from app.ingestion.router import is_video_platform, is_xiaohongshu_note, normalize_url
 from app.ingestion.text_source import ingest_text
+from app.ingestion.xiaohongshu import fetch_note
 from app.ingestion.youtube_audio import ingest_youtube
 from app.schemas.models import (
     ExtractionMethod,
@@ -103,6 +104,24 @@ def ingest_one(
     created_client = http_client is None
     client = http_client or build_client()
     try:
+        if is_xiaohongshu_note(url):
+            # Peek at the page before committing to yt-dlp (owner 2026-07-23):
+            # an image/text note has no video — yt-dlp fails deterministically —
+            # but its body is embedded in the page HTML. Video notes and any
+            # fetch/parse miss fall through to the yt-dlp path unchanged.
+            note = fetch_note(url, client=client)
+            if note is not None and not note.is_video:
+                text = "\n\n".join(part for part in (note.title, note.desc) if part)
+                if text:
+                    return ok_result(req, build_webpage_source(url, text, "structured_html"))
+                return failed_from(
+                    req,
+                    "parse_empty",
+                    reason="Xiaohongshu image note has no text body — its content "
+                    "is in the images (image reading not enabled yet).",
+                    requested_url=url,
+                    source_type="webpage",
+                )
         if is_video_platform(url):
             return _ingest_youtube(
                 req,
