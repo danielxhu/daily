@@ -1,8 +1,8 @@
 # daily
 
-个人金融信息追踪 + 知识库：把你自己选定的信息源（网页 / RSS / 播客 / YouTube）持续轮询接入，新内容自动摘要、归档、可搜索，并保留来源出处与诚实的处理状态。
+个人信息追踪 + 知识库：把你自己选定的信息源（网页 / RSS / 播客 / YouTube）持续轮询接入，新内容自动摘要、归档、可搜索，并保留来源出处与诚实的处理状态。
 
-Personal finance-information tracking + knowledge base: polls the sources *you* choose (web / RSS / podcast / YouTube), turns new items into summarized, searchable knowledge with provenance and honest typed statuses.
+Personal information tracking + knowledge base: polls the sources *you* choose (web / RSS / podcast / YouTube), turns new items into summarized, searchable knowledge with provenance and honest typed statuses.
 
 ## Repo layout
 
