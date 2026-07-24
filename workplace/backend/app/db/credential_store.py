@@ -1,4 +1,4 @@
-"""User-entered model API credentials (owner 2026-07-23, settings page).
+"""User-entered model API credentials (settings page).
 
 Two slots: "text" — an OpenAI-compatible endpoint that overrides the .env
 DeepSeek default when present — and "vision", reserved so a hosted

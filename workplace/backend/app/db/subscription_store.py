@@ -108,7 +108,7 @@ def create_subscription(
 def set_subscription_name(
     conn: sqlite3.Connection, subscription_id: str, name: str | None
 ) -> Subscription | None:
-    """Rename a source (owner 2026-07-19) — None/empty clears back to unnamed."""
+    """Rename a source — None/empty clears back to unnamed."""
     conn.execute("UPDATE subscriptions SET name = ? WHERE id = ?", (name, subscription_id))
     conn.commit()
     return get_subscription(conn, subscription_id)
@@ -136,9 +136,9 @@ def list_subscriptions(
 
 
 def purge_subscription_items(conn: sqlite3.Connection, subscription_ids: list[str]) -> None:
-    """Remove everything a subscription discovered (owner 2026-07-10: "把 source
-    删掉了,在今日里面还能看到他的消息" — a removed source must take its items with
-    it): tracked items, their fact-lineage rows, and the seen-set. The user's own
+    """Remove everything a subscription discovered (a removed source must take
+    its items with it — they must not linger in Today): tracked items, their
+    fact-lineage rows, and the seen-set. The user's own
     notes are board-level and untouched. No commit — callers commit their unit."""
     if not subscription_ids:
         return
@@ -153,7 +153,7 @@ def purge_subscription_items(conn: sqlite3.Connection, subscription_ids: list[st
 
 
 def purge_orphaned_items(conn: sqlite3.Connection) -> int:
-    """Self-healing sweep (owner 2026-07-10): remove items whose subscription no
+    """Self-healing sweep: remove items whose subscription no
     longer exists — deletions made before the cascade existed (or by an older
     build) left orphans that kept showing in Today. Runs at every poll start;
     returns the number of items removed. Commits (it is its own unit)."""

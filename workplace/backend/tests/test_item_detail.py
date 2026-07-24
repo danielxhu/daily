@@ -96,7 +96,7 @@ def test_refresh_fills_excerpt_enrichment_and_method_without_verification(
 
 
 def test_refresh_blocked_fetch_falls_back_to_the_stored_text(tmp_path: Path) -> None:
-    # owner 2026-07-10: a poll stored the text but the summary never generated
+    # a poll stored the text but the summary never generated
     # (LLM outage); the site now blocks re-fetching (e.g. 36kr anti-bot). The
     # stored text is still good grounding — summarize from it instead of failing.
     conn = init_db(str(tmp_path / "daily.db"))
@@ -133,7 +133,7 @@ def test_refresh_fetch_failure_leaves_the_row_untouched(tmp_path: Path) -> None:
 def test_refresh_never_transcribes_synchronously_it_defers_to_the_worker(
     tmp_path: Path,
 ) -> None:
-    # owner 2026-07-19 ("这他妈抓了快十分钟了"): a caption-less video used to
+    # a caption-less video used to
     # download throttled audio + run whisper INSIDE the request. Now the refresh
     # returns immediately with the item queued (deferred) for the background
     # worker — no error, no LLM call.
@@ -158,7 +158,7 @@ def test_refresh_never_transcribes_synchronously_it_defers_to_the_worker(
 def test_refresh_settles_a_contentless_deferred_item_to_a_typed_failure(
     tmp_path: Path,
 ) -> None:
-    # owner 2026-07-23: an XHS 图文 note wedged as "deferred" forever — the
+    # an XHS 图文 note wedged as "deferred" forever — the
     # worker's yt-dlp attempts failed permanently ("No video formats found")
     # but the failure never reached the row, so the UI kept promising a
     # transcription. A deferred item has no content to protect: settle it to a
@@ -287,7 +287,7 @@ def test_detail_returns_the_card_and_excerpt_preview_only(tmp_path: Path) -> Non
 
 
 def test_progress_endpoint_reports_the_in_flight_job_by_url(tmp_path: Path) -> None:
-    # owner 2026-07-21 "加个进度条": live stage/pct while the background job is
+    # live stage/pct while the background job is
     # on THIS item's URL; stage None when idle; slot cleanup leaves None again.
     from app.ingestion import progress
 

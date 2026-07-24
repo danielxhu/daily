@@ -1,4 +1,4 @@
-"""Persisted knowledge Q&A chats (owner 2026-07-24): list / open / continue /
+"""Persisted knowledge Q&A chats: list / open / continue /
 delete, with the answer call seeing the earlier turns. Offline (NFR-3)."""
 
 from __future__ import annotations

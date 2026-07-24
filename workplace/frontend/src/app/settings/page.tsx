@@ -3,7 +3,7 @@
 import { SettingsView } from "@/components/SettingsView";
 import { useT } from "@/lib/i18n";
 
-/** Settings (owner 2026-07-23): the model API credential slots. Secondary
+/** Settings: the model API credential slots. Secondary
  * surface (footer link) — daily works out of the box with the built-in text
  * model and the local on-device image OCR. */
 export default function SettingsPage() {

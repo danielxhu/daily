@@ -330,7 +330,7 @@ describe("TodayView tracked items (M15.1a → M16.1 expression)", () => {
     const section = await screen.findByRole("region", { name: "New from your sources" });
     expect(section).toHaveTextContent("blocked by anti-bot");
     // deferred items stay visible but carry NO stale "click to fetch" hint —
-    // the background worker owns transcription (owner 2026-07-20 "去掉")
+    // the background worker owns transcription
     expect(section).toHaveTextContent("Episode 1");
     expect(within(section).queryByText(/transcription on demand/)).toBeNull();
     // no echo → the hint does not appear (nothing fabricated)

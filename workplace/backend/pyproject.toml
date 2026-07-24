@@ -37,7 +37,7 @@ dev = [
 # (NFR-3). Install with `pip install -e ".[ml]"` to transcribe for real.
 ml = [
     "faster-whisper>=1.0",
-    # semantic knowledge recall (owner 2026-07-21): local embeddings + local
+    # semantic knowledge recall: local embeddings + local
     # vector store — lazy-imported, offline tests inject fakes (NFR-3)
     "chromadb>=0.5",
     "sentence-transformers>=3.0",
@@ -51,14 +51,14 @@ youtube = [
 render = [
     "playwright>=1.40",
 ]
-# Apple-Silicon GPU transcription (owner 2026-07-22): mlx-whisper runs
+# Apple-Silicon GPU transcription: mlx-whisper runs
 # large-v3-turbo on Metal — measured 5.7x realtime vs 2.3x on the CPU path.
 # arm64-macOS only; get_transcriber() auto-falls back to faster-whisper
 # elsewhere, so a Linux server installs ".[ml]" and skips this extra.
 mlx = [
     "mlx-whisper>=0.4",
 ]
-# On-device image OCR for 图文 notes (owner 2026-07-23): Apple Vision via
+# On-device image OCR for 图文 notes: Apple Vision via
 # pyobjc — free, local, no key, images never leave the machine. macOS-only;
 # get_vision_client() degrades to None elsewhere (image reading skipped).
 ocr = [

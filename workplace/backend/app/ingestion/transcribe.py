@@ -4,7 +4,7 @@ A `faster-whisper` implementation of the X0.3 `Transcriber` interface. Nothing
 consumes word-level timestamps, so they are OFF; the transcript feeds the item
 excerpt + bilingual summary only.
 
-Speed (owner 2026-07-20 "为什么这三个还是这么慢"): long caption-less videos
+Speed: long caption-less videos
 (hours of forum replay) used to be transcribed sequentially, window by window.
 We now run faster-whisper's `BatchedInferencePipeline` — VAD splits the audio at
 silence, segments are batched through the model, non-speech (music/applause) is
@@ -106,7 +106,7 @@ class FasterWhisperTranscriber:
 
 
 class MlxWhisperTranscriber:
-    """Apple-GPU whisper via mlx-whisper + large-v3-turbo (owner 2026-07-22).
+    """Apple-GPU whisper via mlx-whisper + large-v3-turbo.
 
     Runs the model on the M-chip GPU (Metal): measured 5.7x realtime on real
     forum speech vs 2.3x for the batched CPU path — a 3h video in ~half an
@@ -209,7 +209,7 @@ def _mlx_available() -> bool:
 
 def get_transcriber() -> Transcriber:
     """Factory for the real transcriber (monkeypatched to a mock in tests).
-    Backend selection (owner 2026-07-22): "auto" uses the Apple-GPU mlx path
+    Backend selection: "auto" uses the Apple-GPU mlx path
     when mlx-whisper is importable (Apple Silicon), else the portable CPU
     faster-whisper path — the same code deploys unchanged to a Linux server."""
     backend = get_settings().whisper_backend

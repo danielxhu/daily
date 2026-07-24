@@ -1,4 +1,4 @@
-"""Knowledge answer synthesis (M13.5, owner 2026-07-06 — beta P1-3; on-demand
+"""Knowledge answer synthesis (M13.5, beta P1-3; on-demand
 since M16.2).
 
 The Knowledge ask-surface promised "It answers" while returning bare search hits.
@@ -9,12 +9,12 @@ the per-item summary, and evidence-bounded discussion). M16.2 moved it out of th
 search request path: `GET /knowledge/search` is deterministic SQLite only, and
 the synthesis runs only when the user explicitly asks (`POST /knowledge/answer`).
 
-Owner 2026-07-19 ("太保守了"), matching the item-discussion rewrite of
+Not over-conservative, matching the item-discussion rewrite of
 2026-07-13: the answer genuinely ANSWERS — analysis and inference are welcome
 and labeled — and it grounds on BOTH layers of the knowledge base: the user's
 saved notes AND the tracked items' AI summaries (which are most of the corpus).
 
-Owner 2026-07-23 ("做方案0"): grounding is the WHOLE knowledge base, not the
+Grounding is the WHOLE knowledge base, not the
 top search hits. At this product's scale (≤~200 items, each already a compact
 summary) the full corpus fits one flash call — synthesis questions ("综合这些
 信息我该往哪个方向创业") see everything, and there is no query router to
@@ -43,7 +43,7 @@ from app.clients.base import LLMClient
 from app.schemas.models import DiscussMessage, KnowledgeNote, TrackedItemCard
 
 _ANSWER_SYSTEM = (
-    # owner 2026-07-19: "太保守了" — same posture as the item discussion: answer
+    # Same posture as the item discussion: answer
     # the question, don't hide behind 证据不足.
     "You answer the user's question over their PERSONAL KNOWLEDGE BASE, given "
     "in full below, newest first: the user's own saved notes and AI summaries "
@@ -144,7 +144,7 @@ def answer_over_knowledge(
     """One flash call (no escalation) answering the question over the whole
     knowledge base; `hit_ids` marks the entries the search surface matched (a
     relevance hint, never a filter). `history` = the chat's earlier turns
-    (owner 2026-07-24: a continued chat answers follow-ups in context). Callers
+    (a continued chat answers follow-ups in context). Callers
     must skip the call entirely when the base is empty; any failure or unusable
     output degrades to None — the answer is presentation, never a gate.
     Returns (answer, entries fed)."""

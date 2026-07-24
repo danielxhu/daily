@@ -125,7 +125,7 @@ describe("TrackedItemLite bilingual enrichment (M16.3)", () => {
     expect(screen.queryByText(/pending/i)).toBeNull();
   });
 
-  it("follows the zh locale instantly — the owner's language-toggle complaint", () => {
+  it("follows the zh locale instantly when the locale toggles", () => {
     // the saved zh choice upgrades the provider on mount (same as the app)
     window.localStorage.setItem("daily.locale", "zh");
     render(

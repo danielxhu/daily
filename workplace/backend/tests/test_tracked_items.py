@@ -332,9 +332,9 @@ def test_enrich_prompt_is_source_attributed_and_validated() -> None:
     assert "never give investment advice" in call["system"].lower() or (
         "investment advice" in call["system"]
     )
-    # owner 2026-07-21: the paragraph plan follows the content length — this
+    # the paragraph plan follows the content length — this
     # short sentence gets the tight plan, not a padded five-parter
-    # (owner 2026-07-24 "综述再长一点": every tier bumped one notch)
+    # (2026-07-24: every tier bumped one notch)
     assert "2-3 substantial paragraphs" in call["system"]
     assert "Fed holds rates" in call["user"] and "reuters.com" in call["user"]
 

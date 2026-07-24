@@ -103,7 +103,7 @@ def yt_dlp_opts() -> dict[str, object]:
       and, because it is not None, **does NOT fall through to env `HTTP(S)_PROXY`/
       `ALL_PROXY`** — the env-proxy equivalent of httpx `trust_env=False` (§2.2).
     - `cookiefile=None` / `cookiesfrombrowser=None` → never load a cookie jar or
-      touch a browser profile (owner 2026-07-17: the keychain prompt this triggers
+      touch a browser profile (the keychain prompt this triggers
       is too invasive — bot-check failures stay typed & honest instead).
     - `usenetrc=False` → never read `~/.netrc` credentials.
     - `geo_bypass=False` → no X-Forwarded-For geo-evasion (§2.2 no fingerprint evasion).

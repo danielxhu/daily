@@ -1,4 +1,4 @@
-"""Semantic recall over the knowledge base (owner 2026-07-21).
+"""Semantic recall over the knowledge base.
 
 Local Chroma + injected deterministic embeddings — the offline suite never
 downloads a model (NFR-3). Covers: worker-tick indexing (items + notes,

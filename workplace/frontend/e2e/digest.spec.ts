@@ -67,7 +67,7 @@ test("the AI summary follows the language toggle instantly (M16.3)", async ({ pa
     section.getByText("The source says its market-structure rulemaking enters a comment period."),
   ).toBeVisible();
 
-  // owner 2026-07-08: "中英文切换的时候,给出的信息源的语言还是没有变化" — fixed:
+  // the language toggle must switch the source items' language too — fixed:
   // both languages ride in the enrichment, so the switch is instant, no refetch.
   // (the section's accessible name follows the locale too — re-resolve it)
   await page.getByRole("button", { name: "Switch language" }).click();

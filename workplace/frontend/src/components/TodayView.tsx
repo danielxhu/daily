@@ -31,7 +31,7 @@ interface TodayViewProps {
 /** Today dashboard (home). The first screen answers "what should I look at today?" —
  * what your tracked sources published recently, what needs attention, and the
  * health of your sources. The verified-fact briefing left the surface with the
- * check retirement (M16.1, owner 2026-07-08); tracked items ARE the briefing now. */
+ * check retirement (M16.1); tracked items ARE the briefing now. */
 export function TodayView({
   digestFn = queryDigest,
   subscriptionsFn = querySubscriptions,
@@ -42,11 +42,11 @@ export function TodayView({
 }: TodayViewProps) {
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [subs, setSubs] = useState<Subscription[] | null>(null);
-  // AIHOT-style board filter (owner 2026-07-10): null = all boards
+  // AIHOT-style board filter: null = all boards
   const [boardTab, setBoardTab] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
-  // M14.6 (owner): the briefing shows RECENT changes — default a month, adjustable
+  // M14.6: the briefing shows RECENT changes — default a month, adjustable
   const [windowDays, setWindowDays] = useState(30);
   const adoptTried = useRef(false); // once per mount; the backend flag is the real gate
   // M14.4 review fix: the seeding flow must survive its OWN effect's cleanup — the
@@ -92,7 +92,7 @@ export function TodayView({
     };
   }, [digestFn, subscriptionsFn, windowDays]);
 
-  // Day-1 auto-fill (M14.1, owner 2026-07-06): a cold start (no sources) adopts
+  // Day-1 auto-fill (M14.1): a cold start (no sources) adopts
   // the STATIC starter pack and runs one first poll — the user trims afterwards.
   // seeded=false means the user deliberately emptied their list: keep it empty.
   useEffect(() => {
@@ -263,7 +263,7 @@ export function TodayView({
   );
 }
 
-/** One board-filter pill (AIHOT-style tabs, owner 2026-07-10). */
+/** One board-filter pill (AIHOT-style tabs). */
 function BoardTab({
   label,
   active,

@@ -107,7 +107,7 @@ def ingest_one(
     client = http_client or build_client()
     try:
         if is_xiaohongshu_note(url):
-            # Peek at the page before committing to yt-dlp (owner 2026-07-23):
+            # Peek at the page before committing to yt-dlp:
             # an image/text note has no video — yt-dlp fails deterministically —
             # but its body is embedded in the page HTML, and most of the note's
             # information sits in its text screenshots, which the local OCR
@@ -169,7 +169,7 @@ def _ingest_webpage(
     # success, a bare og/meta blurb = partial, which does NOT count); tier 3
     # headless render (M1B.2), reached only when static is empty AND structured is
     # not `ok` (so a partial blurb still falls through to render).
-    # per-host UA override (owner 2026-07-24): WeChat articles wall the bot UA
+    # per-host UA override: WeChat articles wall the bot UA
     # but serve the full server-rendered text to a plain browser UA — no
     # cookies, no captcha solving; a wall that still appears stays typed
     headers = fetch_headers(url)

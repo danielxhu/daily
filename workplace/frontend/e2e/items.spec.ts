@@ -8,8 +8,8 @@ async function openMockApp(page: Page, path = "/") {
   });
 }
 
-// M16.4: every tracked item has its own detail page — the owner's "点进任何一条
-// 信息" entry point. Everything stays in tracking language.
+// M16.4: every tracked item has its own detail page — the entry point for
+// clicking into any piece of information. Everything stays in tracking language.
 
 test("click an item on Today → its detail page: summary + the LLM-curated note flow", async ({
   page,
@@ -68,7 +68,7 @@ test("a pending item fetches + summarizes automatically on open (no click)", asy
   ).toBeVisible();
 });
 
-// M16.5: the second half of the owner's "点进任何一条信息都可以和 chat 讨论" —
+// M16.5: any opened item can be discussed with chat —
 // an item-bounded discussion right on the detail page.
 test("discuss an item on its detail page: source-bounded reply, honest limits", async ({
   page,

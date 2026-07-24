@@ -1,4 +1,4 @@
-"""Semantic recall over the knowledge base (owner 2026-07-21).
+"""Semantic recall over the knowledge base.
 
 Keyword search cannot bridge the bilingual gap: a Chinese query ("美联储利率")
 never matches an item whose stored summary is English ("the Fed held rates").

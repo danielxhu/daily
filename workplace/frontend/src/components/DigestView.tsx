@@ -16,7 +16,7 @@ interface DigestViewProps {
 }
 
 /** The full digest — "what changed in my sources recently". Since the check
- * retirement (M16.1, owner 2026-07-08) the digest is the tracked-items channel:
+ * retirement (M16.1) the digest is the tracked-items channel:
  * every recent item with its source, tier, date, and cached AI summary. Render
  * never calls an LLM (M14.7 invariant); the verified-fact categories are dormant
  * with the rest of the verification surface. Read-only. */
@@ -27,7 +27,7 @@ export function DigestView({
 }: DigestViewProps) {
   const [digest, setDigest] = useState<DailyDigest | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // M14.6 (owner): recent view window — default a month, adjustable
+  // M14.6: recent view window — default a month, adjustable
   const [windowDays, setWindowDays] = useState(30);
   const t = useT();
   // M16.6: board/module grouping + per-group stats — the AIHOT-informed density,

@@ -1,11 +1,11 @@
 """Item discussion + knowledge-note drafting (M16.5; the check-era discussion
-shapes were removed 2026-07-13 by owner decision).
+shapes were removed 2026-07-13).
 
 Chat about ONE tracked item, and draft/revise the note the user saves to
 Knowledge. The item's persisted material — stored content excerpt, bilingual
 enrichment, card metadata — is the factual anchor; the assistant genuinely
-ANSWERS the question (analysis and inference welcome and labeled, owner
-2026-07-13) instead of merely reciting the source. Flash-only, READ-ONLY
+ANSWERS the question (analysis and inference welcome and labeled)
+instead of merely reciting the source. Flash-only, READ-ONLY
 (neither a discussion nor a draft writes anything), never cached.
 """
 
@@ -20,10 +20,9 @@ class DiscussError(RuntimeError):
 
 
 _ITEM_DISCUSS_SYSTEM = (
-    # owner 2026-07-13: "回答不能只回答来源中的事实信息,而是根据来源中的信息,
-    # 回答用户的问题,不要太局限了" — the assistant ANSWERS the question, with the
-    # item's material as the factual anchor; analysis and inference are welcome
-    # and labeled, instead of hiding behind 证据不足.
+    # The assistant ANSWERS the question — not just the facts recited from the
+    # source — with the item's material as the factual anchor; analysis and
+    # inference are welcome and labeled, instead of hiding behind 证据不足.
     "You are discussing ONE tracked item with the user; its stored source "
     "excerpt and AI summary are given below. Genuinely ANSWER the user's "
     "question — do not merely recite the source.\n"
@@ -99,11 +98,11 @@ def discuss_tracked_item(
 
 
 _NOTE_DRAFT_SYSTEM = (
-    # owner 2026-07-13: "存入知识库的笔记应该是由 llm 精选后提供的" — the note the
-    # user saves is curated by the model first, then revised through chat until
-    # the user clicks save. Drafting writes NOTHING; saving is a separate action.
-    # owner 2026-07-23: weight shifted from key-facts-only distillation to a
-    # FULL overall summary — the note should stand in for the source when read
+    # The note the user saves is curated by the model first, then revised
+    # through chat until the user clicks save. Drafting writes NOTHING; saving
+    # is a separate action.
+    # The weight later shifted from key-facts-only distillation to a FULL
+    # overall summary — the note should stand in for the source when read
     # months later, so completeness beats terseness.
     "You are drafting a note for the user's personal knowledge base about ONE "
     "tracked item; its stored source excerpt and AI summary are given below.\n"

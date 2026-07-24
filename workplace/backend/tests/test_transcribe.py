@@ -69,7 +69,7 @@ def test_importing_module_does_not_import_faster_whisper() -> None:
     assert "faster_whisper" not in sys.modules
 
 
-# --- MLX (Apple-GPU) adapter (owner 2026-07-22) -------------------------------
+# --- MLX (Apple-GPU) adapter ---------------------------------------------------
 
 
 def _fake_decode(_path: str):  # type: ignore[no-untyped-def]

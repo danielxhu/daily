@@ -36,9 +36,9 @@ PROMPT_VERSION: str = "2026-06-22.v1"
 SEED: int = 42
 
 
-# M14.6 (owner 2026-07-06): the digest/Today VIEW window — "不是今天,我要看近期的
-# 所有变化,默认一个月,后续用户可以调整时长": how far back the briefing looks by
-# default; the user adjusts it per request (?window_days).
+# M14.6: the digest/Today VIEW window covers recent changes, not just today —
+# this is how far back the briefing looks by default; the user adjusts it per
+# request (?window_days).
 DIGEST_WINDOW_DAYS: int = 30
 
 # M13.4 (beta P1-2): a NEVER-polled subscription's first check picks up only the
@@ -47,7 +47,7 @@ DIGEST_WINDOW_DAYS: int = 30
 # synchronous drain of the whole feed. Later polls are genuinely incremental.
 FIRST_POLL_ITEM_CAP: int = 5
 
-# M14.7 (owner 2026-07-07 "为什么这么慢"): the per-poll LLM-call budget for the
+# M14.7: the per-poll LLM-call budget for the
 # digest enrichment backfill (summaries + categories, write-side). Bounds the
 # poll's tail cost while the backlog warms; must stay ≥ DRAIN_MAX_CLAIMS so
 # enrichment keeps pace with facts graduating from the pending pool. The digest
@@ -159,25 +159,25 @@ class Settings(BaseSettings):
     # --- Local models (free; NFR-2) ---
     whisper_model_size: str = "medium"  # multilingual, NOT the .en variant
     whisper_compute_type: str = "int8"
-    # transcription backend (owner 2026-07-22): "auto" picks the Apple-GPU mlx
+    # transcription backend: "auto" picks the Apple-GPU mlx
     # path when mlx-whisper is importable (Apple Silicon), else the portable
     # CPU faster-whisper path — a Linux server deploys with zero changes.
     whisper_backend: Literal["auto", "mlx", "faster"] = "auto"
     # an HF repo id, or a local directory with config.json + weights
     whisper_mlx_model: str = "mlx-community/whisper-large-v3-turbo"
-    # ctranslate2 intra-op threads — pin to the performance-core count (owner
-    # 2026-07-20: long-video transcription was leaving cores idle)
+    # ctranslate2 intra-op threads — pin to the performance-core count
+    # (long-video transcription was leaving cores idle at the default)
     whisper_cpu_threads: int = 4
-    # Semantic recall over the knowledge base (owner 2026-07-21): local
+    # Semantic recall over the knowledge base: local
     # sentence-transformers embeddings + a persistent local Chroma collection.
     # OFF by default — fresh installs and the offline suite never download an
     # embedding model; the local runtime opts in via ENABLE_SEMANTIC_SEARCH.
     enable_semantic_search: bool = False
     semantic_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
     chroma_knowledge_path: str = "data/chroma_knowledge"
-    # On-device image OCR for image-note ingestion (owner 2026-07-23 "看图也要
-    # 做"): "auto" uses Apple Vision when pyobjc is importable ([ocr] extra,
-    # macOS-only), else image reading is skipped — free, local, no key.
+    # On-device image OCR for image-note ingestion: "auto" uses Apple Vision
+    # when pyobjc is importable ([ocr] extra, macOS-only), else image reading
+    # is skipped — free, local, no key.
     image_ocr: Literal["auto", "off"] = "auto"
 
     # --- Coverage toggles (best-effort, degradable) ---

@@ -154,7 +154,7 @@ def test_discuss_grounds_only_in_this_items_persisted_material(tmp_path: Path) -
     # the dormant verification vocabulary never enters either side of the prompt
     for banned in ("credibility", "verdict", "stance", "/100"):
         assert banned not in system.lower() and banned not in user.lower()
-    # 2026-07-13 (owner): the assistant ANSWERS with the source as anchor —
+    # the assistant ANSWERS with the source as anchor —
     # analysis welcome, fabrication banned
     assert "Genuinely ANSWER" in system and "never fabricate" in system
     assert "Never refuse to analyze" in system

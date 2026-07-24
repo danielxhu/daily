@@ -6,7 +6,7 @@ import { clearApiSlot, getApiSettings, saveApiSlot, type ApiSlotInput } from "@/
 import { useT } from "@/lib/i18n";
 import type { ApiSlotView } from "@/types/contract";
 
-/** Model API credentials (owner 2026-07-23): two slots. "text" powers
+/** Model API credentials: two slots. "text" powers
  * summaries/Q&A and falls back to the built-in .env DeepSeek default; "vision"
  * is reserved for a hosted image-reading model (image notes read fine today via
  * the local on-device OCR, no key needed). Keys stay in the local database and

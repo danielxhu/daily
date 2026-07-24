@@ -48,7 +48,7 @@ function message(err: unknown, fallback: string): string {
 /** Knowledge boards (FR-15): single-operator topic collections. A board reads
  * as module chips → tracked items → the operator's own **notes**; management
  * chrome (module add/delete, source module moves) lives behind the Manage
- * toggle (owner 2026-07-18: "知识库太杂乱"). */
+ * toggle (keeps the knowledge base from feeling cluttered). */
 export function BoardsView({
   boardsFn = queryBoards,
   notesFn = queryBoardNotes,
@@ -164,7 +164,7 @@ export function BoardsView({
           subscriptionsFn={subscriptionsFn}
           digestFn={digestFn}
           onDelete={async () => {
-            // M14.2 (owner beta feedback): boards are deletable from the UI. The
+            // M14.2 (beta feedback): boards are deletable from the UI. The
             // grouping + its notes go; sources and stored content stay.
             await deleteBoardFn(selected.id);
             setBoards((prev) => {
@@ -259,7 +259,7 @@ function BoardDetail({
   const [items, setItems] = useState<TrackedItemCard[] | null>(null);
   // M15.3: the module filter narrows sources + items; notes stay board-level
   const [moduleFilter, setModuleFilter] = useState<string | null>(null);
-  // owner 2026-07-18 ("知识库太杂乱"): the reading surface (chips → items →
+  // to keep the page uncluttered, the reading surface (chips → items →
   // notes) is the default;管理 chrome (module ×/add, source URLs + module
   // selects) only exists while this is on
   const [managing, setManaging] = useState(false);
@@ -414,7 +414,7 @@ function BoardDetail({
 
       {/* M15.3 — the knowledge hierarchy: board → module → source → item. The
           module filter narrows sources + items; notes below stay board-level.
-          Reading first (owner 2026-07-18): chips filter, items read; the module
+          Reading first: chips filter, items read; the module
           ×/add form and the source-URL admin rows exist only in manage mode. */}
       <section aria-label={t("boards.modules.aria")} className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">

@@ -1,4 +1,4 @@
-"""Backfill bilingual AI summaries for already-stored items (owner 2026-07-10).
+"""Backfill bilingual AI summaries for already-stored items.
 
 Every tracked item whose content excerpt is already on disk but whose enrichment
 is missing (the DeepSeek balance ran dry, so poll-time generation silently

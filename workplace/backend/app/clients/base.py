@@ -57,7 +57,7 @@ class Transcriber(Protocol):
 @runtime_checkable
 class VisionClient(Protocol):
     """One image in, its textual content out ("" when nothing readable). The
-    pluggable image-reading seam (owner 2026-07-23): today an on-device OCR
+    pluggable image-reading seam: today an on-device OCR
     (Apple Vision); a hosted VL model can implement the same contract later.
     Never called in tests with a real backend — fakes are injected (NFR-3)."""
 

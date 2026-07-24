@@ -1,4 +1,4 @@
-"""The background enrichment worker (owner 2026-07-10): pending items upgrade
+"""The background enrichment worker: pending items upgrade
 themselves — summary-only first, then fetches, then ONE transcription per tick;
 attempts are bounded per app run; a running poll makes the tick skip cleanly."""
 
@@ -203,7 +203,7 @@ def test_summary_failures_get_two_tries_then_rest(tmp_path: Path) -> None:
 
 
 def test_worker_tick_purges_orphaned_items(tmp_path: Path) -> None:
-    """The 30-second tick heals deleted-source leftovers too (owner 2026-07-13)."""
+    """The 30-second tick heals deleted-source leftovers too."""
     from app.db.tracked_item_store import recent_tracked_items
 
     _reset_worker_state()

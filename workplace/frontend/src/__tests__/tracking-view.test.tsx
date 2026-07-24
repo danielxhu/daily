@@ -141,7 +141,7 @@ describe("TrackingView", () => {
     // the ungrouped bucket
     expect(within(list).getByText("Finance")).toBeInTheDocument();
     expect(within(list).getByText("No board")).toBeInTheDocument();
-    // owner 2026-07-19: EMPTY boards render too — a board with no sources must
+    // EMPTY boards render too — a board with no sources must
     // still be visible so it can be deleted from this page
     expect(within(list).getByText("政治")).toBeInTheDocument();
     // the add form offers the preset topic boards (政治/经济/科技)
@@ -362,7 +362,7 @@ describe("TrackingView", () => {
   });
 });
 
-// owner 2026-07-19 "全是url不知道哪个是哪个": sources are nameable
+// sources are nameable (URLs alone are hard to tell apart)
 describe("TrackingView source naming", () => {
   it("renames a source inline; the name leads and the URL stays visible", async () => {
     const { renameFn } = setup();
@@ -404,7 +404,7 @@ describe("TrackingView source naming", () => {
   });
 });
 
-// owner 2026-07-19: boards are deleted HERE too — per-group button, two-step confirm
+// boards are deleted HERE too — per-group button, two-step confirm
 describe("TrackingView board deletion", () => {
   it("deletes a board after the confirm; its sources leave the list", async () => {
     const { deleteBoardFn } = setup();
@@ -439,7 +439,7 @@ describe("TrackingView board deletion", () => {
   });
 });
 
-// owner 2026-07-13: boards are created HERE, where sources are added
+// boards are created HERE, where sources are added
 describe("TrackingView creates boards inline", () => {
   it("creates a board from the add-source form and selects it", async () => {
     const createBoardFn = vi.fn(async (name: string) => ({

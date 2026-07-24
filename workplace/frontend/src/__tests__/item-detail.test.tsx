@@ -87,16 +87,16 @@ describe("ItemDetailView (M16.4)", () => {
       "https://www.sec.gov/news/x",
     );
     // AI summary in the active locale (en); the why/tags/entities/limits block
-    // left the page (owner 2026-07-17)
+    // left the page (2026-07-17)
     expect(
       screen.getByText("The source says the rules enter a comment period."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Relevant to market-structure regulation.")).toBeNull();
     expect(screen.queryByText(/Named in the source/)).toBeNull();
     expect(screen.queryByText(/AI-generated from the source text/)).toBeNull();
-    // owner 2026-07-10: the raw excerpt no longer renders — the briefing carries it
+    // the raw excerpt no longer renders — the briefing carries it
     expect(screen.queryByRole("region", { name: "Source says" })).toBeNull();
-    // owner 2026-07-13: the provenance and related blocks left the page
+    // the provenance and related blocks left the page (2026-07-13)
     expect(screen.queryByRole("region", { name: "Source & provenance" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Similar & related" })).toBeNull();
     // the check surface stays retired + the legacy line stays dead

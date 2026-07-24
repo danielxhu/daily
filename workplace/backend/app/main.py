@@ -178,7 +178,7 @@ class SubscriptionRenameRequest(BaseModel):
 
 
 class ApiSlotUpdateRequest(BaseModel):
-    """Save one credential slot (owner 2026-07-23). All three fields required —
+    """Save one credential slot. All three fields required —
     a partial credential can't make a call. Request-only."""
 
     model_config = ConfigDict(extra="forbid")
@@ -284,7 +284,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             conn.close()
 
     def _real_enrich_tick() -> None:
-        """One background-enrichment tick (owner 2026-07-10): pending items get
+        """One background-enrichment tick: pending items get
         their text/summary WITHOUT the user clicking. Own SQLite connection (off
         the request thread); errors never crash the scheduler."""
         from app.clients.deepseek import get_llm_client
@@ -358,7 +358,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def source_pack_adopt(
         db: Annotated[sqlite3.Connection, Depends(get_db)],
     ) -> dict[str, Any]:
-        # M14.1 (owner 2026-07-06): Day-1 auto-fill — adopt the whole STATIC pack as
+        # M14.1: Day-1 auto-fill — adopt the whole STATIC pack as
         # subscriptions ONCE ever (D8: never topic discovery). The one-time flag, not
         # the subscription count, gates it: a user who deleted everything keeps an
         # empty list. `seeded` False tells the UI this was a deliberate clean slate.
@@ -606,7 +606,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         body: SubscriptionRenameRequest,
         db: Annotated[sqlite3.Connection, Depends(get_db)],
     ) -> Subscription:
-        # owner 2026-07-19 "全是url不知道哪个是哪个": a display name per source;
+        # a display name per source (URLs alone are hard to tell apart);
         # empty/None clears back to unnamed (the UI falls back to the URL)
         if get_subscription(db, subscription_id) is None:
             raise HTTPException(status_code=404, detail=f"no such subscription: {subscription_id}")
@@ -614,7 +614,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         assert updated is not None  # existence checked above
         return updated
 
-    # --- model API credentials (owner 2026-07-23, settings page) --------------
+    # --- model API credentials (settings page) --------------------------------
 
     def _slot_view(db: sqlite3.Connection, slot: str) -> ApiSlotView:
         from app.db.credential_store import get_credential
@@ -787,7 +787,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         item_id: str,
         db: Annotated[sqlite3.Connection, Depends(get_db)],
     ) -> ItemProgress:
-        # owner 2026-07-21 "加个进度条": live download/transcribe progress for
+        # live download/transcribe progress for
         # THIS item, matched on its URL against the single in-flight job slot.
         # stage None = not being worked on right now (queued / done / restarted).
         card = tracked_item_card_by_id(db, item_id)
@@ -819,8 +819,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db: Annotated[sqlite3.Connection, Depends(get_db)],
         llm: Annotated[LLMClient, Depends(get_llm)],
     ) -> ItemDiscussReply:
-        # M16.5: chat about ONE tracked item — the second half of the owner's
-        # "点进任何一条信息都可以和 chat 讨论". NFR-7 exception (4): grounded ONLY
+        # M16.5: chat about ONE tracked item — every item can be opened and
+        # discussed with chat. NFR-7 exception (4): grounded ONLY
         # in the item's persisted excerpt + enrichment + card metadata (the
         # dormant fact layer / scores / other items never enter the prompt),
         # answers 证据不足 beyond them. READ-ONLY: never writes, never cached.
@@ -863,7 +863,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db: Annotated[sqlite3.Connection, Depends(get_db)],
         llm: Annotated[LLMClient, Depends(get_llm)],
     ) -> ItemNoteDraftReply:
-        # 2026-07-13 (owner): the note saved to Knowledge is LLM-curated first —
+        # the note saved to Knowledge is LLM-curated first —
         # the user revises it through chat, then saves the final text via the
         # notes endpoint. Same grounding as /discuss (persisted excerpt +
         # enrichment only). READ-ONLY: drafting never writes anything.
@@ -950,8 +950,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db: Annotated[sqlite3.Connection, Depends(get_db)],
         q: str,
     ) -> KnowledgeSearchResult:
-        # M16.2: no LLM in the request path (the synchronous answer synthesis was
-        # the owner's "search is very slow"; the answer moved to POST
+        # M16.2: no LLM in the request path (the synchronous answer synthesis
+        # made search painfully slow; the answer moved to POST
         # /knowledge/answer). 2026-07-21: keyword hits first, then semantic
         # recall (one local query embedding, ~ms) merged in — this is what lets
         # a Chinese query find an English-summarized item. facts stays [] (v0.13).
@@ -968,7 +968,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         saved: list[KnowledgeNote],
         items: list[TrackedItemCard],
     ) -> tuple[list[KnowledgeNote], list[TrackedItemCard]]:
-        # semantic recall (owner 2026-07-21): local Chroma + multilingual
+        # semantic recall: local Chroma + multilingual
         # embeddings, feature-gated; keyword hits keep their rank, semantic-only
         # hits are appended. Any index failure = keyword results unchanged.
         index = get_semantic_index()
@@ -995,7 +995,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         body: KnowledgeAnswerRequest,
     ) -> KnowledgeAnswer:
         # M16.2: the AI answer is an explicit user action (NFR-7 exception (5)).
-        # Owner 2026-07-23 ("做方案0"): grounding = the WHOLE knowledge base —
+        # Grounding = the WHOLE knowledge base —
         # at this scale (≤~200 compact summaries) the corpus fits one flash
         # call, so synthesis questions ("综合这些信息…") see everything and no
         # intent router exists to misroute. The keyword+semantic hits survive
@@ -1034,7 +1034,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=502, detail="answer synthesis failed — try again")
         return result
 
-    # --- knowledge chats (owner 2026-07-24): persisted Q&A conversations ------
+    # --- knowledge chats: persisted Q&A conversations -------------------------
 
     @app.get("/knowledge/chats", response_model=list[KnowledgeChatSummary])
     def knowledge_chats(
@@ -1111,7 +1111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         chat = get_chat(db, chat_id)
         if chat is None:
             raise HTTPException(status_code=404, detail=f"no such chat: {chat_id}")
-        # earlier turns give the follow-up its context (owner 2026-07-24)
+        # earlier turns give the follow-up its context
         result = _answer_grounded(db, llm, q, history=chat.messages)
         if result is None:
             raise HTTPException(

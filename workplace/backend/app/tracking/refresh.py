@@ -6,9 +6,9 @@ This is how a legacy item (no stored text, honest pending state) gets its
 summary; refresh only feeds the tracking/knowledge read surface.
 
 Synchronous, one item per call (single-operator, local-first — same stance as
-deep_check), but NEVER whisper (owner 2026-07-19): a caption-less video is
+deep_check), but NEVER whisper: a caption-less video is
 marked deferred for the background worker instead of downloading audio inside
-the request. Lock discipline (owner 2026-07-13 "这他妈是我自己点了才显示…"): the
+the request. Lock discipline: the
 slow parts — network fetch, the LLM call — run OUTSIDE the poll mutex;
 only the millisecond DB writes take it (blocking, bounded wait). The old
 whole-call lock meant one background transcription blocked every open page's
@@ -110,13 +110,13 @@ def refresh_item(
             # (keyed by the item URL's domain — the same key the failure path uses)
             record_success(conn, normalize_domain(url))
     elif row["content_excerpt"]:
-        # owner 2026-07-10: a poll stored this item's text but its summary was
+        # a poll stored this item's text but its summary was
         # never generated (LLM outage), and the site now blocks re-fetching —
         # the stored text is still perfectly good grounding. Summarize from it
         # instead of failing on a fetch we don't actually need.
         text, domain = row["content_excerpt"], normalize_domain(url)
     elif result.failure is not None and result.failure.kind == "transcription_deferred":
-        # owner 2026-07-19 ("这他妈抓了快十分钟了"): a caption-less video means
+        # a caption-less video means
         # audio download + whisper — minutes of throttled CDN trickle that used
         # to run INSIDE this request. Never transcribe synchronously: mark the
         # item deferred and return; the background worker (one per 30s tick)
@@ -143,7 +143,7 @@ def refresh_item(
             with _locked_writes():
                 record_risk_control(conn, normalize_domain(url), reason)
         elif row["status"] == "deferred":
-            # owner 2026-07-23: a deferred item has no content to protect, and
+            # a deferred item has no content to protect, and
             # leaving it "deferred" keeps the UI promising a transcription that
             # may never arrive (yt-dlp "No video formats found" is permanent).
             # Settle it to a visible typed failure; a later successful retry

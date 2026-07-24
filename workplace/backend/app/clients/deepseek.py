@@ -70,7 +70,7 @@ class DeepSeekClient:
                 base_url = self._settings.deepseek_base_url
             # M14.7: bound every call. The SDK defaults are timeout=600s with 2
             # internal retries — one hung DeepSeek round-trip could pin a worker
-            # thread for many minutes (owner-visible as "为什么这么慢"). Retries
+            # thread for many minutes (surfacing as app-wide slowness). Retries
             # are OUR loop's job (_create_with_retries, §10), so the SDK's are off.
             self._client = OpenAI(
                 api_key=api_key,

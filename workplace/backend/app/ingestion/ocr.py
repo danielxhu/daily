@@ -1,4 +1,4 @@
-"""On-device image OCR (owner 2026-07-23 "看图也要做").
+"""On-device image OCR.
 
 XHS 图文 notes carry most of their information inside text screenshots, so the
 image-reading default is Apple's Vision framework: free, local, no API key, no

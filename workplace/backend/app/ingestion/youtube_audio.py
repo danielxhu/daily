@@ -112,8 +112,8 @@ def ingest_youtube(
             ),
         )
     target_dir = out_dir or tempfile.mkdtemp(prefix="daily_yt_")
-    # the audio path is the slow one — publish live progress for the UI's bar
-    # (owner 2026-07-21); the slot ALWAYS empties, success or typed failure
+    # the audio path is the slow one — publish live progress for the UI's bar;
+    # the slot ALWAYS empties, success or typed failure
     progress.begin(url)
     try:
         try:

@@ -62,9 +62,9 @@ describe("DigestView", () => {
   it("defaults the view window to a month and refetches when the user adjusts it (M14.6)", async () => {
     const { fn } = setup();
     await screen.findByRole("region", { name: "New from your sources" });
-    // owner: "近期的所有变化,默认一个月" — the first fetch asks for 30 days
+    // recent changes with a one-month default window — the first fetch asks for 30 days
     expect(fn).toHaveBeenCalledWith({ windowDays: 30 });
-    // "后续用户可以调整时长" — switching the range refetches
+    // the window is user-adjustable — switching the range refetches
     fireEvent.change(screen.getByLabelText("Time range"), { target: { value: "7" } });
     await waitFor(() => expect(fn).toHaveBeenCalledWith({ windowDays: 7 }));
   });

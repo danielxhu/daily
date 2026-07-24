@@ -184,8 +184,8 @@ def test_api_delete_missing_404(tmp_path: Path) -> None:
 
 
 def test_deleting_a_subscription_removes_its_items_from_today(tmp_path: Path) -> None:
-    """Owner 2026-07-10: "在来源里面把一个 source 删掉了,在今日里面还能看到他的消息"
-    — removing a source takes its discovered items (and seen-set/lineage) with it;
+    """A deleted source's messages must not keep showing in Today:
+    removing a source takes its discovered items (and seen-set/lineage) with it;
     another source's items are untouched."""
     from datetime import UTC, datetime
 
@@ -247,8 +247,8 @@ def test_deleting_a_board_removes_its_sources_items(tmp_path: Path) -> None:
 
 
 def test_orphaned_items_are_purged(tmp_path: Path) -> None:
-    """Items left behind by deletions made BEFORE the cascade existed (owner
-    2026-07-10 follow-up: they kept showing in Today) are swept by the poll-start
+    """Items left behind by deletions made BEFORE the cascade existed
+    (they kept showing in Today) are swept by the poll-start
     purge; a live subscription's items are untouched."""
     from datetime import UTC, datetime
 
@@ -280,7 +280,7 @@ def test_orphaned_items_are_purged(tmp_path: Path) -> None:
 
 
 def test_scheduler_tick_purges_orphans_even_with_no_subscriptions(tmp_path: Path) -> None:
-    """Owner 2026-07-13: with EVERY source deleted nothing is "due", so a purge
+    """With EVERY source deleted nothing is "due", so a purge
     living inside run_poll never ran — deleted sources' items sat in Today for a
     day. The tick now heals unconditionally, before the due-check."""
     from datetime import UTC, datetime
@@ -314,7 +314,7 @@ def test_scheduler_tick_purges_orphans_even_with_no_subscriptions(tmp_path: Path
     assert recent_tracked_items(conn, since=now.replace(year=2025)) == []
 
 
-# --- source naming (owner 2026-07-19 "全是url不知道哪个是哪个") -----------------
+# --- source naming (URLs alone are hard to tell apart) --------------------------
 
 
 def test_create_with_name_and_rename_endpoint(tmp_path: Path) -> None:
@@ -348,7 +348,7 @@ def test_create_with_name_and_rename_endpoint(tmp_path: Path) -> None:
 
 
 def test_delete_subscription_never_touches_knowledge_notes(tmp_path: Path) -> None:
-    # owner 2026-07-20: deleting a source takes its items/seen-set with it, but
+    # deleting a source takes its items/seen-set with it, but
     # the knowledge the user distilled and SAVED must survive — notes are the
     # user's, not the source's.
     from app.db.knowledge_store import create_note, list_notes

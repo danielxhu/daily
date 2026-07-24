@@ -148,11 +148,11 @@ export function TrackingView({
   // inline rename: which source row is being renamed, and the draft text
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  // owner 2026-07-13: boards are CREATED here, where sources are added — not in
+  // boards are CREATED here, where sources are added — not in
   // Knowledge (deleting the last board left no way to make one at add time)
   const [newBoardName, setNewBoardName] = useState("");
   const [boardErr, setBoardErr] = useState<string | null>(null);
-  // owner 2026-07-19: boards are DELETED here too — two-step confirm per group
+  // boards are DELETED here too — two-step confirm per group
   const [confirmingBoardDelete, setConfirmingBoardDelete] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<string | null>(null);
@@ -316,7 +316,7 @@ export function TrackingView({
             className="input mt-1"
           />
         </label>
-        {/* owner 2026-07-19 "全是url不知道哪个是哪个": an optional display name */}
+        {/* an optional display name (URLs alone are hard to tell apart) */}
         <label className="block text-sm font-medium text-ink">
           {t("tracking.name.label")}
           <input
@@ -406,8 +406,8 @@ export function TrackingView({
           {groupByBoard(subs, boards, t("tracking.group.none")).map((group) => (
             <Fragment key={group.id ?? "none"}>
               {/* board group header — presentation row, not a source item. Every
-                  board renders (even empty) so it can be deleted here (owner
-                  2026-07-19); deletion is a two-step confirm, cascade stated. */}
+                  board renders (even empty) so it can be deleted here;
+                  deletion is a two-step confirm, cascade stated. */}
               <li role="presentation" className="!py-1.5" style={{ background: "rgb(var(--panel) / 0.4)" }}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
@@ -451,7 +451,7 @@ export function TrackingView({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {/* the user-given name leads; the URL stays visible below it
-                      (owner 2026-07-19 "全是url不知道哪个是哪个") */}
+                      (URLs alone are hard to tell apart) */}
                   <p className="truncate text-sm font-medium text-ink">
                     {sub.name || sub.input_url}
                   </p>
@@ -545,7 +545,7 @@ export function TrackingView({
 
 /** Group subscriptions by topic board for display: known boards first (in board
  * order, INCLUDING empty ones — an empty board must still render so it can be
- * deleted, owner 2026-07-19), then boards the list no longer knows (deleted —
+ * deleted), then boards the list no longer knows (deleted —
  * shown by raw id), then the ungrouped bucket. Pure presentation. */
 function groupByBoard(
   subs: Subscription[],

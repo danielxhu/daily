@@ -12,10 +12,10 @@ unverified, so the summary describes what the source SAYS (claims attributed
 to it), never a truth verdict. Best-effort: any failure degrades to None —
 a summary is presentation, it never blocks the item's lifecycle.
 
-Generation runs write-side (M14.7, owner 2026-07-07 "为什么这么慢"): the poll
+Generation runs write-side (M14.7): the poll
 dispatch, the background worker, a manual refresh, and the backfill call this;
 read surfaces only render what was stored. Summary length scales with content
-length (owner 2026-07-21) — see `_ENRICH_TIERS` below.
+length — see `_ENRICH_TIERS` below.
 """
 
 from __future__ import annotations
@@ -44,10 +44,10 @@ _ITEM_ENRICH_JSON = (
     '"tags": ["<2-6 short lowercase topic tags>"]}'
 )
 
-# owner 2026-07-21 ("综述长度根据内容长度来"): the paragraph plan AND how much
+# The paragraph plan AND how much
 # source material the model sees both scale with the content. Three tiers keyed
 # on the full text length; each tuple = (excerpt chars fed to the LLM, plan).
-# owner 2026-07-24 "综述再长一点": every tier bumped one notch, and the top
+# 2026-07-24: every tier bumped one notch, and the top
 # tier now reads the full stored excerpt (40k, the DB cap) instead of 30k.
 _ENRICH_TIERS: list[tuple[int, int, str]] = [
     # short pieces: fuller than before, but still no padding beyond the material
@@ -60,7 +60,7 @@ _ENRICH_TIERS: list[tuple[int, int, str]] = [
         "then any background or next steps the source mentions. Draw on "
         "everything the source offers, but never pad beyond it.",
     ),
-    # the typical article (owner 2026-07-17 '三段左右'; 2026-07-24 longer still)
+    # the typical article (started at ~3 paragraphs; lengthened 2026-07-24)
     (
         15_000,
         15_000,
@@ -128,7 +128,7 @@ def enrich_fetched_item(
     llm: LLMClient,
     errors: list[str] | None = None,
 ) -> ItemEnrichment | None:
-    """M16.3 (owner 2026-07-08): ONE flash call (no escalation) producing the
+    """M16.3: ONE flash call (no escalation) producing the
     BILINGUAL enrichment for a just-fetched tracked item — zh + en summaries in
     the same response, so the locale toggle switches instantly without another
     call. Same NFR-7 exception (3) as the M15.2 single-language briefing it
@@ -138,7 +138,7 @@ def enrich_fetched_item(
     stripped = text.strip()
     if not stripped:
         return None
-    # summary length follows content length (owner 2026-07-21): a 2h transcript
+    # summary length follows content length: a 2h transcript
     # gets a wider excerpt AND a longer paragraph plan than a short article
     excerpt_chars, plan = _enrich_plan(len(stripped))
     excerpt = stripped[:excerpt_chars]

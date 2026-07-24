@@ -327,7 +327,7 @@ export async function getItemProgress(
   return getJson<ItemProgress>(`/tracked-items/${id}/progress`, opts);
 }
 
-// --- model API credentials (owner 2026-07-23, settings page) ---
+// --- model API credentials (settings page) ---
 
 export async function getApiSettings(opts: QueryOptions = {}): Promise<ApiSettings> {
   return getJson<ApiSettings>("/settings/api", opts);

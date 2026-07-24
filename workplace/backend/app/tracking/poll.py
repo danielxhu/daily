@@ -74,7 +74,7 @@ def newest_first(items: list[FeedItem]) -> list[FeedItem]:
     )
 
 
-# owner 2026-07-10 (主流平台兼容): URL shapes that are not plain feeds ----------
+# mainstream-platform compatibility: URL shapes that are not plain feeds ------
 #
 # Local-first, no paid APIs, no proxies, no login cookies — so support is honest
 # per platform: Reddit rides its native RSS; Bilibili/Douyin uploader pages are
@@ -94,8 +94,8 @@ _BVID_RE = re.compile(r"[?&]bvid=(BV[0-9A-Za-z]+)")
 
 
 def _canonical_video_url(url: str) -> str:
-    """A playlist/watch-later PLAYER URL carries the video in `bvid=` (owner
-    2026-07-13: 稍后再看 links) — canonicalize to the plain /video/ page, which
+    """A playlist/watch-later PLAYER URL carries the video in `bvid=`
+    (稍后再看 links) — canonicalize to the plain /video/ page, which
     every downstream step (yt-dlp, dedup, the original link) handles."""
     if _host(url) == "bilibili.com":
         m = _BVID_RE.search(url)
@@ -222,8 +222,8 @@ def _weibo_items(uid: str, fetch: Fetch) -> list[FeedItem]:
 
 _TITLE_RE = re.compile(rb"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
-# owner 2026-07-13 ("应该按发布日期来而不是按添加日期"): the publish date is on
-# the video page we already fetch — Bilibili embeds a unix `pubdate` in its
+# Items sort by PUBLISH date, not by when they were added — the publish date is
+# on the video page we already fetch: Bilibili embeds a unix `pubdate` in its
 # initial-state JSON; YouTube/schema.org pages carry a datePublished/uploadDate
 # meta. Code-only, zero extra requests.
 _PUBLISHED_RES = (
@@ -262,7 +262,7 @@ def _html_title(content: bytes) -> str | None:
     title = unescape(m.group(1).decode("utf-8", errors="replace")).strip()
     # YouTube's platform suffix — and a bot-check/consent shell page's title is
     # JUST the suffix ("- YouTube"), which must read as "no title", not a title
-    # (owner 2026-07-17: an item literally named "- YouTube")
+    # (an item once ended up literally named "- YouTube")
     title = re.sub(r"\s*-\s*YouTube$", "", title).strip()
     return title or None
 

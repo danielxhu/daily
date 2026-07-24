@@ -1,4 +1,4 @@
-"""Xiaohongshu note peek (owner 2026-07-23).
+"""Xiaohongshu note peek.
 
 XHS /explore/ URLs used to go wholesale down the yt-dlp video path, but many
 notes are image/text posts (图文) with no video — yt-dlp fails deterministically

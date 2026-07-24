@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run daily in PRODUCTION mode (owner 2026-07-10 "太卡太慢"): `next build` once,
+# Run daily in PRODUCTION mode (dev mode was far too sluggish): `next build` once,
 # then `next start` — page navigation drops from seconds (the dev compiler builds
 # every route on first visit) to near-instant. Use scripts/dev.sh only when
 # actively changing frontend code (it hot-reloads; this doesn't).
@@ -24,8 +24,8 @@ export NEXT_TELEMETRY_DISABLED=1
 # self-heal: clear stale daily processes (orphans keep polling the same SQLite
 # DB and hold the poll mutex — stuck refreshes and 409s). SIGTERM alone is NOT
 # enough: a uvicorn mid-transcription waits on its whisper thread for minutes
-# and five half-dead multi-GB servers once piled up (owner 2026-07-21 "为什么
-# 你占用进程这么多") — so wait briefly, then force-kill whatever still holds
+# and five half-dead multi-GB servers once piled up —
+# so wait briefly, then force-kill whatever still holds
 # the ports, and never start until both ports are actually free.
 pkill -f "uvicorn app.main:app" 2>/dev/null
 pkill -f "next dev" 2>/dev/null
@@ -56,7 +56,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# ENABLE_HTML_RENDER (owner 2026-07-21): the Playwright tier-3 fallback existed in
+# ENABLE_HTML_RENDER: the Playwright tier-3 fallback existed in
 # code but the [render] extra was never installed, so JS-heavy pages silently died
 # as parse_empty in production. Requires: .venv has `.[render]` + chromium
 # (uv pip install -e ".[render]" && .venv/bin/playwright install chromium).

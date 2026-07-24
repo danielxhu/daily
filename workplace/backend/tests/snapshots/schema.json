@@ -20,7 +20,7 @@
     },
     "ApiSlotView": {
       "additionalProperties": false,
-      "description": "One model-credential slot on the settings page (owner 2026-07-23).\n\"text\" powers summaries/Q&A (falls back to the .env DeepSeek default);\n\"vision\" is reserved for a hosted image-reading model. The key itself is\nNEVER returned — only its last 4 characters.",
+      "description": "One model-credential slot on the settings page.\n\"text\" powers summaries/Q&A (falls back to the .env DeepSeek default);\n\"vision\" is reserved for a hosted image-reading model. The key itself is\nNEVER returned — only its last 4 characters.",
       "properties": {
         "base_url": {
           "anyOf": [
@@ -276,7 +276,7 @@
     },
     "ItemEnrichment": {
       "additionalProperties": false,
-      "description": "M16.3: bilingual, source-attributed enrichment for ONE tracked item — a\nsingle flash call at poll/refresh time (NFR-7 exception (3), broadened to\nbilingual output so the locale toggle follows instantly; owner 2026-07-08:\n\"中英切换时 AI 生成内容语言不跟随\"). Every field restates or annotates the\nSOURCE — attributed claims, never asserted truth, never outside knowledge,\nnever a score, never investment advice. A failed generation is None at the\ncard level; nothing here is ever fabricated.",
+      "description": "M16.3: bilingual, source-attributed enrichment for ONE tracked item — a\nsingle flash call at poll/refresh time (NFR-7 exception (3), broadened to\nbilingual output so the locale toggle follows instantly — AI-generated\ntext must switch language with the UI). Every field restates or annotates the\nSOURCE — attributed claims, never asserted truth, never outside knowledge,\nnever a score, never investment advice. A failed generation is None at the\ncard level; nothing here is ever fabricated.",
       "properties": {
         "entities": {
           "default": [],
@@ -424,7 +424,7 @@
     },
     "ItemProgress": {
       "additionalProperties": false,
-      "description": "`GET /tracked-items/{id}/progress` (owner 2026-07-21 \"加个进度条\"): live\nstage + percent while the background job downloads/transcribes THIS item's\naudio. stage None = nothing in flight for this item right now (queued, done,\nor the app restarted — progress is in-memory only, never persisted).",
+      "description": "`GET /tracked-items/{id}/progress`: live\nstage + percent while the background job downloads/transcribes THIS item's\naudio. stage None = nothing in flight for this item right now (queued, done,\nor the app restarted — progress is in-memory only, never persisted).",
       "properties": {
         "pct": {
           "anyOf": [
@@ -487,7 +487,7 @@
     },
     "KnowledgeAnswerRequest": {
       "additionalProperties": false,
-      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.\nAlso the body of the chat asks (`POST /knowledge/chats` and\n`POST /knowledge/chats/{id}/messages`, owner 2026-07-24).",
+      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.\nAlso the body of the chat asks (`POST /knowledge/chats` and\n`POST /knowledge/chats/{id}/messages`).",
       "properties": {
         "q": {
           "title": "Q",
@@ -502,7 +502,7 @@
     },
     "KnowledgeChat": {
       "additionalProperties": false,
-      "description": "One persisted knowledge Q&A conversation (owner 2026-07-24): open an old\nchat to re-read it, or keep asking — the answer call sees the earlier\nturns. Title = the first question. Deleting a chat never touches the\nnotes/items it talked about.",
+      "description": "One persisted knowledge Q&A conversation: open an old\nchat to re-read it, or keep asking — the answer call sees the earlier\nturns. Title = the first question. Deleting a chat never touches the\nnotes/items it talked about.",
       "properties": {
         "based_on": {
           "anyOf": [
@@ -676,7 +676,7 @@
     },
     "KnowledgeSearchResult": {
       "additionalProperties": false,
-      "description": "`GET /knowledge/search`: deterministic SQLite keyword matching only — zero\nLLM and zero embedding in the request path (M16.2, the owner's \"search is\nvery slow\" fix). Two labeled layers: the user's own notes and tracked items.\nTracked items are NEVER fed into the on-demand answer synthesis.",
+      "description": "`GET /knowledge/search`: deterministic SQLite keyword matching only — zero\nLLM and zero embedding in the request path (M16.2, the fix for the slow\nsearch). Two labeled layers: the user's own notes and tracked items.\nTracked items are NEVER fed into the on-demand answer synthesis.",
       "properties": {
         "items": {
           "default": [],

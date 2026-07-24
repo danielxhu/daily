@@ -268,15 +268,15 @@ class KnowledgeModule(Schema):
 class ItemEnrichment(Schema):
     """M16.3: bilingual, source-attributed enrichment for ONE tracked item — a
     single flash call at poll/refresh time (NFR-7 exception (3), broadened to
-    bilingual output so the locale toggle follows instantly; owner 2026-07-08:
-    "中英切换时 AI 生成内容语言不跟随"). Every field restates or annotates the
+    bilingual output so the locale toggle follows instantly — AI-generated
+    text must switch language with the UI). Every field restates or annotates the
     SOURCE — attributed claims, never asserted truth, never outside knowledge,
     never a score, never investment advice. A failed generation is None at the
     card level; nothing here is ever fabricated."""
 
     summary_zh: str  # 1-2 句中文综述(来源口吻)
     summary_en: str  # 1-2 sentence English summary (source-attributed)
-    # the source's own title rendered in each language (owner 2026-07-10: the
+    # the source's own title rendered in each language (the
     # locale toggle must carry the TITLE too, not just the summary) — a faithful
     # translation, never a rewrite; optional so older cached enrichments degrade
     # to the original title
@@ -315,8 +315,8 @@ class TrackedItemCard(Schema):
     status: Literal["new", "fetched", "failed", "deferred"]
     failure_kind: SourceFailureKind | None = None  # set iff status == "failed"/"deferred"
     degraded_reason: str | None = None  # degradation note (item stays visible)
-    # DEPRECATED (M16.3): the M15.2 single-language briefing — locale-blind, so it
-    # was the owner's "language doesn't follow" complaint. No writer since v0.13;
+    # DEPRECATED (M16.3): the M15.2 single-language briefing — locale-blind, so
+    # its language could not follow the UI toggle. No writer since v0.13;
     # the UI must never consume it (M16.1 pins this). Kept nullable for contract
     # compatibility only; `enrichment` below is the live field.
     summary: str | None = None
@@ -348,7 +348,7 @@ class TrackedItemDetail(Schema):
 
 
 class ItemProgress(Schema):
-    """`GET /tracked-items/{id}/progress` (owner 2026-07-21 "加个进度条"): live
+    """`GET /tracked-items/{id}/progress`: live
     stage + percent while the background job downloads/transcribes THIS item's
     audio. stage None = nothing in flight for this item right now (queued, done,
     or the app restarted — progress is in-memory only, never persisted)."""
@@ -358,7 +358,7 @@ class ItemProgress(Schema):
 
 
 class ApiSlotView(Schema):
-    """One model-credential slot on the settings page (owner 2026-07-23).
+    """One model-credential slot on the settings page.
     "text" powers summaries/Q&A (falls back to the .env DeepSeek default);
     "vision" is reserved for a hosted image-reading model. The key itself is
     NEVER returned — only its last 4 characters."""
@@ -432,8 +432,8 @@ class ItemNoteDraftReply(Schema):
 
 class KnowledgeSearchResult(Schema):
     """`GET /knowledge/search`: deterministic SQLite keyword matching only — zero
-    LLM and zero embedding in the request path (M16.2, the owner's "search is
-    very slow" fix). Two labeled layers: the user's own notes and tracked items.
+    LLM and zero embedding in the request path (M16.2, the fix for the slow
+    search). Two labeled layers: the user's own notes and tracked items.
     Tracked items are NEVER fed into the on-demand answer synthesis."""
 
     saved: list[KnowledgeNote]
@@ -443,13 +443,13 @@ class KnowledgeSearchResult(Schema):
 class KnowledgeAnswerRequest(Schema):
     """`POST /knowledge/answer` body (M16.2): the question to answer on demand.
     Also the body of the chat asks (`POST /knowledge/chats` and
-    `POST /knowledge/chats/{id}/messages`, owner 2026-07-24)."""
+    `POST /knowledge/chats/{id}/messages`)."""
 
     q: str
 
 
 class KnowledgeChat(Schema):
-    """One persisted knowledge Q&A conversation (owner 2026-07-24): open an old
+    """One persisted knowledge Q&A conversation: open an old
     chat to re-read it, or keep asking — the answer call sees the earlier
     turns. Title = the first question. Deleting a chat never touches the
     notes/items it talked about."""

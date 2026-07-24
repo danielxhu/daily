@@ -39,7 +39,7 @@ class PollScheduler:
         return self._backend
 
     def schedule_enrich_tick(self, job: PollJob, *, seconds: int) -> None:
-        """Register the background enrichment worker tick (owner 2026-07-10):
+        """Register the background enrichment worker tick:
         pending items upgrade themselves while the app runs — no clicks."""
         self._ensure().add_job(
             job,

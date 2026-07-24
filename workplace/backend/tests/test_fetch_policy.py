@@ -104,7 +104,7 @@ def test_no_stealth_fetcher_imported_or_instantiated_in_app_code() -> None:
 
 
 def test_fetch_headers_browser_ua_for_wechat_only() -> None:
-    # owner 2026-07-24: mp.weixin walls the bot UA but serves the full
+    # mp.weixin walls the bot UA but serves the full
     # server-rendered article to a plain browser UA — a static UA string,
     # no cookies/captcha (same stance the yt-dlp video path already takes)
     wx = fp.fetch_headers("https://mp.weixin.qq.com/s/abc123")

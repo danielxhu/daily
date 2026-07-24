@@ -4,8 +4,7 @@ import { HELP_EVENT } from "@/components/Onboarding";
 import { useT } from "@/lib/i18n";
 
 /** Header guide entry — reopens the first-run guide (Onboarding listens for
- * HELP_EVENT). A labeled word, not a bare "?": the owner found the glyph cryptic
- * (2026-07-08). */
+ * HELP_EVENT). A labeled word, not a bare "?": the glyph alone is cryptic. */
 export function HelpButton() {
   const t = useT();
   return (

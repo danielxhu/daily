@@ -1,4 +1,4 @@
-"""Per-domain risk-control circuit breaker (owner 2026-07-21).
+"""Per-domain risk-control circuit breaker.
 
 The 2026-07-21 production audit: bilibili answers 412 ("Request is blocked")
 to this exit IP, the block is HOUR-scale and IP-wide — yet every item retried

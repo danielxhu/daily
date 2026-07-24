@@ -1,4 +1,4 @@
-"""The enrichment backfill CLI (owner 2026-07-10): stored-text items get their
+"""The enrichment backfill CLI: stored-text items get their
 bilingual summary from the STORED excerpt (no re-fetch); account-level LLM
 failures abort instead of burning retries item after item."""
 

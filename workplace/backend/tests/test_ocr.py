@@ -1,4 +1,4 @@
-"""On-device OCR seam (owner 2026-07-23): config-driven selection, lazy pyobjc,
+"""On-device OCR seam: config-driven selection, lazy pyobjc,
 and the real Vision framework is never invoked in tests (NFR-3)."""
 
 from __future__ import annotations

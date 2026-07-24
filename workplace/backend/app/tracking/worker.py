@@ -1,5 +1,5 @@
-"""Background enrichment worker (owner 2026-07-10: "抓取原文生成综述应该不需要
-用户点击直接就可以生成").
+"""Background enrichment worker — fetching the text and generating the summary
+must not require a user click.
 
 While the app runs, pending items upgrade THEMSELVES — no clicks. Each tick
 works a small, bounded batch in priority order:
@@ -75,7 +75,7 @@ def work_once(
     outright when a poll / manual refresh is running."""
     counts = {"summarized": 0, "fetched": 0, "transcribed": 0, "indexed": 0}
 
-    # self-heal every tick (owner 2026-07-13): items of a deleted source must
+    # self-heal every tick: items of a deleted source must
     # disappear within seconds, whatever code path did the deleting
     purge_orphaned_items(conn)
 
@@ -142,7 +142,7 @@ def work_once(
         ingest=transcribe_ingest,
     )
 
-    # -- class 4: semantic index upkeep (owner 2026-07-21) — a few entries per
+    # -- class 4: semantic index upkeep — a few entries per
     # tick until every enriched item + saved note is embedded; fails soft ------
     if semantic_index is not None:
         counts["indexed"] = semantic_index.index_pending(conn)

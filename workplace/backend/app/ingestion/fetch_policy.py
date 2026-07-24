@@ -33,7 +33,7 @@ FETCH_TIMEOUT_MS = 15000
 
 # Hosts that answer the bot UA with a verification wall but serve the SAME
 # server-rendered article to a plain browser UA — no cookies, no login, no
-# captcha solving (owner 2026-07-24, WeChat articles: measured 环境异常 wall vs
+# captcha solving (WeChat articles: measured 环境异常 wall vs
 # 3.3MB full text on one UA string). A static browser UA is the stance the
 # yt-dlp video path already takes; a wall that still appears stays a typed
 # failure, never bypassed (§2.2).

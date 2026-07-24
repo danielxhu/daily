@@ -1,4 +1,4 @@
-"""Xiaohongshu note peek (owner 2026-07-23): 图文 notes become webpage text from
+"""Xiaohongshu note peek: 图文 notes become webpage text from
 the embedded page state instead of wedging on the yt-dlp video path; video notes
 and any fetch/parse miss still route to yt-dlp. All offline (NFR-3)."""
 
@@ -153,7 +153,7 @@ def test_ingest_image_note_becomes_webpage_text_without_ytdlp() -> None:
 
 
 def test_ingest_image_note_appends_local_ocr_text_and_marks_frame_ocr() -> None:
-    # owner 2026-07-23 "看图也要做": the 语录 screenshots ARE the content — the
+    # the 语录 screenshots ARE the content — the
     # on-device OCR reads them into the excerpt, labeled per image
     ocr = _FakeOCR({"a.jpg": "1. 现在做产品不是收益最大化的时候。", "b.jpg": ""})
     client = _PageClient(_note_page(_IMAGE_NOTE))

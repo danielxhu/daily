@@ -436,7 +436,7 @@ def _deferring_ingest(req: SourceRequest) -> IngestionResult:
 
 
 def test_polls_always_defer_transcription_without_requeue_churn(tmp_path: Path) -> None:
-    """M14.5 → 2026-07-10 (owner "轮询好慢"): EVERY poll uses the fast ingest —
+    """M14.5, tightened so polls stay fast: EVERY poll uses the fast ingest —
     whisper never runs inside a poll (one video costs minutes; a backlog queued
     them serially for hours). Deferral is honest delayed processing, and the item
     is NOT re-queued: the next poll must not re-fetch it forever — the detail

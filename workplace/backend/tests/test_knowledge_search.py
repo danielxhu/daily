@@ -172,7 +172,7 @@ def test_knowledge_search_rejects_empty_query(tmp_path: Path) -> None:
 
 
 def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
-    """Owner 2026-07-19 ("太保守了"): the prompt ANSWERS the question — analysis
+    """Not over-conservative: the prompt ANSWERS the question — analysis
     and labeled inference welcome, never a bare 证据不足 refusal — grounded on
     BOTH layers: the user's saved notes AND tracked-item summaries (in the
     question's language). Honesty survives: no fabricated specifics, no buy/sell
@@ -362,7 +362,7 @@ def test_answer_endpoint_empty_knowledge_base_spends_nothing(tmp_path: Path) -> 
 def test_answer_endpoint_grounds_on_whole_corpus_even_with_zero_search_hits(
     tmp_path: Path,
 ) -> None:
-    """The 创业 scenario (owner 2026-07-23): a synthesis question sharing no
+    """The 创业 scenario: a synthesis question sharing no
     keyword with any item must still see EVERY item — under the old top-hits
     grounding this returned answer=None without a call."""
     from datetime import UTC, datetime, timedelta

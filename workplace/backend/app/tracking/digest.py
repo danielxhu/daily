@@ -1,10 +1,10 @@
 """The digest read surface (SSOT §6.5 / FR-13; verification engine removed
-2026-07-13 by owner decision).
+2026-07-13).
 
 `assemble_digest` builds the board-filterable recent view over the TRACKED
 channel — what the user's sources published, with typed statuses and cached
-bilingual AI summaries. Render is cache-only, zero LLM by signature (M14.7,
-owner "为什么这么慢"): a page open can never bill or block on DeepSeek.
+bilingual AI summaries. Render is cache-only, zero LLM by signature (M14.7):
+a page open can never bill or block on DeepSeek.
 `digest_to_rss` renders the same channel as a minimal read-only RSS 2.0 feed.
 """
 
@@ -29,7 +29,7 @@ def assemble_digest(
     window_days: int = DIGEST_WINDOW_DAYS,
 ) -> DailyDigest:
     """Build the digest over the recent view window (default 30 days — M14.6,
-    owner: "近期的所有变化,默认一个月", user-adjustable per request): the tracked
+    all recent changes rather than just today, user-adjustable per request): the tracked
     items discovered in the window, newest first, optionally board-filtered.
     `until` bounds a date-scoped digest; otherwise it runs to now."""
     window_start = since if since is not None else now - timedelta(days=window_days)

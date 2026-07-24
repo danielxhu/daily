@@ -1,4 +1,4 @@
-"""M14.1 — Day-1 source-pack auto-adoption (owner 2026-07-06).
+"""M14.1 — Day-1 source-pack auto-adoption.
 
 Covers: the whole pack becomes subscriptions (modes + preset boards intact), the
 one-time flag (a second adopt is a no-op), and the red line the flag exists for —
@@ -39,7 +39,7 @@ def test_adopt_seeds_the_whole_pack_once(tmp_path: Path) -> None:
 
 
 def test_adopt_never_refills_after_a_deliberate_clean_out(tmp_path: Path) -> None:
-    """The owner's boundary: users decide what to delete or keep — deleting every
+    """The boundary: users decide what to delete or keep — deleting every
     source is a choice, and the app must not push the pack back in."""
     conn = init_db(str(tmp_path / "daily.db"))
     for sub in adopt_source_pack(conn):

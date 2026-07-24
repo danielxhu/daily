@@ -1,4 +1,4 @@
-"""Network-exit diagnosis — `python -m app.doctor` (owner 2026-07-21).
+"""Network-exit diagnosis — `python -m app.doctor`.
 
 Lesson from steipete/summarize's `status --probe`: when sources fail, the cause
 is usually the network SEAT, not the code — so probe the seat and say so in
@@ -7,7 +7,7 @@ Singapore datacenter IP (TUN-mode VPN), bilibili risk-controls datacenter exits
 (HTTP 412), and YouTube dies (TLS reset) whenever the tunnel is off — two
 disjoint failure worlds that read as "everything randomly fails".
 
-Owner-facing CLI, no UI surface. Probes use the SAME fetch policy as ingestion
+Operator-facing CLI, no UI surface. Probes use the SAME fetch policy as ingestion
 (honest UA, no cookies, no proxy pickup) so the report reflects what the app
 actually experiences. Read-only; sends four GETs total; never bypasses anything.
 """

@@ -1,4 +1,4 @@
-"""Persisted knowledge Q&A conversations (owner 2026-07-24).
+"""Persisted knowledge Q&A conversations.
 
 Every ask on the Knowledge page lives in a chat: open an old one to re-read it,
 or keep asking and the answer call sees the earlier turns. One JSON messages

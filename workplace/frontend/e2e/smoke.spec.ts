@@ -58,7 +58,7 @@ test("the tracked briefing renders without horizontal overflow", async ({ page }
   expect(noOverflow).toBe(true);
 });
 
-// 2026-07-10 (owner): Today is an AIHOT-style timeline with board filter tabs.
+// Today is an AIHOT-style timeline with board filter tabs.
 test("Today: date/poll header, chronological timeline, board tabs filter", async ({ page }) => {
   await openMockApp(page);
   const head = page.getByLabel("Today overview");
@@ -78,6 +78,6 @@ test("Today: date/poll header, chronological timeline, board tabs filter", async
   await expect(page.getByText("Markets Daily — episode 214")).toHaveCount(0);
   await tabs.getByRole("button", { name: "All" }).click();
   await expect(page.getByText("Markets Daily — episode 214")).toBeVisible();
-  // no score / featured badge anywhere (owner: 都不要)
+  // no score / featured badge anywhere (deliberately none)
   await expect(page.locator("body")).not.toContainText(/精选|\/100|credibility|verdict/i);
 });

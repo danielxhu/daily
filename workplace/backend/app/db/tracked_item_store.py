@@ -187,7 +187,7 @@ def recent_tracked_items(
 
 
 # a discussion/re-enrich grounding needs the lede and body, not unbounded pages.
-# 40k (owner 2026-07-21): keeps enough of an hours-long transcript that the
+# 40k keeps enough of an hours-long transcript that the
 # long-tier summary (30k window) can regenerate from storage, not just the lede
 _CONTENT_EXCERPT_CAP = 40_000
 
@@ -245,7 +245,7 @@ def get_item_excerpt(conn: sqlite3.Connection, item_id: str) -> str | None:
 
 def list_all_cards(conn: sqlite3.Connection) -> list[TrackedItemCard]:
     """Every tracked item, newest first — the item layer of the full-corpus
-    answer grounding (owner 2026-07-23 方案0; at single-operator scale the whole
+    answer grounding (at single-operator scale the whole
     base is at most a few hundred rows, so no pagination)."""
     rows = conn.execute("SELECT * FROM tracked_items ORDER BY first_seen DESC").fetchall()
     return [_row_to_card(conn, row) for row in rows]

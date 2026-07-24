@@ -23,8 +23,8 @@ interface KnowledgeViewProps {
   deleteFn?: typeof deleteKnowledgeChat;
 }
 
-/** Knowledge — "ask daily what it knows", as persisted conversations (owner
- * 2026-07-24). Every ask is answered over the whole knowledge base in one call
+/** Knowledge — "ask daily what it knows", as persisted conversations.
+ * Every ask is answered over the whole knowledge base in one call
  * and saved into the current chat; the history list reopens an old chat to
  * re-read it or keep asking with its context. Deleting a chat never touches
  * the notes/items it talked about. */
@@ -183,7 +183,7 @@ export function KnowledgeView({
         </p>
       )}
 
-      {/* chat history (owner 2026-07-24): reopen to re-read or continue */}
+      {/* chat history: reopen to re-read or continue */}
       {chats.length > 0 && (
         <section className="space-y-2">
           <h3 className="text-xs font-medium uppercase tracking-wide text-faint">

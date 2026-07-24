@@ -1,4 +1,4 @@
-"""User-entered model API credentials (owner 2026-07-23): two slots on the
+"""User-entered model API credentials: two slots on the
 settings page; the "text" slot overrides the .env DeepSeek default; the key is
 never echoed back (last 4 characters only)."""
 

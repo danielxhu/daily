@@ -93,7 +93,7 @@ def list_notes(conn: sqlite3.Connection, board_id: str) -> list[KnowledgeNote]:
 def list_saved_notes(conn: sqlite3.Connection) -> list[KnowledgeNote]:
     """Every note the user typed or deliberately saved (`saved_check` +
     `user_note`), all boards, newest first — the note layer of the full-corpus
-    answer grounding (owner 2026-07-23 方案0). Same kind filter as
+    answer grounding. Same kind filter as
     `search_saved_notes`: `ai_distilled` (display-only cache) and `pinned_fact`
     (dormant fact layer) never ground an answer."""
     rows = conn.execute(

@@ -251,7 +251,7 @@ def test_first_poll_cap_takes_latest_by_date_not_feed_order(
     assert out2.new_count == 0 and rec2.calls == []
 
 
-# --- 2026-07-10 (owner: B 站兼容): non-feed URL shapes -----------------------------
+# --- Bilibili compatibility: non-feed URL shapes -----------------------------
 
 
 def _collect_dispatch() -> tuple[list[str], Any]:
@@ -285,7 +285,7 @@ def test_a_single_video_url_becomes_a_one_item_source(tmp_path: Path) -> None:
     assert urls == ["https://www.bilibili.com/video/BV14eRcBnEpE/?spm_id_from=x"]
     row = conn.execute("SELECT title, published FROM tracked_items").fetchone()
     assert row["title"] == "【测试】某视频标题_哔哩哔哩"
-    # owner 2026-07-13: the item carries the video's PUBLISH date (embedded
+    # the item carries the video's PUBLISH date (embedded
     # `pubdate`), never the date the user happened to add it
     assert row["published"] is not None and row["published"].startswith("2026-07-01")
 
@@ -294,7 +294,7 @@ def test_a_single_video_url_becomes_a_one_item_source(tmp_path: Path) -> None:
 
 
 def test_a_youtube_bot_shell_falls_back_to_the_oembed_title(tmp_path: Path) -> None:
-    """owner 2026-07-17: an item literally titled "- YouTube". A bot-checked watch
+    """An item once ended up literally titled "- YouTube". A bot-checked watch
     page serves a shell whose <title> is just the platform suffix — that is NOT a
     title; the keyless oEmbed endpoint still has the real one."""
     conn = init_db(str(tmp_path / "daily.db"))
@@ -360,7 +360,7 @@ def test_a_bilibili_space_lists_videos_via_ytdlp(tmp_path: Path, monkeypatch: An
     assert titles == {"视频一", "视频二"}
 
 
-# --- 2026-07-10 (owner: 主流平台兼容): Reddit / Weibo / Douyin / X / XHS -----------
+# --- mainstream-platform compatibility: Reddit / Weibo / Douyin / X / XHS ---------
 
 
 def test_reddit_subreddit_and_user_pages_poll_their_native_rss(tmp_path: Path) -> None:
@@ -453,7 +453,7 @@ def test_douyin_and_xhs_single_videos_are_one_item_sources() -> None:
 
 
 def test_watchlater_player_url_canonicalizes_to_the_video_page(tmp_path: Path) -> None:
-    """Owner 2026-07-13: a 稍后再看 player link carries the video in `bvid=` —
+    """A 稍后再看 player link carries the video in `bvid=` —
     it is recognized as a single video and stored under the clean /video/ URL."""
     conn = init_db(str(tmp_path / "daily.db"))
     sub = create_subscription(

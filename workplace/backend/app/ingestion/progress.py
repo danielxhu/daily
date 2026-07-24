@@ -1,5 +1,5 @@
-"""In-memory progress for the background transcription job (owner 2026-07-21
-"能不能加个进度条").
+"""In-memory progress for the background transcription job — feeds the live
+progress bar on the item detail page.
 
 ONE slot by design: the worker transcribes a single item at a time, so the
 current job's URL + stage + percent live in a module-level slot — no table, no

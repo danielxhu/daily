@@ -86,7 +86,7 @@ def is_youtube(url: str) -> bool:
 
 
 def is_bilibili_video(url: str) -> bool:
-    """A single Bilibili video page (owner 2026-07-10: B 站兼容). Content comes via
+    """A single Bilibili video page. Content comes via
     the same yt-dlp caption/whisper path as YouTube — the raw page is a JS shell
     that the webpage extractor would reduce to junk. yt-dlp supports Bilibili
     natively (captions, audio, and its anti-crawl signing)."""
@@ -99,7 +99,7 @@ def is_bilibili_video(url: str) -> bool:
 
 def is_xiaohongshu_note(url: str) -> bool:
     """A single Xiaohongshu note URL (or an xhslink short link to one). Routed
-    with a page peek first (owner 2026-07-23): many notes are image/text posts
+    with a page peek first: many notes are image/text posts
     with NO video, where yt-dlp fails deterministically ("No video formats
     found") while the note body sits in the page HTML."""
     parts = urlsplit(url)
@@ -112,7 +112,7 @@ def is_xiaohongshu_note(url: str) -> bool:
 
 def is_video_platform(url: str) -> bool:
     """Any single-video/note page whose content must come via yt-dlp rather than
-    the webpage extractor (owner 2026-07-10: 主流平台兼容): YouTube, Bilibili,
+    the webpage extractor (mainstream-platform compatibility): YouTube, Bilibili,
     Douyin videos, Xiaohongshu notes. Best-effort where the platform is hostile
     (Douyin/XHS rate-control hard) — a block is a typed failure, never junk text."""
     if is_youtube(url) or is_bilibili_video(url):

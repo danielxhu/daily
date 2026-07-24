@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { KnowledgeView } from "@/components/KnowledgeView";
 import type { KnowledgeChat, KnowledgeChatSummary } from "@/types/contract";
 
-// Knowledge asks are persisted conversations (owner 2026-07-24): every ask is
+// Knowledge asks are persisted conversations: every ask is
 // answered in one call and saved; the history list reopens or continues a chat.
 
 const CHAT: KnowledgeChat = {

@@ -1,5 +1,5 @@
 """Tracking poll runtime (SSOT §6.2–§6.6 / FR-3; verification engine removed
-2026-07-13 by owner decision — "把所有旧代码全部删去").
+2026-07-13, old code deleted wholesale).
 
 The wire that turns subscriptions from CRUD rows into a live habit loop: discover
 each subscription's new items, fetch their content, persist the excerpt, and
@@ -309,7 +309,7 @@ def _run_poll_locked(
     reports: list[PollSubReport] = []
     for o in outcomes:
         sub = sub_by_id[o.subscription_id]
-        # 2026-07-10 (owner "轮询好慢"): EVERY poll uses the fast ingest — captions
+        # Polls must stay fast: EVERY poll uses the fast ingest — captions
         # process normally, local whisper transcription never runs inside a poll.
         use_ingest = ingest_first if ingest_first is not None else ingest
         report = _process_outcome(
@@ -365,7 +365,7 @@ def poll_due_subscriptions(
     added or removed after startup are handled without a restart (FR-3 / §6.4).
     Returns None when nothing is due (no empty PipelineRun is recorded)."""
     now = now or datetime.now(UTC)
-    # self-heal FIRST and unconditionally (owner 2026-07-13: with every source
+    # self-heal FIRST and unconditionally (with every source
     # deleted there is nothing "due", so a purge gated behind run_poll never ran
     # and deleted sources' items kept showing in Today)
     purge_orphaned_items(conn)

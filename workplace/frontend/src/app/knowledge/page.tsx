@@ -5,7 +5,7 @@ import { BoardsView } from "@/components/BoardsView";
 import { KnowledgeView } from "@/components/KnowledgeView";
 
 /** Knowledge (zh: 知识库) — the operator's knowledge base (M12.4). Two surfaces
- * on one page, ask first (owner 2026-07-18: the question box was buried under
+ * on one page, ask first (the question box used to be buried under
  * the board admin): the "ask daily" conversation, then browse by topic board
  * (each board = its module chips, tracked items, and notes). */
 export default function KnowledgePage() {

@@ -61,7 +61,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 "CREATE INDEX idx_notes_board ON knowledge_notes (board_id)",
             ),
         ),
-        # M12.1 — preset topic boards (owner 2026-07-03): 政治 / 经济 / 科技. Seeded as
+        # M12.1 — preset topic boards: 政治 / 经济 / 科技. Seeded as
         # a DATA migration so they appear exactly once per database — the ledger
         # guarantees a user who renames or deletes them never sees them resurrect.
         # Fixed ids so the static source-pack recommendations can reference them.
@@ -77,7 +77,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 "('b_tech', '科技', '2026-07-03T00:00:00+00:00')",
             ),
         ),
-        # owner 2026-07-24 — persisted knowledge Q&A conversations: open an old
+        # persisted knowledge Q&A conversations: open an old
         # chat to re-read it or keep asking with its context. Messages are one
         # JSON array per chat (single-operator scale; a chat is read/written
         # whole). Deleting a chat deletes only the conversation — never the
@@ -182,8 +182,8 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 "CREATE INDEX idx_pending_expires ON pending_claims (expires_at)",
             ),
         ),
-        # M12.2 — per-item digest summary cache (AIHOT-informed briefing line, owner
-        # 2026-07-03). One flash summary per (fact, version): re-rendering the digest
+        # M12.2 — per-item digest summary cache (AIHOT-informed briefing line).
+        # One flash summary per (fact, version): re-rendering the digest
         # must not re-bill the LLM. Presentation-only — never feeds scoring/memory.
         Migration(
             4,
@@ -198,7 +198,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 ")",
             ),
         ),
-        # M14.1 — one-time app flags (owner 2026-07-06 Day-1 auto-fill). The seeding
+        # M14.1 — one-time app flags (Day-1 auto-fill). The seeding
         # marker must survive the user deleting every subscription: an empty list
         # after a deliberate clean-out is the user's choice, never re-filled.
         Migration(
@@ -212,7 +212,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 ")",
             ),
         ),
-        # M14.7 — per-item digest category cache (owner 2026-07-07 "为什么这么慢").
+        # M14.7 — per-item digest category cache.
         # Categorization used to be re-derived on EVERY digest render, serially
         # calling the LLM for each fact no keyword rule matched. Same shape and
         # lifecycle as digest_summaries: keyed by (fact, version), filled write-side
@@ -296,7 +296,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
             "add_tracked_item_summary",
             ("ALTER TABLE tracked_items ADD COLUMN summary TEXT",),
         ),
-        # M16.3 — bilingual enrichment (owner 2026-07-08: locale must follow the
+        # M16.3 — bilingual enrichment (the locale must follow the
         # language toggle) + a persisted content excerpt. `enrichment` is the
         # ItemEnrichment JSON (ensure_ascii=False); `content_excerpt` (capped in
         # code) grounds the per-item discussion and the manual re-enrich. Legacy
@@ -317,14 +317,14 @@ MIGRATIONS: dict[str, list[Migration]] = {
             "add_tracked_item_extraction_method",
             ("ALTER TABLE tracked_items ADD COLUMN extraction_method TEXT",),
         ),
-        # owner 2026-07-19 "全是url不知道哪个是哪个": a user-given display name per
-        # source. NULL = unnamed (all pre-v12 rows) — the UI falls back to the URL.
+        # a user-given display name per source (URLs alone are hard to tell
+        # apart). NULL = unnamed (all pre-v12 rows) — the UI falls back to the URL.
         Migration(
             12,
             "add_subscription_name",
             ("ALTER TABLE subscriptions ADD COLUMN name TEXT",),
         ),
-        # owner 2026-07-21 — per-domain risk-control circuit breaker (audit: bilibili
+        # per-domain risk-control circuit breaker (audit: bilibili
         # 412 bans are HOUR-scale and IP-wide; per-item retries just deepened them).
         # Persistent so a restart's fresh in-memory budgets never re-hammer a domain
         # that banned us an hour ago. One row per blocked domain; success deletes.
@@ -341,7 +341,7 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 ")",
             ),
         ),
-        # owner 2026-07-23 — user-entered model API credentials (settings page).
+        # user-entered model API credentials (settings page).
         # Two slots: "text" (overrides the .env DeepSeek default when present)
         # and "vision" (reserved for a hosted image-reading model). Keys live in
         # this LOCAL sqlite file only, same trust level as .env; API responses

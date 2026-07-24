@@ -13,7 +13,7 @@ const TIER_KEY: Record<NonNullable<TrackedItemCard["tier"]>, string> = {
   T2: "verify.tier.T2",
 };
 
-/** The item title in the ACTIVE locale (owner 2026-07-10: the language toggle
+/** The item title in the ACTIVE locale (the language toggle
  * must carry the title too). The enrichment carries a faithful translation of
  * the source's own title; items without one (older cache / no enrichment)
  * degrade to the original title. */
@@ -44,7 +44,7 @@ function trackedStatus(item: TrackedItemCard, t: (k: string) => string): string 
 /** One tracked item's lite expression (M15.4, trimmed by M16.1): title +
  * provenance link, AI briefing, then the meta line — domain, code-first tier,
  * date, the dup/repost echo hint, and the typed status. The check surface left
- * the product with M16.1 (owner 2026-07-08).
+ * the product with M16.1.
  * Shared by Today, the full Digest, and Knowledge search hits
  * so the semantics never drift between surfaces. */
 export function TrackedItemLite({ item }: { item: TrackedItemCard }) {
@@ -56,7 +56,7 @@ export function TrackedItemLite({ item }: { item: TrackedItemCard }) {
   const when = item.published ?? item.first_seen;
   const similar = item.similar_count ?? 0;
   // M16.3: the bilingual enrichment carries BOTH languages — the toggle switches
-  // instantly, no call, no cache miss (owner 2026-07-08). The deprecated
+  // instantly, no call, no cache miss. The deprecated
   // single-language `summary` is never consumed (M16.1).
   const summary = item.enrichment
     ? locale === "zh"
@@ -65,7 +65,7 @@ export function TrackedItemLite({ item }: { item: TrackedItemCard }) {
     : null;
   return (
     <div className="min-w-0 space-y-1">
-      {/* M16.4: the title opens the item's OWN detail page ("点进任何一条信息");
+      {/* M16.4: the title opens the item's OWN detail page;
           the original link moves to the meta line below */}
       <p className="break-words text-[15px] font-medium text-ink">
         <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
@@ -319,7 +319,7 @@ export function TrackedItemsSection({
   );
 }
 
-// --- AIHOT-style timeline (owner 2026-07-10): Today's read surface ------------
+// --- AIHOT-style timeline: Today's read surface -------------------------------
 
 /** One timeline row: time on a left rail, then the card — source line on top
  * (matching the reference screenshots), title, AI summary, tags/status. */
@@ -399,9 +399,9 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
   );
 }
 
-/** The AIHOT-style chronological feed (owner 2026-07-10): strictly newest-first,
+/** The AIHOT-style chronological feed: strictly newest-first,
  * grouped under day headers, a time rail on the left. Pure presentation over the
- * same tracked cards — no score, no featured badge (owner: 都不要). */
+ * same tracked cards — no score, no featured badge (deliberately none). */
 export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
   const intlLocale = useIntlLocale();
   const sorted = [...items].sort((a, b) =>

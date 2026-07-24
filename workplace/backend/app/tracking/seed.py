@@ -1,7 +1,7 @@
-"""Day-1 source-pack auto-adoption (M14.1, owner 2026-07-06).
+"""Day-1 source-pack auto-adoption (M14.1).
 
-The owner's call after real-mode acceptance: "打开的时候自动给用户弹出内容,然后
-用户在之后自主决定删除还是留下" — a cold start should not face an empty Today and
+The first open should greet the user with content, which the user is then free
+to delete or keep — a cold start should not face an empty Today and
 a manual adopt-each-source chore. On the FIRST open, the built-in starter pack is
 adopted wholesale as subscriptions (each entry keeps its mode + preset topic
 board); the user then trims. This stays inside the D8 red line: the pack is the

@@ -109,7 +109,7 @@ export function ItemDetailView({
     };
   }, [detailFn, itemId]);
 
-  // owner 2026-07-10/13: fetching + summarizing must not need a click — opening
+  // fetching + summarizing must not need a click — opening
   // a pending item starts it automatically, and the AUTO attempt keeps retrying
   // quietly (busy tracker, backend restarting) instead of giving up after one
   // shot, which read as "automatic did nothing". The button stays as the manual
@@ -132,7 +132,7 @@ export function ItemDetailView({
   const POLL_MS = 15_000;
   const POLL_MAX_TRIES = 60; // ~15 minutes — local whisper on a long video is slow
 
-  // owner 2026-07-19: transcription runs in the BACKGROUND worker now — the
+  // transcription runs in the BACKGROUND worker now — the
   // page just re-reads the item (cheap GET, no refetch side effects) until the
   // content lands, instead of re-firing POST /refresh at a throttled site.
   function pollForContent(attempt: number) {
@@ -281,9 +281,9 @@ function ItemDetail({
           <p className="max-w-[65ch] text-sm text-muted">{t("item.pending.note")}</p>
         )}
         {item.status === "deferred" && !item.content_available ? (
-          // owner 2026-07-19: transcription happens in the background worker —
+          // transcription happens in the background worker —
           // an honest queued state; with a live job on THIS item it becomes a
-          // real progress bar (owner 2026-07-21 "能不能加个进度条")
+          // real progress bar
           <div className="max-w-[65ch] space-y-2">
             {progress?.stage ? (
               <div role="status" className="space-y-1.5">
@@ -330,7 +330,7 @@ function ItemDetail({
         )}
       </section>
 
-      {/* owner 2026-07-10: the raw excerpt left the page — the (now fuller) AI
+      {/* the raw excerpt left the page — the (now fuller) AI
           briefing + the original link carry it; the stored text still grounds
           the discussion below */}
       <ItemDiscussPanel
@@ -350,8 +350,8 @@ function ItemDetail({
   );
 }
 
-/** Discuss this item with the AI (M16.5) — the second half of the owner's
- * "点进任何一条信息都可以和 chat 讨论". Inline on the detail page (mobile-safe, no
+/** Discuss this item with the AI (M16.5) — any opened item can be discussed
+ * with chat. Inline on the detail page (mobile-safe, no
  * overlay); the backend grounds replies ONLY in the item's stored excerpt + AI
  * summary and answers 证据不足 beyond them — the bounds note says so up front.
  * READ-ONLY: a discussion never writes anything. Without stored text there is
@@ -457,8 +457,8 @@ function ItemDiscussPanel({
   );
 }
 
-/** The note saved into the board's Knowledge is LLM-curated first (owner
- * 2026-07-13): daily drafts it from the item's stored material, the user revises
+/** The note saved into the board's Knowledge is LLM-curated first:
+ * daily drafts it from the item's stored material, the user revises
  * it through chat until it reads right, and only the final click saves it as a
  * searchable user_note. Drafting is READ-ONLY server-side. */
 function ItemNote({

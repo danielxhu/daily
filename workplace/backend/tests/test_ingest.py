@@ -341,7 +341,7 @@ def test_youtube_without_captions_defers_instead_of_whisper() -> None:
 
 
 def test_wechat_article_fetch_sends_the_browser_ua() -> None:
-    # owner 2026-07-24: mp.weixin walls the bot UA; the webpage fetch overrides
+    # mp.weixin walls the bot UA; the webpage fetch overrides
     # the UA for that host only (static string, no cookies — §2.2 holds)
     body = (
         "<html><body><article><p>"
