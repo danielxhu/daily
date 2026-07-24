@@ -47,34 +47,41 @@ _ITEM_ENRICH_JSON = (
 # owner 2026-07-21 ("综述长度根据内容长度来"): the paragraph plan AND how much
 # source material the model sees both scale with the content. Three tiers keyed
 # on the full text length; each tuple = (excerpt chars fed to the LLM, plan).
+# owner 2026-07-24 "综述再长一点": every tier bumped one notch, and the top
+# tier now reads the full stored excerpt (40k, the DB cap) instead of 30k.
 _ENRICH_TIERS: list[tuple[int, int, str]] = [
-    # short pieces: forcing three paragraphs onto a 500-word brief = padding
+    # short pieces: fuller than before, but still no padding beyond the material
     (
         3_000,
         10_000,
-        "Each summary is 1-2 tight paragraphs (blank line between two): the core "
-        "event with the key figures/dates and actors, then the substantive detail "
-        "and any background or next steps the source mentions.",
+        "Each summary is 2-3 substantial paragraphs separated by blank lines: "
+        "the core event with the key figures/dates and actors; the substantive "
+        "detail — arguments, evidence, and numbers as the source gives them; "
+        "then any background or next steps the source mentions. Draw on "
+        "everything the source offers, but never pad beyond it.",
     ),
-    # the typical article (owner 2026-07-17 '三段左右')
+    # the typical article (owner 2026-07-17 '三段左右'; 2026-07-24 longer still)
     (
         15_000,
-        10_000,
-        "Each summary is THREE paragraphs separated by blank lines (\\n\\n): "
-        "① the core event with the key figures/dates and actors; ② the "
+        15_000,
+        "Each summary is 4-5 paragraphs separated by blank lines (\\n\\n): "
+        "① the core event with the key figures/dates and actors; ②-④ the "
         "substantive detail — arguments, evidence, positions, and numbers as the "
-        "source gives them; ③ the background and next steps the source mentions.",
+        "source gives them, in the source's own order; ⑤ the background and "
+        "next steps the source mentions. Be generous with detail — the reader "
+        "wants the summary to stand in for the article.",
     ),
     # hours-long transcripts / long reports: cover the whole arc, not the lede
     (
         2**63,
-        30_000,
+        40_000,
         "The material is LONG (an hours-long talk, stream, or report). Each "
-        "summary is 4-6 paragraphs separated by blank lines, organized by theme "
-        "in the source's order: open with the core message, then walk the major "
-        "sections/arguments with their figures and positions as the source gives "
-        "them, and close with the background and next steps it mentions. Cover "
-        "the WHOLE excerpt — the later parts matter as much as the start.",
+        "summary is 6-10 paragraphs separated by blank lines, organized by theme "
+        "in the source's order: open with the core message, then walk EVERY "
+        "major section/argument with its figures and positions as the source "
+        "gives them, and close with the background and next steps it mentions. "
+        "Cover the WHOLE excerpt — the later parts matter as much as the start, "
+        "and the reader wants the summary to stand in for the source.",
     ),
 ]
 
