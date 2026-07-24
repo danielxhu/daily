@@ -64,28 +64,6 @@ class VisionClient(Protocol):
     def read_image(self, image: bytes) -> str: ...
 
 
-class FetchedPassage(BaseModel):
-    """One candidate passage from a CASR authoritative fetch (FR-16) — pre-ranking,
-    pre-stance. Just the retrieved text plus its provenance, so the caller can
-    embedding-rank it to the claim, enforce the whitelist, and judge it with the
-    existing NLI step. NOT a §7 contract type (internal client seam, like
-    `RenderResult`); never independence credit by itself."""
-
-    domain: str  # the source host; checked against the CASR whitelist by the caller
-    url: str
-    text: str
-
-
-class VectorMatch(BaseModel):
-    """One nearest-neighbour hit from the vector store. `score` is a similarity
-    (higher = closer). NOT a §7 contract type (internal client seam)."""
-
-    id: str
-    score: float
-    document: str
-    metadata: dict[str, Any]
-
-
 class RenderResult(BaseModel):
     """Output of a headless render (FR-2 tier-3 fallback)."""
 

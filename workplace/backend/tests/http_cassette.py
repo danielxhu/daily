@@ -1,6 +1,6 @@
 """HTTP cassette replay helper (X0.3 → SSOT §9.2 / NFR-3).
 
-Real HTTP fetches (static HTML in M1A.4, CASR/official-source fetch in M4.12, feed
+Real HTTP fetches (static HTML in M1A.4, feed
 polling in Stage 7) go through `httpx` and are **replayed from recorded vcrpy
 cassettes** in tests — never live. `replay()` opens a cassette in
 `record_mode="none"`: it serves recorded interactions and raises on any

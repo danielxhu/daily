@@ -1,7 +1,7 @@
 [project]
 name = "daily-backend"
 version = "0.1.0"
-description = "daily — multi-source claim verification & credibility scoring (V1)"
+description = "daily — track your sources and turn them into a personal knowledge base"
 requires-python = ">=3.11"  # SSOT §9.1 / §10: Python 3.11+
 # Core runtime deps. Heavier per-stage deps (yt-dlp, faster-whisper,
 # playwright) stay in optional groups.

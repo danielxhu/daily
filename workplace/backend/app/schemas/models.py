@@ -68,7 +68,6 @@ class Schema(BaseModel):
 class Source(Schema):
     id: str
     type: SourceType
-    # "fetched" = CASR authoritative evidence (FR-16); excluded from K_raw/N_counted
     origin: Origin = "user"
     url: str | None
     domain: str | None  # URL host or validated declared_domain; independence input
@@ -297,11 +296,9 @@ class ItemEnrichment(Schema):
 class TrackedItemCard(Schema):
     """One tracked source item as first-class knowledge (M15.1a, v0.12 P0).
 
-    Deliberately carries NO credibility: an item that has not been deeply checked
-    must never fake a score (§2.4 — the UI says "not deeply checked" instead).
-    `status` is the item's own lifecycle, decoupled from deep verification:
+    `status` is the item's lifecycle:
     new (discovered, being processed) / fetched (content in hand — visible even
-    when claim extraction or scoring failed; `degraded_reason` says so) /
+    when enrichment failed; `degraded_reason` says so) /
     failed (typed ingestion failure — still visible, with the failure kind) /
     deferred (M14.5 first-check transcription deferral; the next check processes)."""
 
@@ -317,7 +314,7 @@ class TrackedItemCard(Schema):
     first_seen: datetime
     status: Literal["new", "fetched", "failed", "deferred"]
     failure_kind: SourceFailureKind | None = None  # set iff status == "failed"/"deferred"
-    degraded_reason: str | None = None  # deep-check degradation note (item stays visible)
+    degraded_reason: str | None = None  # degradation note (item stays visible)
     # DEPRECATED (M16.3): the M15.2 single-language briefing — locale-blind, so it
     # was the owner's "language doesn't follow" complaint. No writer since v0.13;
     # the UI must never consume it (M16.1 pins this). Kept nullable for contract
@@ -331,11 +328,10 @@ class TrackedItemCard(Schema):
     # the per-item discussion (M16.5) and the manual re-enrich (M16.4). Legacy
     # items discovered before v0.13 have none until manually refreshed.
     content_available: bool = False
-    # M15.1: deep-check results as ENRICHMENT REFERENCES (v0.12 — the verdict is a
     # M15.4 (P1 lite signal, code-first — §2.4): how many OTHER domains in the same
     # view window carry an item with the same normalized title — a duplicate/repost
-    # HINT for triage, computed by code (never an LLM, never NLI), and explicitly
-    # NOT a corroboration verdict (that is the deep path's K_effective).
+    # HINT for triage, computed by code (never an LLM), and explicitly not a
+    # corroboration verdict.
     similar_count: int = 0
 
 
@@ -383,13 +379,13 @@ class ApiSettings(Schema):
 class DailyDigest(Schema):
     date: date
     generated_at: datetime
-    # M15.1a (v0.12 P0): tracked items as first-class knowledge, independent of the
-    # deep-verification path — visible even when extraction/stance/scoring failed.
+    # M15.1a (v0.12 P0): tracked items as first-class knowledge — visible even
+    # when enrichment failed.
     tracked: list[TrackedItemCard] = []
 
 
 class DiscussMessage(Schema):
-    """One turn in an evidence-bounded digest-item discussion (M12.3)."""
+    """One turn in an item discussion (M12.3)."""
 
     role: Literal["user", "assistant"]
     content: str
@@ -445,9 +441,36 @@ class KnowledgeSearchResult(Schema):
 
 
 class KnowledgeAnswerRequest(Schema):
-    """`POST /knowledge/answer` body (M16.2): the question to answer on demand."""
+    """`POST /knowledge/answer` body (M16.2): the question to answer on demand.
+    Also the body of the chat asks (`POST /knowledge/chats` and
+    `POST /knowledge/chats/{id}/messages`, owner 2026-07-24)."""
 
     q: str
+
+
+class KnowledgeChat(Schema):
+    """One persisted knowledge Q&A conversation (owner 2026-07-24): open an old
+    chat to re-read it, or keep asking — the answer call sees the earlier
+    turns. Title = the first question. Deleting a chat never touches the
+    notes/items it talked about."""
+
+    id: str
+    title: str
+    messages: list[DiscussMessage]
+    created_at: datetime
+    updated_at: datetime
+    # how many knowledge-base entries grounded the LATEST answer — transient
+    # (set on the ask responses, None on plain reads)
+    based_on: int | None = None
+
+
+class KnowledgeChatSummary(Schema):
+    """`GET /knowledge/chats` row: enough to render the chat-history list."""
+
+    id: str
+    title: str
+    updated_at: datetime
+    message_count: int
 
 
 class KnowledgeAnswer(Schema):
@@ -544,6 +567,8 @@ ALL_MODELS: list[type[Schema]] = [
     ItemNoteDraftReply,
     KnowledgeAnswer,
     KnowledgeAnswerRequest,
+    KnowledgeChat,
+    KnowledgeChatSummary,
     KnowledgeSearchResult,
     StepTrace,
     PipelineRun,

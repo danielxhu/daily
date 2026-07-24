@@ -44,8 +44,8 @@ function trackedStatus(item: TrackedItemCard, t: (k: string) => string): string 
 /** One tracked item's lite expression (M15.4, trimmed by M16.1): title +
  * provenance link, AI briefing, then the meta line — domain, code-first tier,
  * date, the dup/repost echo hint, and the typed status. The check surface left
- * the product with M16.1 (owner 2026-07-08): no credibility, no score, no
- * deep-check entry. Shared by Today, the full Digest, and Knowledge search hits
+ * the product with M16.1 (owner 2026-07-08).
+ * Shared by Today, the full Digest, and Knowledge search hits
  * so the semantics never drift between surfaces. */
 export function TrackedItemLite({ item }: { item: TrackedItemCard }) {
   const t = useT();

@@ -8,8 +8,9 @@ async function openMockApp(page: Page, path = "/") {
   });
 }
 
-// M16.2: search is instant and LLM-free; the AI answer is an explicit action.
-test("search returns hits instantly; the AI answer only appears on demand", async ({ page }) => {
+// 2026-07-24: every ask is a persisted chat — answered in one call, reopenable,
+// continuable from the history list.
+test("an ask becomes a persisted chat: answer renders, history lists it", async ({ page }) => {
   await openMockApp(page);
   // exact: the first-run guide's "Ask Knowledge" link also contains "Knowledge"
   await page.getByRole("link", { name: "Knowledge", exact: true }).click();
@@ -18,19 +19,19 @@ test("search returns hits instantly; the AI answer only appears on demand", asyn
   await page.getByRole("textbox", { name: "Ask daily" }).fill("fed merger");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
 
-  // hits render: the saved note + a tracked item, labeled apart
-  const saved = page.getByRole("list", { name: "Your saved notes" });
-  await expect(saved.getByText(/Fed approved the merger/)).toBeVisible();
-  await expect(page.getByText("From your sources").first()).toBeVisible();
-
-  // no answer yet — search never synthesizes on its own
-  await expect(page.getByText("AI answer", { exact: true })).toHaveCount(0);
-
-  // the explicit action generates ONE labeled answer for this turn
-  await page.getByRole("button", { name: "Generate AI answer" }).click();
-  await expect(page.getByText(/the merger was approved/).first()).toBeVisible();
+  // the labeled answer renders inside the conversation
   await expect(page.getByText("AI answer", { exact: true })).toBeVisible();
-  await expect(page.getByText(/from your saved notes and tracked items/)).toBeVisible();
+  await expect(page.getByText(/mock 回答/).first()).toBeVisible();
+
+  // …and the chat is persisted: the history section lists it by its question
+  await expect(page.getByText("Chat history")).toBeVisible();
+  const history = page.getByRole("list", { name: "Previous chats" }).first();
+  await expect(history.getByText(/fed merger/)).toBeVisible();
+
+  // a follow-up continues the same chat (both turns visible)
+  await page.getByRole("textbox", { name: "Ask daily" }).fill("what changed?");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(page.getByText(/接着聊/).first()).toBeVisible();
 });
 
 // M16.7: the knowledge map — board cards with counts — and the layered search.

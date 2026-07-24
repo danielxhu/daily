@@ -47,27 +47,6 @@ def test_playwright_context_kwargs_are_safe() -> None:
     assert fp.FETCH_TIMEOUT_MS > 0  # a navigation timeout exists
 
 
-# --- CASR guard (FR-16) -----------------------------------------------------
-
-
-def test_casr_allows_whitelisted_claim_anchored() -> None:
-    fp.assert_casr_allowed(domain="www.sec.gov", claim_anchored=True)
-    fp.assert_casr_allowed(domain="efts.sec.gov", claim_anchored=True)  # subdomain
-    assert fp.casr_domain_allowed("federalreserve.gov") is True
-
-
-def test_casr_rejects_offwhitelist_domain() -> None:
-    assert fp.casr_domain_allowed("example.com") is False
-    with pytest.raises(fp.FetchPolicyError):
-        fp.assert_casr_allowed(domain="example.com", claim_anchored=True)
-
-
-def test_casr_rejects_topic_browsing() -> None:
-    # whitelisted host but NOT claim-anchored → still forbidden (never browse)
-    with pytest.raises(fp.FetchPolicyError):
-        fp.assert_casr_allowed(domain="sec.gov", claim_anchored=False)
-
-
 # --- typed failure → next action (§6.6 / FR-2) ------------------------------
 
 

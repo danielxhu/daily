@@ -115,38 +115,10 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "digest.window.option": "Last {days} days",
     "digest.anchor.single": "Single source — awaiting corroboration",
     "digest.card.heat": "Heat {heat}",
-    // DiscussDrawer (evidence discussion) asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    "discuss.open": "Discuss",
-    "discuss.title": "Discuss the evidence",
-    "discuss.bounds":
-      "Answers draw only on this item's verified evidence — beyond it, daily answers “insufficient evidence”. A discussion never changes facts or scores.",
-    "discuss.empty":
-      "Ask how well this fact is supported, what the sources are, or why the score is what it is.",
-    "discuss.placeholder": "Ask about this item's evidence…",
-    "discuss.input.aria": "Your question",
-    "discuss.send": "Send",
-    "discuss.thinking": "Thinking…",
-    "discuss.err": "The discussion request failed — try again.",
-    "discuss.close.aria": "Close discussion",
-    "discuss.log.aria": "Discussion messages",
     "knowledge.add": "Add to Knowledge",
     "knowledge.added": "Added to Knowledge",
     "knowledge.add.noBoard": "This item is not on any board yet",
     "knowledge.add.err": "Couldn't add — try again.",
-    // SaveCheckDrawer asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    "save.open": "Discuss & save",
-    "save.title": "Discuss & save this check",
-    "save.bounds":
-      "Discuss this result within its evidence. Shape the note below with the chat or by editing it, then save it to a board — it's saved as your note, never as a verified fact.",
-    "save.draft.label": "What will be saved",
-    "save.draft.updated": "The chat revised the draft — keep editing if you like.",
-    "save.board.label": "Board",
-    "save.submit": "Save to Knowledge",
-    "save.saved": "Saved to Knowledge",
-    "save.err": "Couldn't save — try again.",
-    "save.noBoards": "No boards yet — create one on the Knowledge page first.",
     "knowledge.saved.badge": "Saved by you",
     "knowledge.saved.aria": "Your saved notes",
     "knowledge.items.badge": "From your sources",
@@ -231,13 +203,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "settings.saving": "Saving…",
     "footer.nav.aria": "Details & tools",
 
-    // CredibilityNote asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // CredibilityNote
-    "cred.disclaimer":
-      "Credibility is not a verdict on whether a claim is true — it scores how independently " +
-      "and reputably the sources corroborate it. Always check the evidence yourself.",
-
     // Page: Today (home)
     "page.today.title": "Today",
     "page.today.subtitle":
@@ -285,7 +250,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "today.briefing.sourcesLinkText": "Sources",
     "today.attention.heading": "Needs attention",
     "today.attention.nothing": "Nothing needs your attention right now.",
-    "today.attention.verdictChanged": "A verdict changed.",
     "today.attention.sourceNeedsLook": "A source needs a look.",
     "today.attention.openSources": "open Sources",
     "today.sources.heading": "Your sources",
@@ -381,6 +345,15 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "knowledge.section.boards": "Browse by board",
     "knowledge.section.ask": "Ask daily",
     "knowledge.errReach": "Couldn't reach daily.",
+    "knowledge.chat.new": "New chat",
+    "knowledge.chat.followUp": "Ask a follow-up in this chat…",
+    "knowledge.chat.sending": "Answering…",
+    "knowledge.chat.basedOn":
+      "AI-generated over {count} knowledge-base entries — check the originals.",
+    "knowledge.chat.history": "Chat history",
+    "knowledge.chat.history.aria": "Previous chats",
+    "knowledge.chat.delete.aria": "Delete this chat",
+    "knowledge.chat.delete.confirm": "Delete?",
 
     // DigestView
     "digest.boardFilter": "Board filter (optional)",
@@ -388,40 +361,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "digest.boardFilter.aria": "Board filter",
     "digest.apply": "Apply",
     "digest.loading": "Loading the digest…",
-    "digest.verdictChanged": "Verdict changed · {delta}",
-
-    // MemoryView asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // MemoryView
-    "memory.findFact": "Find a fact",
-    "memory.browseTopic": "Browse a topic",
-    "memory.mode.aria": "Query mode",
-    "memory.search.aria": "Memory search",
-    "memory.input.label.local": "Find a fact",
-    "memory.input.label.global": "Topic / entity",
-    "memory.input.aria": "Memory search",
-    "memory.input.placeholder.local": "e.g. did the CEO announce layoffs of 10%?",
-    "memory.input.placeholder.global": "e.g. NVDA",
-    "memory.hint.local":
-      "Looks up the most similar fact daily has verified, with its history.",
-    "memory.hint.global":
-      "Shows facts tagged with this entity from the recent window, newest first.",
-    "memory.search": "Search",
-    "memory.searching": "Searching…",
-    "memory.err.localEmpty": "Enter a fact to look up.",
-    "memory.err.globalEmpty": "Enter a topic or entity.",
-    "memory.err.generic":
-      "Something went wrong. Check the API server and try again.",
-    "memory.empty.local": "No matching fact found.",
-    "memory.empty.global": "No facts tagged with that topic in the recent window.",
-    "memory.card.updated": "Verdict updated · v{version}",
-    "memory.card.sources": "{count} source",
-    "memory.card.sources_plural": "{count} sources",
-    "memory.card.updatedDate": "Updated {date}",
-    "memory.card.viewHistory": "View history",
-    "memory.card.hideHistory": "Hide history",
-    "memory.card.loadingHistory": "Loading history…",
-    "memory.card.errHistory": "Could not load history.",
 
     // BoardsView
     "boards.newBoard.aria": "New board name",
@@ -467,105 +406,11 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "trace.run.steps.aria": "Steps for {trigger} run",
     "trace.step.fallback": "→ {fallback}",
 
-    // VerifyResults / BreakdownDrawer / StanceMatrix asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // VerifyResults
-    "verify.results.aria": "Verification results",
-    "verify.results.run":
-      "Run {runId} · prompt {promptVersion} · {sourcesCount} source{sourcesSuffix} · {claimsCount} claim{claimsSuffix}",
-    "verify.judgement.heading": "Judgement",
-    "verify.factPoints.heading": "Fact points",
-    "verify.sources.heading": "Sources",
-    "verify.claims.heading": "Claims",
-    "verify.claims.none": "No claims were extracted from these sources.",
-    "verify.ingested": "Ingested",
-    "verify.couldNotUse": "Could not use",
-    "verify.source.type": "Type: ",
-    "verify.source.domain": "Domain: ",
-    "verify.source.readVia": "Read via: ",
-    "verify.source.reason": "Reason: ",
-    "verify.source.whatToDo": "What to do: ",
-    "verify.source.vision.aria": "Vision details",
-    "verify.source.vision.ocr":
-      "Read from a screenshot via OCR — best-effort; check the text against the image.",
-    "verify.source.vision.frames":
-      "Looked at {count} video frame{suffix}{unreadSuffix}. Chart readings are best-effort — verify against the transcript.",
-    "verify.source.vision.unread": " · couldn’t read {count}",
-    "verify.source.vision.frame": "frame",
-    "verify.source.vision.frames_word": "frames",
-    "verify.cluster.authoritative": "Authoritative source",
-    "verify.cluster.independent": "{count} independent source",
-    "verify.cluster.independent_plural": "{count} independent sources",
-    "verify.cluster.fewSources": "few corroborating sources",
-    "verify.cluster.members": "Members",
-    "verify.cluster.headline": "headline: {domain} · {tier}",
-    "verify.viewEvidence": "View source evidence",
-    "verify.stance.matrix": "Compare sources (stance matrix)",
-    "verify.stance.filter": "Filter: ",
-    "verify.stance.filter.aria": "Filter stances",
-    "verify.stance.all": "All stances",
-    "verify.stance.supports": "Supports",
-    "verify.stance.refutes": "Refutes",
-    "verify.stance.notMentioned": "Not mentioned",
-    "verify.stance.factPoint": "Fact point",
-    "verify.stance.noStances": "No per-source stances to compare yet.",
-    "verify.stance.skipped": "Source comparison unavailable — verification was skipped.",
-    "verify.breakdown.toggle": "Why this score (breakdown & evidence)",
-    "verify.breakdown.authority": "Authority vs corroboration",
-    "verify.breakdown.officialPrimary": "official primary source",
-    "verify.breakdown.secondaryReporting": "secondary reporting",
-    "verify.breakdown.corroboration": "Corroboration: {count} independent counted source",
-    "verify.breakdown.corroboration_plural":
-      "Corroboration: {count} independent counted sources",
-    "verify.breakdown.whyHigher": "Why higher",
-    "verify.breakdown.whyLower": "Why lower",
-    "verify.breakdown.scoreHeading": "Score breakdown",
-    "verify.breakdown.evidenceHeading": "Evidence (click back to source)",
-    "verify.breakdown.metric.credibility": "Credibility",
-    "verify.breakdown.metric.base": "Base score",
-    "verify.breakdown.metric.independenceFactor": "Independence factor",
-    "verify.breakdown.metric.kEff": "Independent sources (K_eff)",
-    "verify.breakdown.metric.kRaw": "Unique domains (K_raw)",
-    "verify.breakdown.metric.n": "Counted sources (N)",
-    "verify.breakdown.metric.r": "Reposts/citations (R)",
-    "verify.breakdown.metric.nearDups": "Near-duplicate collapses",
-    "verify.breakdown.metric.copyEdges": "Copy edges",
-    "verify.breakdown.metric.supporting": "Supporting",
-    "verify.breakdown.metric.refuting": "Refuting",
-    "verify.breakdown.metric.anchor": "Official primary anchor",
-    "verify.breakdown.metric.casr": "Fetched (CASR) evidence",
-    "verify.breakdown.metric.sourcesScore": "Sources sub-score",
-    "verify.breakdown.metric.agreementScore": "Agreement sub-score",
-    "verify.breakdown.metric.reputationScore": "Reputation sub-score",
-    "verify.breakdown.metric.conflictPenalty": "Conflict penalty",
-    "verify.breakdown.anchor.yes": "yes",
-    "verify.breakdown.anchor.no": "no",
-    "verify.breakdown.reason.officialAnchor": "Backed by an official primary source",
-    "verify.breakdown.reason.independentSources": "{count} independent sources agree",
-    "verify.breakdown.reason.supportingSources": "{count} supporting sources",
-    "verify.breakdown.reason.fewIndependent": "Few independent counted sources",
-    "verify.breakdown.reason.contradicted": "Contradicted by {count} source(s)",
-    "verify.breakdown.reason.reposts": "{count} are reposts/citations",
-    "verify.breakdown.reason.nearDups": "Some sources are near-duplicates/copies",
-    "verify.breakdown.stance.frameEvidence": "frame evidence",
     // LIVE exception: verify.tier.* renders the tier badge on TRACKING surfaces
     // (TrackedItems / ItemDetailView) — these keys are NOT dormant.
     "verify.tier.T1": "T1 · primary/official",
     "verify.tier.T1.5": "T1.5 · official social",
     "verify.tier.T2": "T2 · media/other",
-    "verify.type.webpage": "Web page",
-    "verify.type.podcast": "Podcast",
-    "verify.type.youtube": "YouTube",
-    "verify.type.text": "Pasted text",
-    "verify.type.pdf": "PDF",
-    "verify.method.static_html": "static HTML",
-    "verify.method.structured_html": "structured HTML",
-    "verify.method.rendered_html": "rendered HTML (browser)",
-    "verify.method.pdf_text": "PDF text",
-    "verify.method.caption": "captions",
-    "verify.method.whisper": "speech-to-text",
-    "verify.method.pasted_text": "pasted text",
-    "verify.method.frame_ocr": "frame OCR",
     // LIVE exception: verify.failure.* renders typed item statuses on TRACKING
     // surfaces — these keys are NOT dormant.
     "verify.failure.fetch_blocked": "fetch blocked",
@@ -579,67 +424,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "verify.failure.unsupported_file": "unsupported file",
     "verify.failure.timeout": "timed out",
     "verify.failure.transcription_deferred": "transcription on demand — open the item and Fetch & summarize",
-    "verify.claim.type.fact": "Fact",
-    "verify.claim.type.opinion": "Opinion",
-    "verify.claim.type.prediction": "Prediction",
-    "verify.claim.from": "from {sourceId} · characters {start}–{end}",
-
-    // VerifyForm asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // VerifyForm
-    "verifyForm.source": "Source {number}",
-    "verifyForm.remove": "Remove",
-    "verifyForm.linkUrl": "Link / URL",
-    "verifyForm.pasteText": "Paste text",
-    "verifyForm.sourceUrl": "Source URL",
-    "verifyForm.sourceUrl.placeholder": "https://example.com/article",
-    "verifyForm.sourceUrl.hint":
-      "We try to detect the source type from the link (best-effort). A link ending in {codePdf} is the reliable way to send a PDF. If you leave off {codeHttps} we assume {codeHttpsValue}. If a link won't load, switch to \"Paste text\".",
-    "verifyForm.typeHint": "Type hint (optional)",
-    "verifyForm.typeHint.auto": "Auto-detect",
-    "verifyForm.typeHint.webpage": "Web page",
-    "verifyForm.typeHint.youtube": "YouTube",
-    "verifyForm.typeHint.podcast": "Podcast",
-    "verifyForm.typeHint.pdf": "PDF",
-    "verifyForm.pastedText": "Pasted text",
-    "verifyForm.pastedText.placeholder": "Paste the article or transcript text here…",
-    "verifyForm.sourceDomain": "Source domain (optional)",
-    "verifyForm.sourceDomain.placeholder": "example.com",
-    "verifyForm.sourceDomain.hint":
-      "Optional bare host like {codeExample}. When you paste text from a paywalled or login-gated page, add its domain here so it can still be tracked as that source.",
-    "verifyForm.label": "Label (optional)",
-    "verifyForm.label.placeholder": "e.g. Reuters earnings piece",
-    "verifyForm.label.hint":
-      "A label is just a name for your reference. It does not count as an independent source or domain.",
-    "verifyForm.addSource": "Add source",
-    "verifyForm.verify": "Verify",
-    "verifyForm.verifying": "Verifying…",
-    "verifyForm.cancel": "Cancel",
-    "verifyForm.err.emptyUrl": "Enter a URL, or switch to pasting the text.",
-    "verifyForm.err.badUrl":
-      "That doesn't look like a URL. Paste a full link, or switch to text.",
-    "verifyForm.err.emptyText": "Paste the text you want to check.",
-    "verifyForm.err.badDomain":
-      "Domain should be a bare host like example.com (no https://, no path).",
-    "verifyForm.err.generic":
-      "Something went wrong. Check the API server and try again.",
-
-    // FrameEvidence asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // FrameEvidence
-    "frame.at": "Frame at {timestamp}",
-    "frame.couldNotRead": "Couldn’t read this frame.",
-
-    // EvolutionTimeline asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // EvolutionTimeline
-    "evolution.noHistory": "No history.",
-    "evolution.aria": "Version history",
-    "evolution.credibility": "Credibility {score}",
-    "evolution.current": "current",
-    "evolution.held": "Held {from} → {to} · learned {learned}",
-    "evolution.present": "present",
-    "evolution.initialVerdict": "initial verdict",
 
     // SourcePack
   },
@@ -756,37 +540,10 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "digest.window.option": "近 {days} 天",
     "digest.anchor.single": "单一来源——待佐证",
     "digest.card.heat": "热度 {heat}",
-    // DiscussDrawer (evidence discussion) asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    "discuss.open": "讨论",
-    "discuss.title": "就证据讨论",
-    "discuss.bounds":
-      "回答只基于这条内容的已核查证据——超出证据会直接答「证据不足」。讨论不会改动事实或分数。",
-    "discuss.empty": "可以问：这条事实的支撑程度、来源构成、分数为什么是这个值。",
-    "discuss.placeholder": "就这条证据提问…",
-    "discuss.input.aria": "你的问题",
-    "discuss.send": "发送",
-    "discuss.thinking": "思考中…",
-    "discuss.err": "讨论请求失败——请重试。",
-    "discuss.close.aria": "关闭讨论",
-    "discuss.log.aria": "讨论消息",
     "knowledge.add": "加入知识库",
     "knowledge.added": "已加入知识库",
     "knowledge.add.noBoard": "这条内容还不属于任何板块",
     "knowledge.add.err": "加入失败——请重试。",
-    // SaveCheckDrawer asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    "save.open": "讨论并存入",
-    "save.title": "讨论并存入这次核查",
-    "save.bounds":
-      "在证据范围内讨论这次核查结果。用对话或直接编辑打磨下面的存入内容，再存进一个板块——它会作为你的笔记存入，不会冒充已核查事实。",
-    "save.draft.label": "存入的内容",
-    "save.draft.updated": "对话更新了草稿——可继续手动修改。",
-    "save.board.label": "板块",
-    "save.submit": "存入知识库",
-    "save.saved": "已存入知识库",
-    "save.err": "存入失败——请重试。",
-    "save.noBoards": "还没有板块——请先在知识库页创建。",
     "knowledge.saved.badge": "你存入的内容",
     "knowledge.saved.aria": "你存入的笔记",
     "knowledge.items.badge": "来自你的信息源",
@@ -868,12 +625,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "settings.saving": "保存中…",
     "footer.nav.aria": "详情与工具",
 
-    // CredibilityNote asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // CredibilityNote
-    "cred.disclaimer":
-      "可信度不是对真假的判定——它衡量的是来源独立地、有声誉地对说法的佐证程度。请始终自行核查证据。",
-
     // Page: Today
     "page.today.title": "今日",
     "page.today.subtitle":
@@ -918,7 +669,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "today.briefing.sourcesLinkText": "来源",
     "today.attention.heading": "需要关注",
     "today.attention.nothing": "当前没有需要关注的内容。",
-    "today.attention.verdictChanged": "结论已变更。",
     "today.attention.sourceNeedsLook": "一个来源需要检查。",
     "today.attention.openSources": "打开来源",
     "today.sources.heading": "你的来源",
@@ -1008,6 +758,14 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "knowledge.section.boards": "按板块浏览",
     "knowledge.section.ask": "问 daily",
     "knowledge.errReach": "无法连接到 daily。",
+    "knowledge.chat.new": "新对话",
+    "knowledge.chat.followUp": "在这个对话里继续追问…",
+    "knowledge.chat.sending": "回答中…",
+    "knowledge.chat.basedOn": "AI 基于 {count} 条知识库内容生成——请核对原文。",
+    "knowledge.chat.history": "聊天记录",
+    "knowledge.chat.history.aria": "历史对话",
+    "knowledge.chat.delete.aria": "删除这条对话",
+    "knowledge.chat.delete.confirm": "确认删除?",
 
     // DigestView
     "digest.boardFilter": "主题板筛选（可选）",
@@ -1015,37 +773,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "digest.boardFilter.placeholder": "主题板 ID",
     "digest.apply": "应用",
     "digest.loading": "加载日报中…",
-    "digest.verdictChanged": "结论已变更 · {delta}",
-
-    // MemoryView asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // MemoryView
-    "memory.findFact": "查找事实",
-    "memory.browseTopic": "浏览话题",
-    "memory.mode.aria": "查询模式",
-    "memory.search.aria": "搜索记忆",
-    "memory.input.label.local": "查找事实",
-    "memory.input.label.global": "话题 / 实体",
-    "memory.input.aria": "记忆搜索",
-    "memory.input.placeholder.local": "例如：CEO 是否宣布裁员 10%？",
-    "memory.input.placeholder.global": "例如：NVDA",
-    "memory.hint.local": "查找 daily 已核查的最相似事实及其历史。",
-    "memory.hint.global": "显示最近时间窗口内标记该实体的事实，最新在前。",
-    "memory.search": "搜索",
-    "memory.searching": "搜索中…",
-    "memory.err.localEmpty": "请输入要查找的事实。",
-    "memory.err.globalEmpty": "请输入话题或实体。",
-    "memory.err.generic": "出现错误。请检查 API 服务器后重试。",
-    "memory.empty.local": "未找到匹配事实。",
-    "memory.empty.global": "最近时间窗口内没有标记该话题的事实。",
-    "memory.card.updated": "结论已更新 · v{version}",
-    "memory.card.sources": "{count} 个来源",
-    "memory.card.sources_plural": "{count} 个来源",
-    "memory.card.updatedDate": "更新于 {date}",
-    "memory.card.viewHistory": "查看历史",
-    "memory.card.hideHistory": "隐藏历史",
-    "memory.card.loadingHistory": "加载历史中…",
-    "memory.card.errHistory": "无法加载历史。",
 
     // BoardsView
     "boards.newBoard.aria": "新建主题板名称",
@@ -1089,103 +816,11 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "trace.run.steps.aria": "{trigger} 运行的步骤",
     "trace.step.fallback": "→ {fallback}",
 
-    // VerifyResults / BreakdownDrawer / StanceMatrix asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // VerifyResults
-    "verify.results.aria": "核查结果",
-    "verify.results.run":
-      "运行 {runId} · 提示词 {promptVersion} · {sourcesCount} 个来源 · {claimsCount} 条说法",
-    "verify.judgement.heading": "判断",
-    "verify.factPoints.heading": "事实要点",
-    "verify.sources.heading": "来源",
-    "verify.claims.heading": "说法",
-    "verify.claims.none": "未从这些来源中提取到任何说法。",
-    "verify.ingested": "已采集",
-    "verify.couldNotUse": "无法使用",
-    "verify.source.type": "类型：",
-    "verify.source.domain": "域名：",
-    "verify.source.readVia": "读取方式：",
-    "verify.source.reason": "原因：",
-    "verify.source.whatToDo": "处理方式：",
-    "verify.source.vision.aria": "视觉详情",
-    "verify.source.vision.ocr": "通过 OCR 从截图中读取——尽力而为；请对照图片核查文本。",
-    "verify.source.vision.frames":
-      "查看了 {count} 个视频帧{suffix}{unreadSuffix}。图表读取为尽力而为——请对照字幕核查。",
-    "verify.source.vision.unread": " · 无法读取 {count} 个",
-    "verify.source.vision.frame": "帧",
-    "verify.source.vision.frames_word": "帧",
-    "verify.cluster.authoritative": "权威来源",
-    "verify.cluster.independent": "{count} 个独立来源",
-    "verify.cluster.independent_plural": "{count} 个独立来源",
-    "verify.cluster.fewSources": "佐证来源较少",
-    "verify.cluster.members": "成员",
-    "verify.cluster.headline": "主要来源：{domain} · {tier}",
-    "verify.viewEvidence": "查看来源证据",
-    "verify.stance.matrix": "比较来源（立场矩阵）",
-    "verify.stance.filter": "筛选：",
-    "verify.stance.filter.aria": "筛选立场",
-    "verify.stance.all": "所有立场",
-    "verify.stance.supports": "支持",
-    "verify.stance.refutes": "反驳",
-    "verify.stance.notMentioned": "未提及",
-    "verify.stance.factPoint": "事实要点",
-    "verify.stance.noStances": "暂无各来源立场可比较。",
-    "verify.stance.skipped": "来源比较不可用——核查已跳过。",
-    "verify.breakdown.toggle": "为什么是这个分数（分解 & 证据）",
-    "verify.breakdown.authority": "权威性 vs 佐证",
-    "verify.breakdown.officialPrimary": "官方主要来源",
-    "verify.breakdown.secondaryReporting": "二次报道",
-    "verify.breakdown.corroboration": "佐证：{count} 个独立计数来源",
-    "verify.breakdown.corroboration_plural": "佐证：{count} 个独立计数来源",
-    "verify.breakdown.whyHigher": "为何更高",
-    "verify.breakdown.whyLower": "为何更低",
-    "verify.breakdown.scoreHeading": "分数分解",
-    "verify.breakdown.evidenceHeading": "证据（点击回溯来源）",
-    "verify.breakdown.metric.credibility": "可信度",
-    "verify.breakdown.metric.base": "基础分",
-    "verify.breakdown.metric.independenceFactor": "独立性因子",
-    "verify.breakdown.metric.kEff": "独立来源数 (K_eff)",
-    "verify.breakdown.metric.kRaw": "唯一域名数 (K_raw)",
-    "verify.breakdown.metric.n": "计数来源数 (N)",
-    "verify.breakdown.metric.r": "转发/引用数 (R)",
-    "verify.breakdown.metric.nearDups": "近重复折叠数",
-    "verify.breakdown.metric.copyEdges": "复制边数",
-    "verify.breakdown.metric.supporting": "支持数",
-    "verify.breakdown.metric.refuting": "反驳数",
-    "verify.breakdown.metric.anchor": "官方主要锚点",
-    "verify.breakdown.metric.casr": "抓取 (CASR) 证据",
-    "verify.breakdown.metric.sourcesScore": "来源子分",
-    "verify.breakdown.metric.agreementScore": "一致性子分",
-    "verify.breakdown.metric.reputationScore": "声誉子分",
-    "verify.breakdown.metric.conflictPenalty": "冲突惩罚",
-    "verify.breakdown.anchor.yes": "是",
-    "verify.breakdown.anchor.no": "否",
-    "verify.breakdown.reason.officialAnchor": "有官方主要来源背书",
-    "verify.breakdown.reason.independentSources": "{count} 个独立来源达成一致",
-    "verify.breakdown.reason.supportingSources": "{count} 个支持来源",
-    "verify.breakdown.reason.fewIndependent": "独立计数来源较少",
-    "verify.breakdown.reason.contradicted": "被 {count} 个来源反驳",
-    "verify.breakdown.reason.reposts": "{count} 个为转发/引用",
-    "verify.breakdown.reason.nearDups": "部分来源为近重复/复制",
-    "verify.breakdown.stance.frameEvidence": "帧证据",
     // LIVE exception: verify.tier.* renders the tier badge on TRACKING surfaces
     // (TrackedItems / ItemDetailView) — these keys are NOT dormant.
     "verify.tier.T1": "T1 · 主要/官方",
     "verify.tier.T1.5": "T1.5 · 官方社交",
     "verify.tier.T2": "T2 · 媒体/其他",
-    "verify.type.webpage": "网页",
-    "verify.type.podcast": "播客",
-    "verify.type.youtube": "YouTube",
-    "verify.type.text": "粘贴文本",
-    "verify.type.pdf": "PDF",
-    "verify.method.static_html": "静态 HTML",
-    "verify.method.structured_html": "结构化 HTML",
-    "verify.method.rendered_html": "渲染 HTML（浏览器）",
-    "verify.method.pdf_text": "PDF 文本",
-    "verify.method.caption": "字幕",
-    "verify.method.whisper": "语音转文字",
-    "verify.method.pasted_text": "粘贴文本",
-    "verify.method.frame_ocr": "帧 OCR",
     // LIVE exception: verify.failure.* renders typed item statuses on TRACKING
     // surfaces — these keys are NOT dormant.
     "verify.failure.fetch_blocked": "抓取被阻止",
@@ -1199,65 +834,6 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "verify.failure.unsupported_file": "不支持的文件",
     "verify.failure.timeout": "超时",
     "verify.failure.transcription_deferred": "转写按需进行——打开条目点「获取并生成摘要」",
-    "verify.claim.type.fact": "事实",
-    "verify.claim.type.opinion": "观点",
-    "verify.claim.type.prediction": "预测",
-    "verify.claim.from": "来自 {sourceId} · 字符 {start}–{end}",
-
-    // VerifyForm asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // VerifyForm
-    "verifyForm.source": "来源 {number}",
-    "verifyForm.remove": "移除",
-    "verifyForm.linkUrl": "链接 / URL",
-    "verifyForm.pasteText": "粘贴文本",
-    "verifyForm.sourceUrl": "来源 URL",
-    "verifyForm.sourceUrl.placeholder": "https://example.com/article",
-    "verifyForm.sourceUrl.hint":
-      "我们尽力从链接检测来源类型（尽力而为）。以 {codePdf} 结尾的链接是发送 PDF 的可靠方式。如果省略 {codeHttps} 我们默认 {codeHttpsValue}。如果链接无法加载，请切换到\"粘贴文本\"。",
-    "verifyForm.typeHint": "类型提示（可选）",
-    "verifyForm.typeHint.auto": "自动检测",
-    "verifyForm.typeHint.webpage": "网页",
-    "verifyForm.typeHint.youtube": "YouTube",
-    "verifyForm.typeHint.podcast": "播客",
-    "verifyForm.typeHint.pdf": "PDF",
-    "verifyForm.pastedText": "粘贴文本",
-    "verifyForm.pastedText.placeholder": "在此粘贴文章或转录文本…",
-    "verifyForm.sourceDomain": "来源域名（可选）",
-    "verifyForm.sourceDomain.placeholder": "example.com",
-    "verifyForm.sourceDomain.hint":
-      "可选的裸主机名，如 {codeExample}。当你粘贴来自付费或需登录页面的文本时，在此添加其域名，以便仍能作为该来源追踪。",
-    "verifyForm.label": "标签（可选）",
-    "verifyForm.label.placeholder": "例如：路透社财报报道",
-    "verifyForm.label.hint":
-      "标签只是供你参考的名称。它不计入独立来源或域名。",
-    "verifyForm.addSource": "添加来源",
-    "verifyForm.verify": "核查",
-    "verifyForm.verifying": "核查中…",
-    "verifyForm.cancel": "取消",
-    "verifyForm.err.emptyUrl": "请输入 URL，或切换到粘贴文本。",
-    "verifyForm.err.badUrl": "这看起来不像 URL。请粘贴完整链接，或切换到文本。",
-    "verifyForm.err.emptyText": "请粘贴你想核查的文本。",
-    "verifyForm.err.badDomain":
-      "域名应为裸主机名，如 example.com（不含 https://，不含路径）。",
-    "verifyForm.err.generic": "出现错误。请检查 API 服务器后重试。",
-
-    // FrameEvidence asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // FrameEvidence
-    "frame.at": "帧位于 {timestamp}",
-    "frame.couldNotRead": "无法读取此帧。",
-
-    // EvolutionTimeline asset only; no live route renders it. Do not wire into a live
-    // surface without an owner decision (re-enabling is a future iteration).
-    // EvolutionTimeline
-    "evolution.noHistory": "无历史记录。",
-    "evolution.aria": "版本历史",
-    "evolution.credibility": "可信度 {score}",
-    "evolution.current": "当前",
-    "evolution.held": "持续 {from} → {to} · 学习于 {learned}",
-    "evolution.present": "至今",
-    "evolution.initialVerdict": "初始结论",
 
     // SourcePack
   },

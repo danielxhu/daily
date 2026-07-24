@@ -16,6 +16,12 @@ vi.mock("@/lib/api", () => ({
   distillBoard: async () => ({}),
   searchKnowledge: async () => ({ facts: [], saved: [] }),
   answerKnowledge: async () => ({ answer: null, based_on: 0 }),
+  // knowledge chats (2026-07-24)
+  listKnowledgeChats: async () => [],
+  getKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),
+  createKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),
+  continueKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),
+  deleteKnowledgeChat: async () => undefined,
   // M15.3: the board detail's hierarchy fetches
   queryModules: async () => [],
   createModule: async () => ({}),

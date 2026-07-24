@@ -1,13 +1,12 @@
-"""Fetch policy guard (X0.8, SSOT §2.2 / FR-2 / FR-16 / §6.6).
+"""Fetch policy guard (X0.8, SSOT §2.2 / FR-2 / §6.6).
 
 The single place that encodes *how daily is allowed to fetch*. Every fetcher
-(static HTML M1A.4, render M1B.2, feed/poll Stage 7, CASR M4.12) builds its client
-from here, so the red lines hold **by construction**:
+(static HTML M1A.4, render M1B.2, feed/poll Stage 7) builds its client from
+here, so the red lines hold **by construction**:
 
 - no user cookies / no stored session, no proxy, no archive-site bypass, no
   login-breaking — paywalled/login/anti-bot content is a typed skip, not a fight;
 - a navigation timeout always exists and downloads are disabled;
-- CASR fetches are **claim-anchored + whitelist-only**, never topic browsing;
 - Scrapling is used **parser-only** (`pip install scrapling`); its `StealthyFetcher`
   / Cloudflare-bypass / proxy-rotation extras (`scrapling[fetchers]`) are NEVER
   installed — the guard holds because that code never enters the environment.
@@ -20,7 +19,6 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit
 
-from app.core.config import CASR_WHITELIST
 from app.schemas.models import SourceFailure, SourceFailureKind, SourceType
 
 # --- hard policy switches (all OFF; §2.2 red lines) ---
@@ -30,7 +28,7 @@ ALLOW_ARCHIVE_BYPASS = False
 ALLOW_LOGIN = False
 
 # An honest, static user agent — NOT fingerprint/stealth evasion (§2.2).
-FETCH_USER_AGENT = "daily/0.1 (+verification bot; contact via repo)"
+FETCH_USER_AGENT = "daily/0.1 (+source tracker; contact via repo)"
 FETCH_TIMEOUT_MS = 15000
 
 # Hosts that answer the bot UA with a verification wall but serve the SAME
@@ -52,10 +50,6 @@ def fetch_headers(url: str) -> dict[str, str] | None:
     if host in _BROWSER_UA_HOSTS:
         return {"User-Agent": BROWSER_FETCH_USER_AGENT}
     return None
-
-
-class FetchPolicyError(RuntimeError):
-    """Raised when a fetch would violate the policy (e.g. CASR off-whitelist)."""
 
 
 def httpx_client_kwargs() -> dict[str, object]:
@@ -83,30 +77,6 @@ def playwright_context_kwargs() -> dict[str, object]:
         "accept_downloads": False,
         # deliberately NO `storage_state` (no cookies/session) and NO `proxy`.
     }
-
-
-# --- CASR guard (FR-16): claim-anchored + whitelist-only, never topic browsing ---
-
-
-def casr_domain_allowed(domain: str, *, whitelist: frozenset[str] = CASR_WHITELIST) -> bool:
-    """True if `domain` is an authoritative-whitelist host or a subdomain of one.
-    `whitelist` defaults to the config `CASR_WHITELIST`; M4.12 retrieval passes the
-    per-call whitelist so the same matcher governs both the policy guard and the
-    fetched-evidence filter (one source of truth, FR-16)."""
-    host = domain.lower().strip().rstrip(".")
-    return any(host == wl or host.endswith("." + wl) for wl in whitelist)
-
-
-def assert_casr_allowed(*, domain: str, claim_anchored: bool) -> None:
-    """Raise unless a CASR fetch is both claim-anchored and on the whitelist."""
-    if not claim_anchored:
-        raise FetchPolicyError(
-            "CASR is claim-anchored only; topic browsing is forbidden (FR-16 / §2.2)."
-        )
-    if not casr_domain_allowed(domain):
-        raise FetchPolicyError(
-            f"CASR domain {domain!r} is not on the authoritative whitelist (FR-16)."
-        )
 
 
 # --- typed failure → next action (§6.6 / FR-2), deterministic kind→action map ---

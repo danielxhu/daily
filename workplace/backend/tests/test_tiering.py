@@ -1,7 +1,7 @@
 """M3.6 — deterministic source tiering (SSOT FR-12 / §8.1 tier-assignment metric).
 
 T1 primary/official · T1.5 official social · T2 everyone else. Config table +
-heuristics, code-only; human override hook; static tier → reputation prior."""
+heuristics, code-only; human override hook."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 from app.ingestion.domains import normalize_domain
 from app.schemas.models import NormalizedSource
-from app.tiering import assign_tier, reputation_for_tier, tier_source
+from app.tiering import assign_tier, tier_source
 
 _TS = datetime(2026, 6, 23, tzinfo=UTC)
 
@@ -71,13 +71,6 @@ def test_manual_override_wins_both_ways() -> None:
     assert assign_tier("seekingalpha.com", overrides={"seekingalpha.com": "T1"}) == "T1"
     # … and demote an official domain (human override beats the table)
     assert assign_tier("sec.gov", overrides={"sec.gov": "T2"}) == "T2"
-
-
-def test_reputation_prior_is_static_and_ordered() -> None:
-    assert reputation_for_tier("T1") == 0.9
-    assert reputation_for_tier("T1.5") == 0.75
-    assert reputation_for_tier("T2") == 0.5
-    assert reputation_for_tier("T1") > reputation_for_tier("T1.5") > reputation_for_tier("T2")
 
 
 def test_tier_source_sets_tier_without_mutating_original() -> None:

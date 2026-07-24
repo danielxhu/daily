@@ -7,7 +7,7 @@ track the item's own lifecycle:
 
 * ``new``      — discovered this poll, pipeline still running (or crashed mid-poll:
                  the row honestly says "seen, not yet processed").
-* ``fetched``  — ingestion succeeded; content is in hand. Deep-check failure does
+* ``fetched``  — ingestion succeeded; content is in hand. A later enrichment failure does
                  NOT change this — it only sets ``degraded_reason``.
 * ``failed``   — typed ingestion failure (`failure_kind` + the §6.6 kind→action map
                  drive the UI copy); the item stays visible with its link.
@@ -279,7 +279,7 @@ def search_tracked_items(
 
 
 def get_tracked_item_row(conn: sqlite3.Connection, item_id: str) -> sqlite3.Row | None:
-    """One item's raw row by public id (M15.5 manual deep check)."""
+    """One item's raw row by public id."""
     row: sqlite3.Row | None = conn.execute(
         "SELECT * FROM tracked_items WHERE id = ?", (item_id,)
     ).fetchone()

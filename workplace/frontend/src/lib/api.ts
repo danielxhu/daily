@@ -10,6 +10,8 @@ import type {
   KnowledgeModule,
   KnowledgeNote,
   KnowledgeAnswer,
+  KnowledgeChat,
+  KnowledgeChatSummary,
   KnowledgeSearchResult,
   PipelineRun,
   SourceFailureKind,
@@ -131,7 +133,7 @@ export async function getTrackedItem(
 }
 
 /** Manual fetch-&-summarize (M16.4): how a legacy item gets its bilingual
- * summary and discussion grounding. NOT a deep check — no claims, no scoring. */
+ * summary and discussion grounding. */
 export async function refreshTrackedItem(
   itemId: string,
   opts: QueryOptions = {},
@@ -468,7 +470,7 @@ export async function pollNow(opts: QueryOptions = {}): Promise<PollReport> {
 
 /** The source tracking digest over the recent view window (FR-13 / M14.6: default 30
  * days server-side, user-adjustable): verification-annotated, ordered items
- * (verdict-changed pinned, then reverse-chron). Optionally board-filtered. */
+ * (reverse-chron). Optionally board-filtered. */
 export async function queryDigest(
   opts: QueryOptions & { boardId?: string; windowDays?: number } = {},
 ): Promise<DailyDigest> {
@@ -507,6 +509,43 @@ export async function answerKnowledge(
   opts: QueryOptions = {},
 ): Promise<KnowledgeAnswer> {
   return postJson<KnowledgeAnswer>("/knowledge/answer", { q }, opts);
+}
+
+// --- knowledge chats (2026-07-24): persisted Q&A conversations ---
+
+export async function listKnowledgeChats(
+  opts: QueryOptions = {},
+): Promise<KnowledgeChatSummary[]> {
+  return getJson<KnowledgeChatSummary[]>("/knowledge/chats", opts);
+}
+
+export async function getKnowledgeChat(
+  id: string,
+  opts: QueryOptions = {},
+): Promise<KnowledgeChat> {
+  return getJson<KnowledgeChat>(`/knowledge/chats/${id}`, opts);
+}
+
+/** First ask = a new chat (titled after the question, answered in one call). */
+export async function createKnowledgeChat(
+  q: string,
+  opts: QueryOptions = {},
+): Promise<KnowledgeChat> {
+  return postJson<KnowledgeChat>("/knowledge/chats", { q }, opts);
+}
+
+/** Follow-up ask inside an existing chat — the answer sees the earlier turns. */
+export async function continueKnowledgeChat(
+  id: string,
+  q: string,
+  opts: QueryOptions = {},
+): Promise<KnowledgeChat> {
+  return postJson<KnowledgeChat>(`/knowledge/chats/${id}/messages`, { q }, opts);
+}
+
+/** Delete one conversation — never the notes/items it talked about. */
+export async function deleteKnowledgeChat(id: string, opts: QueryOptions = {}): Promise<void> {
+  return deleteRequest(`/knowledge/chats/${id}`, opts);
 }
 
 // --- run trace (§4/§7) ---

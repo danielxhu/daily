@@ -1,8 +1,8 @@
 """Local transcription adapter (M1A.6, SSOT §10).
 
-A `faster-whisper` implementation of the X0.3 `Transcriber` interface. Since the
-verification engine left (2026-07-13) nothing consumes word-level timestamps, so
-they are OFF; the transcript feeds the item excerpt + bilingual summary only.
+A `faster-whisper` implementation of the X0.3 `Transcriber` interface. Nothing
+consumes word-level timestamps, so they are OFF; the transcript feeds the item
+excerpt + bilingual summary only.
 
 Speed (owner 2026-07-20 "为什么这三个还是这么慢"): long caption-less videos
 (hours of forum replay) used to be transcribed sequentially, window by window.

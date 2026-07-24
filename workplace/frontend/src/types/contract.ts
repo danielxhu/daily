@@ -221,6 +221,22 @@ export interface KnowledgeAnswerRequest {
   q: string;
 }
 
+export interface KnowledgeChat {
+  id: string;
+  title: string;
+  messages: DiscussMessage[];
+  created_at: string;
+  updated_at: string;
+  based_on?: number | null;
+}
+
+export interface KnowledgeChatSummary {
+  id: string;
+  title: string;
+  updated_at: string;
+  message_count: number;
+}
+
 export interface KnowledgeSearchResult {
   saved: KnowledgeNote[];
   items?: TrackedItemCard[];

@@ -3,9 +3,7 @@
 Maps a source's domain to a tier — T1 (primary/official) · T1.5 (official social)
 · T2 (media / aggregator / KOL / unknown) — via a config table + heuristics, in
 code, never an LLM (NFR-7). A source with no resolvable domain is T2 (FR-7). A
-caller-supplied `overrides` map applies a human tier override first (FR-17). Tier
-maps to a static `reputation_prior`; reputation comes only from this static tier
-plus explicit human input — never self-learned from the system's own verdicts (FR-9).
+caller-supplied `overrides` map applies a human tier override first (FR-17).
 """
 
 from __future__ import annotations
@@ -19,7 +17,6 @@ from app.core.config import (
     TIER1_DOMAINS,
     TIER1_IR_PATH_DOMAINS,
     TIER15_OFFICIAL_ACCOUNTS,
-    TIER_REPUTATION_PRIOR,
 )
 from app.schemas.models import NormalizedSource, Tier
 
@@ -76,11 +73,6 @@ def assign_tier(
             return "T1.5"  # official account on its own platform
         return "T2"  # a non-official account on a social host is T2
     return "T2"
-
-
-def reputation_for_tier(tier: Tier) -> float:
-    """Static reputation prior for a tier (FR-12; never self-learned)."""
-    return TIER_REPUTATION_PRIOR[tier]
 
 
 def tier_source(

@@ -140,7 +140,7 @@
     },
     "DiscussMessage": {
       "additionalProperties": false,
-      "description": "One turn in an evidence-bounded digest-item discussion (M12.3).",
+      "description": "One turn in an item discussion (M12.3).",
       "properties": {
         "content": {
           "title": "Content",
@@ -487,7 +487,7 @@
     },
     "KnowledgeAnswerRequest": {
       "additionalProperties": false,
-      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.",
+      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.\nAlso the body of the chat asks (`POST /knowledge/chats` and\n`POST /knowledge/chats/{id}/messages`, owner 2026-07-24).",
       "properties": {
         "q": {
           "title": "Q",
@@ -498,6 +498,89 @@
         "q"
       ],
       "title": "KnowledgeAnswerRequest",
+      "type": "object"
+    },
+    "KnowledgeChat": {
+      "additionalProperties": false,
+      "description": "One persisted knowledge Q&A conversation (owner 2026-07-24): open an old\nchat to re-read it, or keep asking — the answer call sees the earlier\nturns. Title = the first question. Deleting a chat never touches the\nnotes/items it talked about.",
+      "properties": {
+        "based_on": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Based On"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/DiscussMessage"
+          },
+          "title": "Messages",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "messages",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "KnowledgeChat",
+      "type": "object"
+    },
+    "KnowledgeChatSummary": {
+      "additionalProperties": false,
+      "description": "`GET /knowledge/chats` row: enough to render the chat-history list.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "message_count": {
+          "title": "Message Count",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "updated_at",
+        "message_count"
+      ],
+      "title": "KnowledgeChatSummary",
       "type": "object"
     },
     "KnowledgeModule": {
@@ -1453,7 +1536,7 @@
     },
     "TrackedItemCard": {
       "additionalProperties": false,
-      "description": "One tracked source item as first-class knowledge (M15.1a, v0.12 P0).\n\nDeliberately carries NO credibility: an item that has not been deeply checked\nmust never fake a score (§2.4 — the UI says \"not deeply checked\" instead).\n`status` is the item's own lifecycle, decoupled from deep verification:\nnew (discovered, being processed) / fetched (content in hand — visible even\nwhen claim extraction or scoring failed; `degraded_reason` says so) /\nfailed (typed ingestion failure — still visible, with the failure kind) /\ndeferred (M14.5 first-check transcription deferral; the next check processes).",
+      "description": "One tracked source item as first-class knowledge (M15.1a, v0.12 P0).\n\n`status` is the item's lifecycle:\nnew (discovered, being processed) / fetched (content in hand — visible even\nwhen enrichment failed; `degraded_reason` says so) /\nfailed (typed ingestion failure — still visible, with the failure kind) /\ndeferred (M14.5 first-check transcription deferral; the next check processes).",
       "properties": {
         "board_id": {
           "anyOf": [

@@ -1,138 +1,156 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { ApiError, answerKnowledge, searchKnowledge } from "@/lib/api";
-import { useT } from "@/lib/i18n";
-import { TrackedItemLite } from "@/components/TrackedItems";
-import type { KnowledgeNote, TrackedItemCard } from "@/types/contract";
-
-type AnswerState =
-  | { state: "idle" }
-  | { state: "loading" }
-  | { state: "done"; text: string }
-  | { state: "error"; message: string };
-
-interface Turn {
-  id: number;
-  question: string;
-  state: "loading" | "done" | "error";
-  saved: KnowledgeNote[]; // the user's own saved notes (M13.2) — labeled apart
-  items: TrackedItemCard[]; // M15.2: tracked items (keyword hits) — labeled
-  answer: AnswerState; // M16.2: on-demand — NEVER filled by the search itself
-  error?: string;
-}
+import {
+  ApiError,
+  continueKnowledgeChat,
+  createKnowledgeChat,
+  deleteKnowledgeChat,
+  getKnowledgeChat,
+  listKnowledgeChats,
+} from "@/lib/api";
+import { useIntlLocale, useT } from "@/lib/i18n";
+import type { KnowledgeChat, KnowledgeChatSummary } from "@/types/contract";
 
 interface KnowledgeViewProps {
   // injectable so tests never hit the network
-  askFn?: typeof searchKnowledge;
-  answerFn?: typeof answerKnowledge;
+  listFn?: typeof listKnowledgeChats;
+  getFn?: typeof getKnowledgeChat;
+  createFn?: typeof createKnowledgeChat;
+  continueFn?: typeof continueKnowledgeChat;
+  deleteFn?: typeof deleteKnowledgeChat;
 }
 
-/** Knowledge — "ask daily what it knows". Search is deterministic keyword
- * matching over what your sources published (tracked items) and what you saved
- * (notes) — it returns instantly and never calls an LLM (M16.2; the synchronous
- * synthesis was why search felt slow). The AI answer is an explicit per-turn
- * action: "Generate AI answer" synthesizes ONE reply grounded in the matching
- * saved notes and tracked-item summaries (2026-07-19). */
+/** Knowledge — "ask daily what it knows", as persisted conversations (owner
+ * 2026-07-24). Every ask is answered over the whole knowledge base in one call
+ * and saved into the current chat; the history list reopens an old chat to
+ * re-read it or keep asking with its context. Deleting a chat never touches
+ * the notes/items it talked about. */
 export function KnowledgeView({
-  askFn = searchKnowledge,
-  answerFn = answerKnowledge,
+  listFn = listKnowledgeChats,
+  getFn = getKnowledgeChat,
+  createFn = createKnowledgeChat,
+  continueFn = continueKnowledgeChat,
+  deleteFn = deleteKnowledgeChat,
 }: KnowledgeViewProps) {
   const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
-  const [nextId, setNextId] = useState(0);
+  const [chats, setChats] = useState<KnowledgeChatSummary[]>([]);
+  const [active, setActive] = useState<KnowledgeChat | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const t = useT();
+  const intlLocale = useIntlLocale();
+
+  useEffect(() => {
+    let alive = true;
+    listFn()
+      .then((c) => alive && setChats(c))
+      .catch(() => alive && setChats([]));
+    return () => {
+      alive = false;
+    };
+  }, [listFn]);
+
+  async function refreshList() {
+    try {
+      setChats(await listFn());
+    } catch {
+      // the list is garnish — the active conversation already rendered
+    }
+  }
 
   async function ask(event: React.FormEvent) {
     event.preventDefault();
     const q = question.trim();
-    if (!q) return;
-    const id = nextId;
-    setNextId(id + 1);
-    setTurns((prev) => [
-      ...prev,
-      {
-        id,
-        question: q,
-        state: "loading",
-        saved: [],
-        items: [],
-        answer: { state: "idle" },
-      },
-    ]);
-    setQuestion("");
+    if (!q || sending) return;
+    setSending(true);
+    setError(null);
     try {
-      const result = await askFn(q);
-      setTurns((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? {
-                ...t,
-                state: "done",
-                saved: result.saved,
-                items: result.items ?? [],
-              }
-            : t,
-        ),
-      );
+      const chat = active ? await continueFn(active.id, q) : await createFn(q);
+      setActive(chat);
+      setQuestion("");
+      await refreshList();
     } catch (err) {
-      setTurns((prev) =>
-        prev.map((turn) =>
-          turn.id === id
-            ? {
-                ...turn,
-                state: "error",
-                error: err instanceof ApiError ? err.message : t("knowledge.errReach"),
-              }
-            : turn,
-        ),
-      );
+      setError(err instanceof ApiError ? err.message : t("knowledge.errReach"));
+    } finally {
+      setSending(false);
     }
   }
 
-  function setAnswer(id: number, answer: AnswerState) {
-    setTurns((prev) => prev.map((turn) => (turn.id === id ? { ...turn, answer } : turn)));
+  async function open(id: string) {
+    setError(null);
+    try {
+      setActive(await getFn(id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("knowledge.errReach"));
+    }
   }
 
-  async function generate(turn: Turn) {
-    setAnswer(turn.id, { state: "loading" });
+  async function remove(id: string) {
+    if (confirmDelete !== id) {
+      setConfirmDelete(id);
+      return;
+    }
+    setConfirmDelete(null);
     try {
-      const res = await answerFn(turn.question);
-      if (res.answer) {
-        setAnswer(turn.id, { state: "done", text: res.answer });
-      } else {
-        // the server saw no matching notes (list drifted since the search) —
-        // surface it as a retryable message, never a silent nothing
-        setAnswer(turn.id, { state: "error", message: t("knowledge.answer.err") });
-      }
+      await deleteFn(id);
+      if (active?.id === id) setActive(null);
+      await refreshList();
     } catch (err) {
-      setAnswer(turn.id, {
-        state: "error",
-        message: err instanceof ApiError ? err.message : t("knowledge.answer.err"),
-      });
+      setError(err instanceof ApiError ? err.message : t("knowledge.errReach"));
     }
   }
 
   return (
     <div className="space-y-6">
-      {turns.length === 0 ? (
-        <p className="text-sm text-muted">
-          {t("knowledge.intro")}
-        </p>
+      {/* the active conversation (or the intro) */}
+      {active ? (
+        <div className="space-y-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium text-ink">{active.title}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setActive(null);
+                setError(null);
+              }}
+              className="btn-ghost shrink-0 text-xs"
+            >
+              {t("knowledge.chat.new")}
+            </button>
+          </div>
+          <ol className="space-y-3" aria-label={t("knowledge.turns.aria")}>
+            {active.messages.map((m, i) => (
+              <li key={i} className="text-sm">
+                {m.role === "user" ? (
+                  <p className="font-medium text-ink">
+                    <span className="text-faint">{t("knowledge.you")}</span>
+                    {m.content}
+                  </p>
+                ) : (
+                  <div className="rounded-lg border border-line bg-panel p-3">
+                    <span className="badge bg-accent/15 text-accent-strong">
+                      {t("knowledge.answer.label")}
+                    </span>
+                    <p className="mt-1.5 max-w-[65ch] whitespace-pre-line break-words text-sm leading-relaxed text-ink">
+                      {m.content}
+                    </p>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+          <p className="pt-1 text-xs text-faint">
+            {active.based_on != null
+              ? t("knowledge.chat.basedOn", { count: active.based_on })
+              : t("knowledge.answer.note")}
+          </p>
+        </div>
       ) : (
-        <ol className="space-y-6" aria-label={t("knowledge.turns.aria")}>
-          {turns.map((turn) => (
-            <li key={turn.id} className="space-y-2">
-              <p className="text-sm font-medium text-ink">
-                <span className="text-faint">{t("knowledge.you")}</span>
-                {turn.question}
-              </p>
-              <Answer turn={turn} onGenerate={() => void generate(turn)} />
-            </li>
-          ))}
-        </ol>
+        <p className="text-sm text-muted">{t("knowledge.intro")}</p>
       )}
 
       <form onSubmit={ask} className="flex flex-wrap items-end gap-2">
@@ -143,121 +161,68 @@ export function KnowledgeView({
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             aria-label={t("knowledge.input.aria")}
-            placeholder={t("knowledge.input.placeholder")}
+            placeholder={t(active ? "knowledge.chat.followUp" : "knowledge.input.placeholder")}
             className="input"
           />
         </label>
-        <button type="submit" className="btn-primary">
-          {t("knowledge.ask")}
+        <button type="submit" disabled={sending} className="btn-primary disabled:opacity-50">
+          {sending ? t("knowledge.chat.sending") : t("knowledge.ask")}
         </button>
       </form>
-    </div>
-  );
-}
-
-function Answer({ turn, onGenerate }: { turn: Turn; onGenerate: () => void }) {
-  const t = useT();
-  if (turn.state === "loading") {
-    return <p className="text-sm text-muted">{t("knowledge.loading")}</p>;
-  }
-  if (turn.state === "error") {
-    return (
-      <p role="alert" className="text-sm text-bad-fg">
-        {turn.error}
-      </p>
-    );
-  }
-  if (turn.saved.length === 0 && turn.items.length === 0) {
-    return (
-      <p className="text-sm text-muted">
-        <span className="text-faint">{t("knowledge.daily")}</span>
-        {t("knowledge.noFacts").split("{sourcesLink}")[0]}
-        <Link href="/tracking" className="text-accent hover:text-accent-strong">
-          {t("knowledge.sourcesLinkText")}
-        </Link>
-        {t("knowledge.noFacts").split("{sourcesLink}")[1]}
-      </p>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      {/* M16.2: the AI answer is on demand — grounded in the saved notes AND
-          tracked-item summaries (2026-07-19), so any hit offers it */}
-      {(turn.saved.length > 0 || turn.items.length > 0) && (
-        <OnDemandAnswer answer={turn.answer} onGenerate={onGenerate} />
-      )}
-      {/* M15.2: tracked items (keyword hits) — the SAME lite expression as
-          Today/Digest: tier, date, echo hint, typed status (M15.4) */}
-      {turn.items.length > 0 && (
-        <ul className="space-y-2" aria-label={t("knowledge.items.aria")}>
-          {turn.items.map((item) => (
-            <li key={item.id} className="space-y-1.5 rounded-lg border border-line bg-panel p-3">
-              <span className="badge bg-panel text-faint">{t("knowledge.items.badge")}</span>
-              <TrackedItemLite item={item} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {/* the user's own saved notes (M13.2): labeled apart, badge per kind */}
-      {turn.saved.length > 0 && (
-        <ul className="space-y-2" aria-label={t("knowledge.saved.aria")}>
-          {turn.saved.map((note) => (
-            <li key={note.id} className="rounded-lg border border-line bg-panel p-3">
-              <span className="badge bg-warn-bg text-warn-fg">
-                {note.kind === "user_note"
-                  ? t("knowledge.note.badge")
-                  : t("knowledge.saved.badge")}
-              </span>
-              <p className="mt-1.5 break-words text-sm text-ink">{note.content}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function OnDemandAnswer({
-  answer,
-  onGenerate,
-}: {
-  answer: AnswerState;
-  onGenerate: () => void;
-}) {
-  const t = useT();
-  if (answer.state === "loading") {
-    return (
-      <p role="status" className="text-xs text-muted">
-        {t("knowledge.answer.generating")}
-      </p>
-    );
-  }
-  if (answer.state === "done") {
-    return (
-      <div className="rounded-lg border border-line bg-panel p-3">
-        <span className="badge bg-accent/15 text-accent-strong">
-          {t("knowledge.answer.label")}
-        </span>
-        <p className="mt-1.5 max-w-[65ch] break-words text-sm leading-relaxed text-ink">
-          {answer.text}
+      {error && (
+        <p role="alert" className="text-sm text-bad-fg">
+          {error}
+          {error.includes("empty") && (
+            <>
+              {" "}
+              <Link href="/tracking" className="text-accent hover:text-accent-strong">
+                {t("knowledge.sourcesLinkText")}
+              </Link>
+            </>
+          )}
         </p>
-        <p className="mt-1.5 text-xs text-faint">{t("knowledge.answer.note")}</p>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={onGenerate}
-        className="text-xs text-accent underline underline-offset-2 transition-colors hover:text-accent-strong"
-      >
-        {t("knowledge.answer.generate")}
-      </button>
-      {answer.state === "error" && (
-        <p role="alert" className="text-xs text-bad-fg">
-          {answer.message}
-        </p>
+      )}
+
+      {/* chat history (owner 2026-07-24): reopen to re-read or continue */}
+      {chats.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-faint">
+            {t("knowledge.chat.history")}
+          </h3>
+          <ul aria-label={t("knowledge.chat.history.aria")} className="space-y-1">
+            {chats.map((chat) => (
+              <li key={chat.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void open(chat.id)}
+                  className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${
+                    active?.id === chat.id
+                      ? "bg-panel text-ink"
+                      : "text-muted hover:bg-panel/60 hover:text-ink"
+                  }`}
+                >
+                  {chat.title}
+                  <span className="mono tnum ml-2 text-xs text-faint">
+                    {new Date(chat.updated_at).toLocaleDateString(intlLocale)} ·{" "}
+                    {Math.floor(chat.message_count / 2)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void remove(chat.id)}
+                  aria-label={t("knowledge.chat.delete.aria")}
+                  className={`shrink-0 rounded px-1.5 py-1 text-xs transition-colors ${
+                    confirmDelete === chat.id
+                      ? "bg-bad-bg text-bad-fg"
+                      : "text-faint hover:text-bad-fg"
+                  }`}
+                >
+                  {confirmDelete === chat.id ? t("knowledge.chat.delete.confirm") : "×"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

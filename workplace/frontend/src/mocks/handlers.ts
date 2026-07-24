@@ -16,6 +16,17 @@ const mockModules = new Map<string, KnowledgeModule[]>();
 // 2026-07-23: stateful credential slots (settings page)
 const mockCredentials = new Map<string, ApiSlotView>();
 
+// 2026-07-24: stateful knowledge chats (fresh per page load)
+interface MockChat {
+  id: string;
+  title: string;
+  messages: { role: string; content: string }[];
+  created_at: string;
+  updated_at: string;
+  based_on?: number;
+}
+const mockChats = new Map<string, MockChat>();
+
 function mockApiSlots(): ApiSlotView[] {
   return [
     mockCredentials.get("text") ?? {
@@ -380,6 +391,57 @@ export const handlers = [
     });
   }),
   // M16.2: the on-demand AI answer over the user's saved notes
+  // knowledge chats (2026-07-24): stateful per page load
+  http.get("*/knowledge/chats", () =>
+    HttpResponse.json(
+      [...mockChats.values()]
+        .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          updated_at: c.updated_at,
+          message_count: c.messages.length,
+        })),
+    ),
+  ),
+  http.get("*/knowledge/chats/:id", ({ params }) => {
+    const chat = mockChats.get(String(params.id));
+    if (!chat) return HttpResponse.json({ detail: "no such chat" }, { status: 404 });
+    return HttpResponse.json(chat);
+  }),
+  http.post("*/knowledge/chats", async ({ request }) => {
+    const body = (await request.json()) as { q: string };
+    const id = `chat_${mockChats.size + 1}`;
+    const chat = {
+      id,
+      title: body.q.slice(0, 60),
+      messages: [
+        { role: "user", content: body.q },
+        { role: "assistant", content: `关于「${body.q}」:来源提到了相关进展(mock 回答)。` },
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      based_on: 3,
+    };
+    mockChats.set(id, chat);
+    return HttpResponse.json(chat);
+  }),
+  http.post("*/knowledge/chats/:id/messages", async ({ params, request }) => {
+    const chat = mockChats.get(String(params.id));
+    if (!chat) return HttpResponse.json({ detail: "no such chat" }, { status: 404 });
+    const body = (await request.json()) as { q: string };
+    chat.messages = [
+      ...chat.messages,
+      { role: "user", content: body.q },
+      { role: "assistant", content: `接着聊「${body.q}」(mock 回答)。` },
+    ];
+    chat.updated_at = new Date().toISOString();
+    return HttpResponse.json({ ...chat, based_on: 3 });
+  }),
+  http.delete("*/knowledge/chats/:id", ({ params }) => {
+    mockChats.delete(String(params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.post("*/knowledge/answer", async ({ request }) => {
     const { q } = (await request.json()) as { q: string };
     return HttpResponse.json({

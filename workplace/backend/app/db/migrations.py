@@ -77,6 +77,24 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 "('b_tech', '科技', '2026-07-03T00:00:00+00:00')",
             ),
         ),
+        # owner 2026-07-24 — persisted knowledge Q&A conversations: open an old
+        # chat to re-read it or keep asking with its context. Messages are one
+        # JSON array per chat (single-operator scale; a chat is read/written
+        # whole). Deleting a chat deletes only the conversation — never the
+        # notes/items it talked about.
+        Migration(
+            4,
+            "create_knowledge_chats",
+            (
+                "CREATE TABLE knowledge_chats ("
+                "  id TEXT PRIMARY KEY,"
+                "  title TEXT NOT NULL,"
+                "  messages TEXT NOT NULL,"
+                "  created_at TEXT NOT NULL,"
+                "  updated_at TEXT NOT NULL"
+                ")",
+            ),
+        ),
     ],
     "reputation": [
         # M5.7 — human source-reputation overrides (FR-12 / FR-17). A persistent

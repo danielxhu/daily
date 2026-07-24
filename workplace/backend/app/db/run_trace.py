@@ -1,8 +1,8 @@
 """Run-trace writer (X0.7, SSOT §4/§7).
 
 Every verify/poll/digest run records a flat `PipelineRun` + ordered `StepTrace`
-rows to SQLite, so a half-failed run ("captions failed → whisper ok; 8 claims;
-stance #3 failed") is inspectable in logs and the UI. This is a **debug trace,
+rows to SQLite, so a half-failed run ("captions failed → whisper ok;
+step #3 failed") is inspectable in logs and the UI. This is a **debug trace,
 deliberately not a telemetry/tracing platform**.
 
 Each step is committed as it is recorded, so a crash mid-run still leaves the

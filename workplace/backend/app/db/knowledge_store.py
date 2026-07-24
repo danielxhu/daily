@@ -1,4 +1,4 @@
-"""Per-board `KnowledgeNote`s (verification engine removed 2026-07-13).
+"""Per-board `KnowledgeNote`s.
 
 Two user-authored kinds remain: `user_note` (a plain note, e.g. from an item's
 detail page) and `saved_check` (notes saved from the retired check era — still

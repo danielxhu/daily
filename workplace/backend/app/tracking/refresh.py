@@ -2,10 +2,8 @@
 
 The user-triggered "fetch & summarize" for ONE tracked item: re-fetch its URL,
 persist the content excerpt (code-only), and generate the bilingual enrichment.
-This is how a legacy pre-v0.13 item (no stored text, honest pending state) gets
-its summary — and it is deliberately NOT a deep check: no claim extraction, no
-alignment, no scoring, no memory writes. The verification engine stays dormant
-(v0.13); refresh only feeds the tracking/knowledge read surface.
+This is how a legacy item (no stored text, honest pending state) gets its
+summary; refresh only feeds the tracking/knowledge read surface.
 
 Synchronous, one item per call (single-operator, local-first — same stance as
 deep_check), but NEVER whisper (owner 2026-07-19): a caption-less video is

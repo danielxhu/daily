@@ -33,6 +33,13 @@ from app.core.config import (
 from app.db.board_store import create_board, delete_board, get_board, list_boards
 from app.db.credential_store import API_SLOTS
 from app.db.engine import init_db
+from app.db.knowledge_chat_store import (
+    append_messages,
+    create_chat,
+    delete_chat,
+    get_chat,
+    list_chats,
+)
 from app.db.knowledge_module_store import (
     create_module,
     delete_module,
@@ -73,6 +80,7 @@ from app.schemas.models import (
     ApiSlotView,
     Board,
     DailyDigest,
+    DiscussMessage,
     IngestionResult,
     ItemDiscussReply,
     ItemDiscussRequest,
@@ -81,6 +89,8 @@ from app.schemas.models import (
     ItemProgress,
     KnowledgeAnswer,
     KnowledgeAnswerRequest,
+    KnowledgeChat,
+    KnowledgeChatSummary,
     KnowledgeModule,
     KnowledgeNote,
     KnowledgeSearchResult,
@@ -749,9 +759,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # seconds — caption-less video goes to the background transcribe queue
         ingest: Annotated[IngestFn, Depends(get_ingest_first)],
     ) -> TrackedItemDetail:
-        # M16.4: manual fetch-&-summarize — the way a legacy (pre-v0.13) item gets
-        # its bilingual enrichment and discussion grounding. NOT a deep check: no
-        # claims, no scoring, no memory writes (the engine stays dormant).
+        # M16.4: manual fetch-&-summarize — the way a legacy item gets its
+        # bilingual enrichment and discussion grounding.
         try:
             card = refresh_item(db, item_id, llm=llm, ingest=ingest)
         except RefreshError as exc:
@@ -995,6 +1004,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         q = body.q.strip()
         if not q:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
+        result = _answer_grounded(db, llm, q, history=None)
+        if result is None:
+            return KnowledgeAnswer(answer=None, based_on=0)
+        answer, grounded = result
+        return KnowledgeAnswer(answer=answer, based_on=grounded)
+
+    def _answer_grounded(
+        db: sqlite3.Connection,
+        llm: LLMClient,
+        q: str,
+        *,
+        history: list[DiscussMessage] | None,
+    ) -> tuple[str, int] | None:
+        """Whole-corpus grounded answer (方案0) shared by the one-shot ask and
+        the chats. None = empty knowledge base (no LLM call); an LLM failure
+        raises the typed 502 — the user explicitly asked."""
         saved_hits = search_saved_notes(db, q)
         item_hits = search_tracked_items(db, q)
         # the hint uses the same recall as the search surface (2026-07-21)
@@ -1002,13 +1027,121 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         notes = list_saved_notes(db)
         items = list_all_cards(db)
         if not notes and not items:
-            return KnowledgeAnswer(answer=None, based_on=0)
+            return None
         hit_ids = {n.id for n in saved_hits} | {i.id for i in item_hits}
-        result = answer_over_knowledge(q, notes, items, hit_ids, llm=llm)
+        result = answer_over_knowledge(q, notes, items, hit_ids, llm=llm, history=history)
         if result is None:
             raise HTTPException(status_code=502, detail="answer synthesis failed — try again")
+        return result
+
+    # --- knowledge chats (owner 2026-07-24): persisted Q&A conversations ------
+
+    @app.get("/knowledge/chats", response_model=list[KnowledgeChatSummary])
+    def knowledge_chats(
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> list[KnowledgeChatSummary]:
+        return list_chats(db)
+
+    @app.get(
+        "/knowledge/chats/{chat_id}",
+        response_model=KnowledgeChat,
+        responses={404: {"description": "No such chat."}},
+    )
+    def knowledge_chat_detail(
+        chat_id: str,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> KnowledgeChat:
+        chat = get_chat(db, chat_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail=f"no such chat: {chat_id}")
+        return chat
+
+    @app.post(
+        "/knowledge/chats",
+        response_model=KnowledgeChat,
+        responses={
+            400: {"description": "Empty question, or the knowledge base is empty."},
+            502: {"description": "The synthesis call failed — retryable; nothing saved."},
+        },
+    )
+    def knowledge_chat_create(
+        body: KnowledgeAnswerRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+        llm: Annotated[LLMClient, Depends(get_llm)],
+    ) -> KnowledgeChat:
+        # a chat is created only when the first answer succeeds — no husks
+        q = body.q.strip()
+        if not q:
+            raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
+        result = _answer_grounded(db, llm, q, history=None)
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail="the knowledge base is empty — track sources or save notes first",
+            )
         answer, grounded = result
-        return KnowledgeAnswer(answer=answer, based_on=grounded)
+        chat = create_chat(
+            db,
+            messages=[
+                DiscussMessage(role="user", content=q),
+                DiscussMessage(role="assistant", content=answer),
+            ],
+            now=datetime.now(UTC),
+        )
+        return chat.model_copy(update={"based_on": grounded})
+
+    @app.post(
+        "/knowledge/chats/{chat_id}/messages",
+        response_model=KnowledgeChat,
+        responses={
+            400: {"description": "Empty question, or the knowledge base is empty."},
+            404: {"description": "No such chat."},
+            502: {"description": "The synthesis call failed — retryable; nothing saved."},
+        },
+    )
+    def knowledge_chat_continue(
+        chat_id: str,
+        body: KnowledgeAnswerRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+        llm: Annotated[LLMClient, Depends(get_llm)],
+    ) -> KnowledgeChat:
+        q = body.q.strip()
+        if not q:
+            raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
+        chat = get_chat(db, chat_id)
+        if chat is None:
+            raise HTTPException(status_code=404, detail=f"no such chat: {chat_id}")
+        # earlier turns give the follow-up its context (owner 2026-07-24)
+        result = _answer_grounded(db, llm, q, history=chat.messages)
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail="the knowledge base is empty — track sources or save notes first",
+            )
+        answer, grounded = result
+        updated = append_messages(
+            db,
+            chat_id,
+            [
+                DiscussMessage(role="user", content=q),
+                DiscussMessage(role="assistant", content=answer),
+            ],
+            now=datetime.now(UTC),
+        )
+        assert updated is not None  # existence checked above
+        return updated.model_copy(update={"based_on": grounded})
+
+    @app.delete(
+        "/knowledge/chats/{chat_id}",
+        status_code=204,
+        responses={404: {"description": "No such chat."}},
+    )
+    def knowledge_chat_delete(
+        chat_id: str,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> None:
+        if not delete_chat(db, chat_id):
+            raise HTTPException(status_code=404, detail=f"no such chat: {chat_id}")
 
     # --- run trace (§4/§7): read-only debug list of verify/poll/digest runs ---
 

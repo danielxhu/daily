@@ -40,7 +40,7 @@ from __future__ import annotations
 import re
 
 from app.clients.base import LLMClient
-from app.schemas.models import KnowledgeNote, TrackedItemCard
+from app.schemas.models import DiscussMessage, KnowledgeNote, TrackedItemCard
 
 _ANSWER_SYSTEM = (
     # owner 2026-07-19: "太保守了" — same posture as the item discussion: answer
@@ -64,6 +64,8 @@ _ANSWER_SYSTEM = (
     "- If the entries say nothing directly relevant, say so in ONE short clause, "
     "then still give your best reasoned take, labeled as going beyond them.\n"
     "- No concrete buy/sell or investment instructions.\n"
+    "- If a conversation precedes the question, continue it: resolve pronouns "
+    "and follow-ups against the earlier turns.\n"
     "- Reply in the user's language, concise but complete. "
     'Output JSON only: {"answer": "<your answer>"}.'
 )
@@ -137,20 +139,27 @@ def answer_over_knowledge(
     hit_ids: set[str],
     *,
     llm: LLMClient,
+    history: list[DiscussMessage] | None = None,
 ) -> tuple[str, int] | None:
     """One flash call (no escalation) answering the question over the whole
     knowledge base; `hit_ids` marks the entries the search surface matched (a
-    relevance hint, never a filter). Callers must skip the call entirely when
-    the base is empty; any failure or unusable output degrades to None — the
-    answer is presentation, never a gate. Returns (answer, entries fed)."""
+    relevance hint, never a filter). `history` = the chat's earlier turns
+    (owner 2026-07-24: a continued chat answers follow-ups in context). Callers
+    must skip the call entirely when the base is empty; any failure or unusable
+    output degrades to None — the answer is presentation, never a gate.
+    Returns (answer, entries fed)."""
     corpus, fed, hint = _corpus_block(question, saved, items, hit_ids)
-    # corpus first, hint + question last: consecutive questions over the same
-    # base share a stable prefix for provider-side context caching
-    user = (
-        f"{corpus}\n\n{hint}\n\nQuestion: {question}"
-        if hint
-        else (f"{corpus}\n\nQuestion: {question}")
-    )
+    # corpus first, then conversation, hint + question last: consecutive
+    # questions over the same base share a stable prefix for provider-side
+    # context caching
+    parts = [corpus]
+    if history:
+        convo = "\n".join(f"{m.role}: {m.content}" for m in history)
+        parts.append(f"Conversation so far:\n{convo}")
+    if hint:
+        parts.append(hint)
+    parts.append(f"Question: {question}")
+    user = "\n\n".join(parts)
     try:
         data = llm.complete_json(system=_ANSWER_SYSTEM, user=user, escalate=False)
     except Exception:
