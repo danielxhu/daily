@@ -204,6 +204,31 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     // FooterNav / layout
     "footer.fullDigest": "Full digest",
     "footer.runDetails": "Run details",
+    "footer.settings": "Settings",
+    "page.settings.title": "Settings",
+    "page.settings.subtitle":
+      "Model API credentials. daily works out of the box — change these only to use your own endpoint.",
+    "settings.api.loading": "Loading…",
+    "settings.api.loadError": "Couldn't load settings — is the backend running?",
+    "settings.api.saveError": "Saving failed — try again.",
+    "settings.api.privacy":
+      "Keys are stored only in the local database on this machine and are never uploaded; responses echo just the last 4 characters.",
+    "settings.slot.text.title": "Text model (required)",
+    "settings.slot.text.desc":
+      "Powers AI summaries, discussion and knowledge Q&A. Any OpenAI-compatible endpoint works; leaving this unset uses the built-in default.",
+    "settings.slot.text.clear": "Reset to built-in default",
+    "settings.slot.vision.title": "Vision model (optional)",
+    "settings.slot.vision.desc":
+      "Reserved for a hosted image-understanding model. Image notes are already read by the free on-device OCR — fill this only when you want charts/photos interpreted too.",
+    "settings.slot.vision.clear": "Clear",
+    "settings.slot.current.custom": "Using your endpoint:",
+    "settings.slot.current.env": "Using the built-in default:",
+    "settings.slot.current.empty": "Not configured — image text is read locally, no key needed.",
+    "settings.field.baseUrl": "Base URL",
+    "settings.field.model": "Model",
+    "settings.field.apiKey": "API key",
+    "settings.save": "Save",
+    "settings.saving": "Saving…",
     "footer.nav.aria": "Details & tools",
 
     // CredibilityNote asset only; no live route renders it. Do not wire into a live
@@ -817,6 +842,30 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     // FooterNav / layout
     "footer.fullDigest": "完整日报",
     "footer.runDetails": "运行详情",
+    "footer.settings": "设置",
+    "page.settings.title": "设置",
+    "page.settings.subtitle": "模型 API 配置。daily 开箱即用——只有想换成自己的接口时才需要改这里。",
+    "settings.api.loading": "加载中…",
+    "settings.api.loadError": "设置加载失败——后端在运行吗?",
+    "settings.api.saveError": "保存失败——请重试。",
+    "settings.api.privacy":
+      "key 只保存在本机的本地数据库里,绝不上传;接口响应只回显最后 4 位。",
+    "settings.slot.text.title": "文本模型(必填)",
+    "settings.slot.text.desc":
+      "驱动 AI 综述、讨论和知识库问答。任何 OpenAI 兼容接口都可用;不填则使用内置默认。",
+    "settings.slot.text.clear": "恢复内置默认",
+    "settings.slot.vision.title": "视觉模型(选填)",
+    "settings.slot.vision.desc":
+      "留给托管的图像理解模型。图文笔记的文字已由免费的本机 OCR 读取——只有想让图表/照片也被理解时才需要填。",
+    "settings.slot.vision.clear": "清除",
+    "settings.slot.current.custom": "使用你的接口:",
+    "settings.slot.current.env": "使用内置默认:",
+    "settings.slot.current.empty": "未配置——图片文字由本机识别,无需 key。",
+    "settings.field.baseUrl": "Base URL",
+    "settings.field.model": "模型",
+    "settings.field.apiKey": "API key",
+    "settings.save": "保存",
+    "settings.saving": "保存中…",
     "footer.nav.aria": "详情与工具",
 
     // CredibilityNote asset only; no live route renders it. Do not wire into a live

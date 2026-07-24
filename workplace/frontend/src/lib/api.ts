@@ -1,4 +1,6 @@
 import type {
+  ApiSettings,
+  ApiSlotView,
   Board,
   DailyDigest,
   DiscussMessage,
@@ -321,6 +323,70 @@ export async function getItemProgress(
   opts: QueryOptions = {},
 ): Promise<ItemProgress> {
   return getJson<ItemProgress>(`/tracked-items/${id}/progress`, opts);
+}
+
+// --- model API credentials (owner 2026-07-23, settings page) ---
+
+export async function getApiSettings(opts: QueryOptions = {}): Promise<ApiSettings> {
+  return getJson<ApiSettings>("/settings/api", opts);
+}
+
+export interface ApiSlotInput {
+  base_url: string;
+  model: string;
+  api_key: string;
+}
+
+/** Save one credential slot ("text" | "vision"); the response echoes only the
+ * key's last 4 characters — the full key is never returned. */
+export async function saveApiSlot(
+  slot: string,
+  input: ApiSlotInput,
+  opts: QueryOptions = {},
+): Promise<ApiSlotView> {
+  const fetchFn = opts.fetchFn ?? fetch;
+  await waitForMock();
+  const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/settings/api/${slot}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    let detail = `request failed (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (typeof errBody?.detail === "string") detail = errBody.detail;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as ApiSlotView;
+}
+
+/** Clear one credential slot back to its default (env for text, empty for vision). */
+export async function clearApiSlot(
+  slot: string,
+  opts: QueryOptions = {},
+): Promise<ApiSlotView> {
+  const fetchFn = opts.fetchFn ?? fetch;
+  await waitForMock();
+  const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/settings/api/${slot}`, {
+    method: "DELETE",
+    signal: opts.signal,
+  });
+  if (!res.ok) {
+    let detail = `request failed (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (typeof errBody?.detail === "string") detail = errBody.detail;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as ApiSlotView;
 }
 
 /** Rename a source (2026-07-19) — null/empty clears back to unnamed. */

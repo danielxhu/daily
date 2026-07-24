@@ -58,6 +58,12 @@ render = [
 mlx = [
     "mlx-whisper>=0.4",
 ]
+# On-device image OCR for 图文 notes (owner 2026-07-23): Apple Vision via
+# pyobjc — free, local, no key, images never leave the machine. macOS-only;
+# get_vision_client() degrades to None elsewhere (image reading skipped).
+ocr = [
+    "pyobjc-framework-Vision>=10",
+]
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -100,6 +106,9 @@ module = [
     "sentence_transformers.*",
     "feedparser.*",
     "mlx_whisper.*",
+    "Vision.*",
+    "Foundation.*",
+    "objc.*",
 ]
 ignore_missing_imports = true
 follow_imports = "skip"

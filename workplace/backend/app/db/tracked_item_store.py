@@ -243,6 +243,14 @@ def get_item_excerpt(conn: sqlite3.Connection, item_id: str) -> str | None:
     return row["content_excerpt"] if row else None
 
 
+def list_all_cards(conn: sqlite3.Connection) -> list[TrackedItemCard]:
+    """Every tracked item, newest first — the item layer of the full-corpus
+    answer grounding (owner 2026-07-23 方案0; at single-operator scale the whole
+    base is at most a few hundred rows, so no pagination)."""
+    rows = conn.execute("SELECT * FROM tracked_items ORDER BY first_seen DESC").fetchall()
+    return [_row_to_card(conn, row) for row in rows]
+
+
 def search_tracked_items(
     conn: sqlite3.Connection, query: str, *, limit: int = 5
 ) -> list[TrackedItemCard]:

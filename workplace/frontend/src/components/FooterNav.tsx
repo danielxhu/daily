@@ -9,6 +9,7 @@ import { useT } from "@/lib/i18n";
 const SECONDARY_LINKS = [
   { href: "/digest", key: "footer.fullDigest" },
   { href: "/trace", key: "footer.runDetails" },
+  { href: "/settings", key: "footer.settings" },
 ] as const;
 
 export function FooterNav() {

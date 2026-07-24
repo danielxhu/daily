@@ -1,5 +1,88 @@
 {
   "$defs": {
+    "ApiSettings": {
+      "additionalProperties": false,
+      "description": "`GET /settings/api` — both credential slots.",
+      "properties": {
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/ApiSlotView"
+          },
+          "title": "Slots",
+          "type": "array"
+        }
+      },
+      "required": [
+        "slots"
+      ],
+      "title": "ApiSettings",
+      "type": "object"
+    },
+    "ApiSlotView": {
+      "additionalProperties": false,
+      "description": "One model-credential slot on the settings page (owner 2026-07-23).\n\"text\" powers summaries/Q&A (falls back to the .env DeepSeek default);\n\"vision\" is reserved for a hosted image-reading model. The key itself is\nNEVER returned — only its last 4 characters.",
+      "properties": {
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Url"
+        },
+        "key_last4": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key Last4"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "slot": {
+          "enum": [
+            "text",
+            "vision"
+          ],
+          "title": "Slot",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "custom",
+            "env",
+            "empty"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot",
+        "source"
+      ],
+      "title": "ApiSlotView",
+      "type": "object"
+    },
     "Board": {
       "additionalProperties": false,
       "description": "A personal knowledge base = topic collection (FR-15); single operator,\nNOT a user account. Sources & facts link by board_id / board_ids — the fact\nstore itself stays single, shared, deduped.",
@@ -377,7 +460,7 @@
     },
     "KnowledgeAnswer": {
       "additionalProperties": false,
-      "description": "`POST /knowledge/answer` (M16.2): the on-demand AI answer — ONE flash call\n(NFR-7 exception (5)) grounded ONLY in the user's saved notes matching the\nquestion. Tracked items are never fed in; the fact layer is dormant (v0.13).\nNo matching notes → answer=None with zero LLM spend; an LLM failure is a 502\n(the user explicitly asked — a typed error beats a silent null).",
+      "description": "`POST /knowledge/answer` (M16.2; corpus-wide since 2026-07-23 方案0): the\non-demand AI answer — ONE flash call (NFR-7 exception (5)) grounded in the\nWHOLE knowledge base (all saved notes + tracked-item summaries, newest\nfirst, char-budget capped), with the search hits passed as a relevance\nhint. Empty knowledge base → answer=None with zero LLM spend; an LLM\nfailure is a 502 (the user explicitly asked — a typed error beats a\nsilent null).",
       "properties": {
         "answer": {
           "anyOf": [

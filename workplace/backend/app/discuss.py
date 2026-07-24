@@ -102,12 +102,20 @@ _NOTE_DRAFT_SYSTEM = (
     # owner 2026-07-13: "存入知识库的笔记应该是由 llm 精选后提供的" — the note the
     # user saves is curated by the model first, then revised through chat until
     # the user clicks save. Drafting writes NOTHING; saving is a separate action.
-    "You are curating a note for the user's personal knowledge base about ONE "
+    # owner 2026-07-23: weight shifted from key-facts-only distillation to a
+    # FULL overall summary — the note should stand in for the source when read
+    # months later, so completeness beats terseness.
+    "You are drafting a note for the user's personal knowledge base about ONE "
     "tracked item; its stored source excerpt and AI summary are given below.\n"
-    "- Distill what is worth KEEPING: the key facts, numbers, and takeaways a "
-    "reader would want to find again later — not a generic summary of "
-    "everything.\n"
-    "- Be concise: a few sentences, or short lines for distinct points.\n"
+    "- The note's backbone is an OVERALL summary of the WHOLE content: cover "
+    "the source's main message, its arguments and evidence, and its "
+    "conclusions, following the source's own arc — months later the note "
+    "should stand in for the source itself.\n"
+    "- Weave the key facts, figures, and takeaways a reader would want to "
+    "find again into that summary; details carry the value.\n"
+    "- Complete beats terse: full sentences, room to breathe — several "
+    "paragraphs are fine for substantial material. Avoid padding, not "
+    "substance.\n"
     "- The item's material is the factual anchor: never contradict it, and "
     "never fabricate specifics (numbers, quotes, events) that are in neither "
     "the source nor common knowledge.\n"

@@ -361,6 +361,25 @@ class ItemProgress(Schema):
     pct: float | None = None  # 0..1 within the current stage
 
 
+class ApiSlotView(Schema):
+    """One model-credential slot on the settings page (owner 2026-07-23).
+    "text" powers summaries/Q&A (falls back to the .env DeepSeek default);
+    "vision" is reserved for a hosted image-reading model. The key itself is
+    NEVER returned — only its last 4 characters."""
+
+    slot: Literal["text", "vision"]
+    source: Literal["custom", "env", "empty"]  # custom row > env default > unset
+    base_url: str | None = None
+    model: str | None = None
+    key_last4: str | None = None  # set only when source == "custom"
+
+
+class ApiSettings(Schema):
+    """`GET /settings/api` — both credential slots."""
+
+    slots: list[ApiSlotView]
+
+
 class DailyDigest(Schema):
     date: date
     generated_at: datetime
@@ -432,14 +451,16 @@ class KnowledgeAnswerRequest(Schema):
 
 
 class KnowledgeAnswer(Schema):
-    """`POST /knowledge/answer` (M16.2): the on-demand AI answer — ONE flash call
-    (NFR-7 exception (5)) grounded ONLY in the user's saved notes matching the
-    question. Tracked items are never fed in; the fact layer is dormant (v0.13).
-    No matching notes → answer=None with zero LLM spend; an LLM failure is a 502
-    (the user explicitly asked — a typed error beats a silent null)."""
+    """`POST /knowledge/answer` (M16.2; corpus-wide since 2026-07-23 方案0): the
+    on-demand AI answer — ONE flash call (NFR-7 exception (5)) grounded in the
+    WHOLE knowledge base (all saved notes + tracked-item summaries, newest
+    first, char-budget capped), with the search hits passed as a relevance
+    hint. Empty knowledge base → answer=None with zero LLM spend; an LLM
+    failure is a 502 (the user explicitly asked — a typed error beats a
+    silent null)."""
 
     answer: str | None
-    based_on: int  # how many hits (saved notes + tracked items) grounded the answer (0 = no call)
+    based_on: int  # how many knowledge-base entries were fed to the call (0 = no call)
 
 
 class StepTrace(Schema):
@@ -510,6 +531,8 @@ ALL_MODELS: list[type[Schema]] = [
     KnowledgeModule,
     KnowledgeNote,
     ItemProgress,
+    ApiSlotView,
+    ApiSettings,
     TrackedItemDetail,
     ItemEnrichment,
     TrackedItemCard,

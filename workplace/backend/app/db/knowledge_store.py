@@ -90,6 +90,20 @@ def list_notes(conn: sqlite3.Connection, board_id: str) -> list[KnowledgeNote]:
     return [_row_to_note(r) for r in rows]
 
 
+def list_saved_notes(conn: sqlite3.Connection) -> list[KnowledgeNote]:
+    """Every note the user typed or deliberately saved (`saved_check` +
+    `user_note`), all boards, newest first — the note layer of the full-corpus
+    answer grounding (owner 2026-07-23 方案0). Same kind filter as
+    `search_saved_notes`: `ai_distilled` (display-only cache) and `pinned_fact`
+    (dormant fact layer) never ground an answer."""
+    rows = conn.execute(
+        "SELECT id, board_id, kind, content, citations_json, is_synthesized, regenerable, "
+        "created_at FROM knowledge_notes WHERE kind IN ('saved_check', 'user_note') "
+        "ORDER BY created_at DESC"
+    ).fetchall()
+    return [_row_to_note(r) for r in rows]
+
+
 # CJK Unified Ideographs (+ Extension A) — the ranges bilingual zh queries live in
 _CJK_RUN = re.compile(r"[一-鿿㐀-䶿]+")
 _ASCII_WORD = re.compile(r"[a-zA-Z0-9_]+")

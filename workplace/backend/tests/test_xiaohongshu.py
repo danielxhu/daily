@@ -47,7 +47,8 @@ def _note_page(note: dict[str, Any], *, note_id: str = "6a60e793000000000100c12e
 
 
 class _PageClient:
-    """Serves one canned HTML body (or an error) for any GET — offline."""
+    """Serves the canned note HTML for the page GET and canned bytes for image
+    GETs (or an error) — offline."""
 
     def __init__(self, html: str | None, status_code: int = 200) -> None:
         self._html = html
@@ -58,10 +59,32 @@ class _PageClient:
         self.calls.append(url)
         if self._html is None:
             raise httpx.ConnectError("boom")
+        if url.endswith(".jpg"):  # an image download
+            return SimpleNamespace(content=f"IMG:{url}".encode(), status_code=200)
         return SimpleNamespace(text=self._html, status_code=self._status)
 
     def close(self) -> None:
         pass
+
+
+class _FakeOCR:
+    """VisionClient fake: fixed text per image; records what it was fed."""
+
+    def __init__(self, text_by_suffix: dict[str, str]) -> None:
+        self._by_suffix = text_by_suffix
+        self.seen: list[bytes] = []
+
+    def read_image(self, image: bytes) -> str:
+        self.seen.append(image)
+        for suffix, text in self._by_suffix.items():
+            if image.decode().endswith(suffix):
+                return text
+        return ""
+
+
+class _NoOCR:
+    def read_image(self, image: bytes) -> str:
+        return ""
 
 
 # --- URL classification -------------------------------------------------------
@@ -119,6 +142,7 @@ def test_ingest_image_note_becomes_webpage_text_without_ytdlp() -> None:
         SourceRequest(kind="url", url=NOTE_URL),
         http_client=cast(httpx.Client, client),
         caption_extractor=_extractor,
+        vision_client=_NoOCR(),
     )
     assert result.status == "ok" and result.source is not None
     assert result.source.type == "webpage"
@@ -128,16 +152,66 @@ def test_ingest_image_note_becomes_webpage_text_without_ytdlp() -> None:
     assert extractor_calls == []  # never entered the yt-dlp path
 
 
+def test_ingest_image_note_appends_local_ocr_text_and_marks_frame_ocr() -> None:
+    # owner 2026-07-23 "看图也要做": the 语录 screenshots ARE the content — the
+    # on-device OCR reads them into the excerpt, labeled per image
+    ocr = _FakeOCR({"a.jpg": "1. 现在做产品不是收益最大化的时候。", "b.jpg": ""})
+    client = _PageClient(_note_page(_IMAGE_NOTE))
+    result = ingest_one(
+        SourceRequest(kind="url", url=NOTE_URL),
+        http_client=cast(httpx.Client, client),
+        vision_client=ocr,
+    )
+    assert result.status == "ok" and result.source is not None
+    assert result.source.extraction_method == "frame_ocr"
+    assert "融资故事" in result.source.raw_text  # desc still present
+    assert "图片文字(本地识别):" in result.source.raw_text
+    assert "【图1】\n1. 现在做产品不是收益最大化的时候。" in result.source.raw_text
+    assert "【图2】" not in result.source.raw_text  # blank OCR → no empty section
+    assert len(ocr.seen) == 2  # both images were fed to the reader
+
+
+def test_ingest_image_note_ocr_failure_degrades_to_the_note_text() -> None:
+    class _BoomOCR:
+        def read_image(self, image: bytes) -> str:
+            raise RuntimeError("vision exploded")
+
+    client = _PageClient(_note_page(_IMAGE_NOTE))
+    result = ingest_one(
+        SourceRequest(kind="url", url=NOTE_URL),
+        http_client=cast(httpx.Client, client),
+        vision_client=_BoomOCR(),
+    )
+    assert result.status == "ok" and result.source is not None
+    assert result.source.extraction_method == "structured_html"
+    assert "融资故事" in result.source.raw_text
+
+
+def test_ingest_imageonly_note_is_rescued_by_ocr() -> None:
+    bare = dict(_IMAGE_NOTE, title="", desc="")
+    ocr = _FakeOCR({"a.jpg": "只存在于截图里的正文", "b.jpg": ""})
+    client = _PageClient(_note_page(bare))
+    result = ingest_one(
+        SourceRequest(kind="url", url=NOTE_URL),
+        http_client=cast(httpx.Client, client),
+        vision_client=ocr,
+    )
+    assert result.status == "ok" and result.source is not None
+    assert result.source.extraction_method == "frame_ocr"
+    assert "只存在于截图里的正文" in result.source.raw_text
+
+
 def test_ingest_image_note_without_text_is_a_typed_parse_empty() -> None:
     bare = dict(_IMAGE_NOTE, title="", desc="")
     client = _PageClient(_note_page(bare))
     result = ingest_one(
         SourceRequest(kind="url", url=NOTE_URL),
         http_client=cast(httpx.Client, client),
+        vision_client=_NoOCR(),
     )
     assert result.status == "failed" and result.failure is not None
     assert result.failure.kind == "parse_empty"
-    assert "images" in result.failure.reason
+    assert "image" in result.failure.reason
 
 
 def test_ingest_video_note_falls_through_to_the_ytdlp_path() -> None:

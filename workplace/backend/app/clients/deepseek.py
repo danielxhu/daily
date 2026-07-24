@@ -27,6 +27,7 @@ from openai import APIError
 
 from app.clients.base import LLMClient
 from app.core.config import Settings, get_settings
+from app.db.credential_store import ApiCredential
 
 _MAX_ATTEMPTS = 3  # 1 initial + 2 retries (§10)
 _BACKOFF_BASE_S = 0.5
@@ -42,25 +43,38 @@ class LLMJSONError(LLMError):
 
 
 class DeepSeekClient:
-    """DeepSeek implementation of `LLMClient`."""
+    """DeepSeek implementation of `LLMClient`. A user-saved "text" credential
+    (settings page, 2026-07-23) points the same OpenAI-compatible wrapper at a
+    different endpoint/model; escalation then reuses that single model (a custom
+    endpoint has no pro tier of ours to climb to)."""
 
     def __init__(
-        self, *, settings: Settings | None = None, openai_client: Any | None = None
+        self,
+        *,
+        settings: Settings | None = None,
+        openai_client: Any | None = None,
+        credential: ApiCredential | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._client = openai_client  # injectable; lazily built if None
+        self._credential = credential
 
     def _get_client(self) -> Any:
         if self._client is None:
             from openai import OpenAI
 
+            if self._credential is not None:
+                api_key, base_url = self._credential.api_key, self._credential.base_url
+            else:
+                api_key = self._settings.require_deepseek_key()
+                base_url = self._settings.deepseek_base_url
             # M14.7: bound every call. The SDK defaults are timeout=600s with 2
             # internal retries — one hung DeepSeek round-trip could pin a worker
             # thread for many minutes (owner-visible as "为什么这么慢"). Retries
             # are OUR loop's job (_create_with_retries, §10), so the SDK's are off.
             self._client = OpenAI(
-                api_key=self._settings.require_deepseek_key(),
-                base_url=self._settings.deepseek_base_url,
+                api_key=api_key,
+                base_url=base_url,
                 timeout=60.0,
                 max_retries=0,
             )
@@ -88,9 +102,14 @@ class DeepSeekClient:
         raise LLMError(f"DeepSeek call failed after {_MAX_ATTEMPTS} attempts: {last_exc}")
 
     def complete_json(self, *, system: str, user: str, escalate: bool = False) -> dict[str, Any]:
-        model = (
-            self._settings.deepseek_pro_model if escalate else self._settings.deepseek_flash_model
-        )
+        if self._credential is not None:
+            model = self._credential.model
+        else:
+            model = (
+                self._settings.deepseek_pro_model
+                if escalate
+                else self._settings.deepseek_flash_model
+            )
         resp = self._create_with_retries(model=model, system=system, user=user)
         content = resp.choices[0].message.content
         try:
@@ -111,6 +130,24 @@ def call_with_escalation(client: LLMClient, *, system: str, user: str) -> dict[s
         return client.complete_json(system=system, user=user, escalate=True)
 
 
+def _load_text_credential() -> ApiCredential | None:
+    """The user-saved "text" credential, or None (env default). Best-effort —
+    a missing/old database must never break LLM construction."""
+    from app.db.credential_store import get_credential
+    from app.db.engine import init_db
+
+    try:
+        conn = init_db(get_settings().sqlite_path)
+        try:
+            return get_credential(conn, "text")
+        finally:
+            conn.close()
+    except Exception:
+        return None
+
+
 def get_llm_client() -> DeepSeekClient:
-    """Factory for the real client (monkeypatched to a mock in tests)."""
-    return DeepSeekClient()
+    """Factory for the real client (monkeypatched to a mock in tests). A
+    user-saved text-model credential (settings page) overrides the .env
+    DeepSeek default; no saved row = unchanged env behavior."""
+    return DeepSeekClient(credential=_load_text_credential())

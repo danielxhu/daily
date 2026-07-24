@@ -8,10 +8,32 @@ import {
 } from "@/mocks/fixtures";
 import { http, HttpResponse } from "msw";
 
-import type { KnowledgeModule } from "@/types/contract";
+import type { ApiSlotView, KnowledgeModule } from "@/types/contract";
 
 // M15.3: stateful module lists (fresh per page load — the worker restarts)
 const mockModules = new Map<string, KnowledgeModule[]>();
+
+// 2026-07-23: stateful credential slots (settings page)
+const mockCredentials = new Map<string, ApiSlotView>();
+
+function mockApiSlots(): ApiSlotView[] {
+  return [
+    mockCredentials.get("text") ?? {
+      slot: "text",
+      source: "env",
+      base_url: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+      key_last4: null,
+    },
+    mockCredentials.get("vision") ?? {
+      slot: "vision",
+      source: "empty",
+      base_url: null,
+      model: null,
+      key_last4: null,
+    },
+  ];
+}
 
 export const handlers = [
   http.get("*/source-pack", () => HttpResponse.json([])),
@@ -286,6 +308,29 @@ export const handlers = [
   http.get("*/tracked-items/:id/progress", () =>
     HttpResponse.json({ stage: null, pct: null }),
   ),
+  // model API credentials (2026-07-23): stateful per page load, like modules
+  http.get("*/settings/api", () => HttpResponse.json({ slots: mockApiSlots() })),
+  http.put("*/settings/api/:slot", async ({ params, request }) => {
+    const body = (await request.json()) as {
+      base_url: string;
+      model: string;
+      api_key: string;
+    };
+    const slot = String(params.slot) as "text" | "vision";
+    mockCredentials.set(slot, {
+      slot,
+      source: "custom",
+      base_url: body.base_url,
+      model: body.model,
+      key_last4: body.api_key.slice(-4),
+    });
+    return HttpResponse.json(mockCredentials.get(slot));
+  }),
+  http.delete("*/settings/api/:slot", ({ params }) => {
+    const slot = String(params.slot) as "text" | "vision";
+    mockCredentials.delete(slot);
+    return HttpResponse.json(mockApiSlots().find((s) => s.slot === slot));
+  }),
   http.get("*/tracked-items/:id", ({ params }) => {
     const tracked = buildMockDigest().tracked ?? [];
     const item = tracked.find((i) => i.id === params.id);

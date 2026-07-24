@@ -22,6 +22,8 @@ from typing import Any
 
 import httpx
 
+from app.clients.base import VisionClient
+
 _STATE_RE = re.compile(r"window\.__INITIAL_STATE__\s*=\s*\{")
 # the blob is JS, not strict JSON: bare `undefined` appears as a value
 _UNDEFINED_RE = re.compile(r"([:,\[])\s*undefined")
@@ -106,3 +108,33 @@ def fetch_note(url: str, *, client: httpx.Client) -> XhsNote | None:
         return parse_note_html(resp.text)
     except Exception:
         return None
+
+
+# a note can carry up to ~18 images; OCR is sub-second each, so read them all
+# short of pathological cases
+_MAX_OCR_IMAGES = 18
+
+
+def read_note_images(
+    image_urls: tuple[str, ...], *, client: httpx.Client, vision: VisionClient | None
+) -> str:
+    """OCR the note's images into one labeled text block ("" when there is no
+    reader or nothing readable). Per-image failures are skipped silently —
+    image text is enrichment for the note body, never a reason to fail it."""
+    if vision is None or not image_urls:
+        return ""
+    sections: list[str] = []
+    for i, image_url in enumerate(image_urls[:_MAX_OCR_IMAGES], 1):
+        try:
+            resp = client.get(image_url)
+            if resp.status_code != 200:
+                continue
+            text = vision.read_image(resp.content).strip()
+        except Exception:
+            continue
+        if text:
+            sections.append(f"【图{i}】\n{text}")
+    if not sections:
+        return ""
+    # the label keeps provenance honest inside the stored excerpt itself
+    return "图片文字(本地识别):\n\n" + "\n\n".join(sections)

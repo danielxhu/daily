@@ -323,6 +323,24 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 ")",
             ),
         ),
+        # owner 2026-07-23 — user-entered model API credentials (settings page).
+        # Two slots: "text" (overrides the .env DeepSeek default when present)
+        # and "vision" (reserved for a hosted image-reading model). Keys live in
+        # this LOCAL sqlite file only, same trust level as .env; API responses
+        # only ever expose the last 4 characters.
+        Migration(
+            14,
+            "create_api_credentials",
+            (
+                "CREATE TABLE api_credentials ("
+                "  slot TEXT PRIMARY KEY,"
+                "  base_url TEXT NOT NULL,"
+                "  model TEXT NOT NULL,"
+                "  api_key TEXT NOT NULL,"
+                "  updated_at TEXT NOT NULL"
+                ")",
+            ),
+        ),
     ],
     "events": [
         # Beta usage/feedback signals (X0.9, FR-17 / §8.2): local-only, no external

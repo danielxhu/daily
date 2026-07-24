@@ -31,6 +31,7 @@ from app.core.config import (
     get_settings,
 )
 from app.db.board_store import create_board, delete_board, get_board, list_boards
+from app.db.credential_store import API_SLOTS
 from app.db.engine import init_db
 from app.db.knowledge_module_store import (
     create_module,
@@ -43,6 +44,7 @@ from app.db.knowledge_store import (
     create_note,
     delete_note,
     list_notes,
+    list_saved_notes,
     search_saved_notes,
 )
 from app.db.run_trace import list_runs
@@ -57,15 +59,18 @@ from app.db.subscription_store import (
 from app.db.tracked_item_store import (
     get_item_excerpt,
     get_tracked_item_row,
+    list_all_cards,
     search_tracked_items,
     tracked_item_card_by_id,
 )
 from app.discuss import DiscussError, discuss_tracked_item, draft_item_note
 from app.ingestion import progress as transcribe_progress
 from app.ingestion.ingest import IngestFn
-from app.knowledge.answer import MAX_ANSWER_ITEMS, answer_from_hits
+from app.knowledge.answer import answer_over_knowledge
 from app.knowledge.semantic import get_semantic_index, resolve_hits
 from app.schemas.models import (
+    ApiSettings,
+    ApiSlotView,
     Board,
     DailyDigest,
     IngestionResult,
@@ -160,6 +165,17 @@ class SubscriptionRenameRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
+
+
+class ApiSlotUpdateRequest(BaseModel):
+    """Save one credential slot (owner 2026-07-23). All three fields required —
+    a partial credential can't make a call. Request-only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str
+    model: str
+    api_key: str
 
 
 def get_llm() -> LLMClient:
@@ -588,6 +604,75 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         assert updated is not None  # existence checked above
         return updated
 
+    # --- model API credentials (owner 2026-07-23, settings page) --------------
+
+    def _slot_view(db: sqlite3.Connection, slot: str) -> ApiSlotView:
+        from app.db.credential_store import get_credential
+
+        cred = get_credential(db, slot)
+        if cred is not None:
+            return ApiSlotView(
+                slot=cast(Literal["text", "vision"], slot),
+                source="custom",
+                base_url=cred.base_url,
+                model=cred.model,
+                key_last4=cred.api_key[-4:],
+            )
+        if slot == "text":  # the .env DeepSeek default powers this slot
+            return ApiSlotView(
+                slot="text",
+                source="env",
+                base_url=settings.deepseek_base_url,
+                model=settings.deepseek_flash_model,
+            )
+        return ApiSlotView(slot="vision", source="empty")
+
+    @app.get("/settings/api", response_model=ApiSettings)
+    def api_settings_endpoint(
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> ApiSettings:
+        return ApiSettings(slots=[_slot_view(db, slot) for slot in API_SLOTS])
+
+    @app.put(
+        "/settings/api/{slot}",
+        response_model=ApiSlotView,
+        responses={404: {"description": "No such slot."}, 422: {"description": "Bad values."}},
+    )
+    def api_slot_update_endpoint(
+        slot: str,
+        body: ApiSlotUpdateRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> ApiSlotView:
+        from app.db.credential_store import set_credential
+
+        if slot not in API_SLOTS:
+            raise HTTPException(status_code=404, detail=f"no such credential slot: {slot}")
+        base_url, model, api_key = body.base_url.strip(), body.model.strip(), body.api_key.strip()
+        if not (base_url and model and api_key):
+            raise HTTPException(
+                status_code=422, detail="base_url, model and api_key are all required"
+            )
+        set_credential(
+            db, slot, base_url=base_url, model=model, api_key=api_key, now=datetime.now(UTC)
+        )
+        return _slot_view(db, slot)
+
+    @app.delete(
+        "/settings/api/{slot}",
+        response_model=ApiSlotView,
+        responses={404: {"description": "No such slot."}},
+    )
+    def api_slot_clear_endpoint(
+        slot: str,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> ApiSlotView:
+        from app.db.credential_store import clear_credential
+
+        if slot not in API_SLOTS:
+            raise HTTPException(status_code=404, detail=f"no such credential slot: {slot}")
+        clear_credential(db, slot)
+        return _slot_view(db, slot)
+
     @app.delete(
         "/subscriptions/{subscription_id}",
         status_code=204,
@@ -901,25 +986,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         body: KnowledgeAnswerRequest,
     ) -> KnowledgeAnswer:
         # M16.2: the AI answer is an explicit user action (NFR-7 exception (5)).
-        # Grounding = the user's saved notes + tracked-item summaries (owner
-        # 2026-07-19: notes-only starved the answer of most of the knowledge
-        # base). No hits at all → no LLM call; a failed call is a typed 502
-        # because the user asked.
+        # Owner 2026-07-23 ("做方案0"): grounding = the WHOLE knowledge base —
+        # at this scale (≤~200 compact summaries) the corpus fits one flash
+        # call, so synthesis questions ("综合这些信息…") see everything and no
+        # intent router exists to misroute. The keyword+semantic hits survive
+        # as a relevance hint. Empty knowledge base → no LLM call; a failed
+        # call is a typed 502 because the user asked.
         q = body.q.strip()
         if not q:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
-        saved = search_saved_notes(db, q)
-        items = search_tracked_items(db, q)
-        # the answer grounds on the same recall as the search surface (2026-07-21)
-        saved, items = _merge_semantic_hits(db, q, saved, items)
-        if not saved and not items:
+        saved_hits = search_saved_notes(db, q)
+        item_hits = search_tracked_items(db, q)
+        # the hint uses the same recall as the search surface (2026-07-21)
+        saved_hits, item_hits = _merge_semantic_hits(db, q, saved_hits, item_hits)
+        notes = list_saved_notes(db)
+        items = list_all_cards(db)
+        if not notes and not items:
             return KnowledgeAnswer(answer=None, based_on=0)
-        answer = answer_from_hits(q, saved, items, llm=llm)
-        if answer is None:
+        hit_ids = {n.id for n in saved_hits} | {i.id for i in item_hits}
+        result = answer_over_knowledge(q, notes, items, hit_ids, llm=llm)
+        if result is None:
             raise HTTPException(status_code=502, detail="answer synthesis failed — try again")
-        return KnowledgeAnswer(
-            answer=answer, based_on=len(saved) + min(len(items), MAX_ANSWER_ITEMS)
-        )
+        answer, grounded = result
+        return KnowledgeAnswer(answer=answer, based_on=grounded)
 
     # --- run trace (§4/§7): read-only debug list of verify/poll/digest runs ---
 

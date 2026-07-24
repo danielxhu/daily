@@ -135,6 +135,18 @@ export interface ItemProgress {
   pct?: number | null;
 }
 
+export interface ApiSlotView {
+  slot: "text" | "vision";
+  source: "custom" | "env" | "empty";
+  base_url?: string | null;
+  model?: string | null;
+  key_last4?: string | null;
+}
+
+export interface ApiSettings {
+  slots: ApiSlotView[];
+}
+
 export interface TrackedItemDetail {
   item: TrackedItemCard;
   excerpt_preview: string | null;

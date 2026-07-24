@@ -31,7 +31,7 @@ from uuid import uuid4
 
 import httpx
 
-from app.clients.base import RenderClient, Transcriber
+from app.clients.base import RenderClient, Transcriber, VisionClient
 from app.ingestion.hostile import classify_hostile
 from app.ingestion.html_render import render_main_text
 from app.ingestion.html_static import (
@@ -46,7 +46,7 @@ from app.ingestion.podcast import is_direct_audio_url, is_unsupported_podcast_pa
 from app.ingestion.result import failed_from, failed_result, ok_result
 from app.ingestion.router import is_video_platform, is_xiaohongshu_note, normalize_url
 from app.ingestion.text_source import ingest_text
-from app.ingestion.xiaohongshu import fetch_note
+from app.ingestion.xiaohongshu import fetch_note, read_note_images
 from app.ingestion.youtube_audio import ingest_youtube
 from app.schemas.models import (
     ExtractionMethod,
@@ -87,6 +87,7 @@ def ingest_one(
     caption_extractor: Callable[[str], dict[str, Any]] | None = None,
     audio_downloader: Callable[[str, str], str] | None = None,
     render_client: RenderClient | None = None,
+    vision_client: VisionClient | None = None,
     allow_transcription: bool = True,
 ) -> IngestionResult:
     """Ingest one source. Returns a typed `IngestionResult` (ok or failed).
@@ -107,18 +108,22 @@ def ingest_one(
         if is_xiaohongshu_note(url):
             # Peek at the page before committing to yt-dlp (owner 2026-07-23):
             # an image/text note has no video — yt-dlp fails deterministically —
-            # but its body is embedded in the page HTML. Video notes and any
-            # fetch/parse miss fall through to the yt-dlp path unchanged.
+            # but its body is embedded in the page HTML, and most of the note's
+            # information sits in its text screenshots, which the local OCR
+            # reads for free. Video notes and any fetch/parse miss fall through
+            # to the yt-dlp path unchanged.
             note = fetch_note(url, client=client)
             if note is not None and not note.is_video:
-                text = "\n\n".join(part for part in (note.title, note.desc) if part)
-                if text:
-                    return ok_result(req, build_webpage_source(url, text, "structured_html"))
+                vision = vision_client if vision_client is not None else _default_vision()
+                image_text = read_note_images(note.image_urls, client=client, vision=vision)
+                parts = [p for p in (note.title, note.desc, image_text) if p]
+                if parts:
+                    method: ExtractionMethod = "frame_ocr" if image_text else "structured_html"
+                    return ok_result(req, build_webpage_source(url, "\n\n".join(parts), method))
                 return failed_from(
                     req,
                     "parse_empty",
-                    reason="Xiaohongshu image note has no text body — its content "
-                    "is in the images (image reading not enabled yet).",
+                    reason="Xiaohongshu image note has no text body and no readable image text.",
                     requested_url=url,
                     source_type="webpage",
                 )
@@ -218,6 +223,12 @@ def _default_render_client() -> RenderClient:
     from app.ingestion.html_render import PlaywrightRenderClient  # lazy: bundles a browser
 
     return PlaywrightRenderClient()
+
+
+def _default_vision() -> VisionClient | None:
+    from app.ingestion.ocr import get_vision_client  # lazy: pyobjc probe
+
+    return get_vision_client()
 
 
 def _looks_like_pdf(url: str) -> bool:

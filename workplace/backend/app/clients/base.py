@@ -54,6 +54,16 @@ class Transcriber(Protocol):
     def transcribe(self, audio_path: str) -> TranscriptResult: ...
 
 
+@runtime_checkable
+class VisionClient(Protocol):
+    """One image in, its textual content out ("" when nothing readable). The
+    pluggable image-reading seam (owner 2026-07-23): today an on-device OCR
+    (Apple Vision); a hosted VL model can implement the same contract later.
+    Never called in tests with a real backend — fakes are injected (NFR-3)."""
+
+    def read_image(self, image: bytes) -> str: ...
+
+
 class FetchedPassage(BaseModel):
     """One candidate passage from a CASR authoritative fetch (FR-16) — pre-ranking,
     pre-stance. Just the retrieved text plus its provenance, so the caller can

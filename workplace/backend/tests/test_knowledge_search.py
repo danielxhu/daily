@@ -12,6 +12,7 @@ import sqlite3
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.clients.mock import MockLLMClient
@@ -178,7 +179,7 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
     instructions."""
     from datetime import UTC, datetime
 
-    from app.knowledge.answer import answer_from_hits
+    from app.knowledge.answer import answer_over_knowledge
     from app.schemas.models import ItemEnrichment, KnowledgeNote, TrackedItemCard
 
     now = datetime(2026, 7, 6, tzinfo=UTC)
@@ -207,8 +208,8 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
         ),
     )
     llm = MockLLMClient([{"answer": "The merger was approved; based on your note and the item."}])
-    out = answer_from_hits("what did the Fed do?", [note], [item], llm=llm)
-    assert out == "The merger was approved; based on your note and the item."
+    out = answer_over_knowledge("what did the Fed do?", [note], [item], {"ti1"}, llm=llm)
+    assert out == ("The merger was approved; based on your note and the item.", 2)
     call = llm.calls[0]
     assert call["escalate"] is False
     assert "User's saved note 1: Fed approved the merger" in call["user"]
@@ -217,6 +218,9 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
     assert "the merger was approved" in call["user"]
     assert "来源称合并获批" not in call["user"]
     assert "what did the Fed do?" in call["user"]
+    # the search hit rides along as a hint, after the corpus (2026-07-23 方案0)
+    assert "search over this knowledge base matched: item 1" in call["user"]
+    assert call["user"].index("Tracked item 1") < call["user"].index("matched: item 1")
     # answer-first posture with honest limits
     assert "Genuinely ANSWER" in call["system"]
     assert "Never refuse to analyze" in call["system"]
@@ -225,14 +229,21 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
 
     # a zh question flips the item summary to the zh line
     zh_llm = MockLLMClient([{"answer": "合并获批。"}])
-    assert answer_from_hits("美联储做了什么?", [note], [item], llm=zh_llm) == "合并获批。"
+    zh_out = answer_over_knowledge("美联储做了什么?", [note], [item], set(), llm=zh_llm)
+    assert zh_out == ("合并获批。", 2)
     assert "来源称合并获批" in zh_llm.calls[0]["user"]
+    # nothing matched → no hint line at all
+    assert "matched" not in zh_llm.calls[0]["user"]
 
     # degradation: failure / wrong shape / blank / rambling → None, never raises
-    assert answer_from_hits("q", [note], [], llm=MockLLMClient([])) is None
-    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"reply": "x"}])) is None
-    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"answer": "  "}])) is None
-    assert answer_from_hits("q", [note], [], llm=MockLLMClient([{"answer": "x" * 4000}])) is None
+    quiet = [note]
+    for bad in (
+        MockLLMClient([]),
+        MockLLMClient([{"reply": "x"}]),
+        MockLLMClient([{"answer": "  "}]),
+        MockLLMClient([{"answer": "x" * 4000}]),
+    ):
+        assert answer_over_knowledge("q", quiet, [], set(), llm=bad) is None
 
 
 def test_search_never_calls_llm_and_returns_dormant_fields_empty(tmp_path: Path) -> None:
@@ -336,7 +347,9 @@ def test_answer_endpoint_grounds_on_notes_and_items_not_display_layers(tmp_path:
     assert "DISTILLED-CACHE" not in llm.calls[0]["user"]
 
 
-def test_answer_endpoint_zero_hits_spends_nothing(tmp_path: Path) -> None:
+def test_answer_endpoint_empty_knowledge_base_spends_nothing(tmp_path: Path) -> None:
+    # 2026-07-23 方案0: only an EMPTY knowledge base skips the call — zero
+    # SEARCH hits alone no longer do (the whole corpus grounds every answer)
     db = str(tmp_path / "daily.db")
     init_db(db).close()
     quiet = MockLLMClient([])  # would raise if called
@@ -346,6 +359,80 @@ def test_answer_endpoint_zero_hits_spends_nothing(tmp_path: Path) -> None:
     assert quiet.calls == []
 
 
+def test_answer_endpoint_grounds_on_whole_corpus_even_with_zero_search_hits(
+    tmp_path: Path,
+) -> None:
+    """The 创业 scenario (owner 2026-07-23): a synthesis question sharing no
+    keyword with any item must still see EVERY item — under the old top-hits
+    grounding this returned answer=None without a call."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.db.tracked_item_store import upsert_discovered
+    from app.tracking.feed import FeedItem
+
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    base = datetime(2026, 7, 8, tzinfo=UTC)
+    for i, title in enumerate(["Chip shortage deepens", "LLM inference costs fall", "EU AI act"]):
+        upsert_discovered(
+            conn,
+            subscription_id="sub1",
+            board_id=BOARD,
+            item=FeedItem(
+                guid=None, url=f"https://e.com/{i}", title=title, summary=None, published=None
+            ),
+            now=base + timedelta(days=i),
+        )
+    conn.commit()
+    conn.close()
+
+    llm = MockLLMClient([{"answer": "综合来看,你的方向在推理成本下降带来的应用层机会。"}])
+    res = _client(db, llm).post("/knowledge/answer", json={"q": "综合这些信息我该往哪个方向创业"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["answer"] is not None
+    assert body["based_on"] == 3  # ALL items fed, despite zero keyword overlap
+    user = llm.calls[0]["user"]
+    for title in ("Chip shortage deepens", "LLM inference costs fall", "EU AI act"):
+        assert title in user
+    # newest first: the day-2 item precedes the day-0 item
+    assert user.index("EU AI act") < user.index("Chip shortage deepens")
+
+
+def test_answer_corpus_budget_drops_oldest_with_a_marker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from app.knowledge import answer as answer_mod
+    from app.schemas.models import ItemEnrichment, TrackedItemCard
+
+    def card(i: int) -> TrackedItemCard:
+        return TrackedItemCard(
+            id=f"ti{i}",
+            board_id=BOARD,
+            url=f"https://e.com/{i}",
+            title=f"item-{i}",
+            domain="e.com",
+            tier=None,
+            published=None,
+            first_seen=datetime(2026, 7, 1, tzinfo=UTC) + timedelta(days=i),
+            status="fetched",
+            enrichment=ItemEnrichment(summary_zh="摘要" * 30, summary_en="summary " * 30),
+        )
+
+    items = [card(i) for i in range(9, -1, -1)]  # newest (item-9) first
+    monkeypatch.setattr(answer_mod, "_CORPUS_CHAR_BUDGET", 800)
+    llm = MockLLMClient([{"answer": "ok"}])
+    out = answer_mod.answer_over_knowledge("综合一下?", [], items, set(), llm=llm)
+    assert out is not None
+    _, fed = out
+    assert 0 < fed < 10  # budget bit — some items dropped
+    user = llm.calls[0]["user"]
+    assert "item-9" in user  # newest survives
+    assert "older items omitted for length" in user  # the drop is honest
+
+
 def test_answer_endpoint_failure_is_a_typed_502(tmp_path: Path) -> None:
     """The user explicitly asked — an LLM failure surfaces as a retryable 502,
     never a silent null (that would be indistinguishable from "no notes")."""
@@ -353,7 +440,7 @@ def test_answer_endpoint_failure_is_a_typed_502(tmp_path: Path) -> None:
     conn = init_db(db)
     create_note(conn, BOARD, "saved_check", "Fed approved the merger.")
     conn.close()
-    # exhausted mock raises inside answer_from_hits → degraded to None → 502
+    # exhausted mock raises inside answer_over_knowledge → degraded to None → 502
     res = _client(db).post("/knowledge/answer", json={"q": "merger"})
     assert res.status_code == 502
     assert "try again" in res.json()["detail"]

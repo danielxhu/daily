@@ -294,6 +294,10 @@ class Settings(BaseSettings):
     enable_semantic_search: bool = False
     semantic_model: str = "paraphrase-multilingual-MiniLM-L12-v2"
     chroma_knowledge_path: str = "data/chroma_knowledge"
+    # On-device image OCR for image-note ingestion (owner 2026-07-23 "看图也要
+    # 做"): "auto" uses Apple Vision when pyobjc is importable ([ocr] extra,
+    # macOS-only), else image reading is skipped — free, local, no key.
+    image_ocr: Literal["auto", "off"] = "auto"
 
     # --- Coverage toggles (best-effort, degradable) ---
     enable_pdf_text: bool = True  # text-layer PDF extraction (M1B.3)

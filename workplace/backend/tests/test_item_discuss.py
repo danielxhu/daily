@@ -300,7 +300,7 @@ def test_note_draft_initial_then_revision_carries_the_chat(tmp_path: Path) -> No
     assert res.status_code == 200
     assert res.json() == {"draft": "要点:规则进入评议期;关注生效时间表。"}
     system, user = llm.calls[0]
-    assert "curating a note" in system and "in Chinese" in system
+    assert "drafting a note" in system and "in Chinese" in system
     assert "No concrete buy/sell" in system
     assert _SEC_EXCERPT in user and "SEC adopts rules" in user
     assert "revision instructions" not in user  # no chat yet
