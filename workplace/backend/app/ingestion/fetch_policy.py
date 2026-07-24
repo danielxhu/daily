@@ -18,6 +18,8 @@ On any fetch failure the caller produces a typed `SourceFailure` whose
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from app.core.config import CASR_WHITELIST
 from app.schemas.models import SourceFailure, SourceFailureKind, SourceType
 
@@ -30,6 +32,26 @@ ALLOW_LOGIN = False
 # An honest, static user agent — NOT fingerprint/stealth evasion (§2.2).
 FETCH_USER_AGENT = "daily/0.1 (+verification bot; contact via repo)"
 FETCH_TIMEOUT_MS = 15000
+
+# Hosts that answer the bot UA with a verification wall but serve the SAME
+# server-rendered article to a plain browser UA — no cookies, no login, no
+# captcha solving (owner 2026-07-24, WeChat articles: measured 环境异常 wall vs
+# 3.3MB full text on one UA string). A static browser UA is the stance the
+# yt-dlp video path already takes; a wall that still appears stays a typed
+# failure, never bypassed (§2.2).
+_BROWSER_UA_HOSTS = ("mp.weixin.qq.com",)
+BROWSER_FETCH_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
+
+
+def fetch_headers(url: str) -> dict[str, str] | None:
+    """Per-request header override for `client.get`, or None (client defaults)."""
+    host = urlsplit(url).netloc.lower()
+    if host in _BROWSER_UA_HOSTS:
+        return {"User-Agent": BROWSER_FETCH_USER_AGENT}
+    return None
 
 
 class FetchPolicyError(RuntimeError):

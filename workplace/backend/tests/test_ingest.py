@@ -338,3 +338,37 @@ def test_youtube_without_captions_defers_instead_of_whisper() -> None:
     assert result.failure is not None
     assert result.failure.kind == "transcription_deferred"
     assert result.failure.type == "youtube"
+
+
+def test_wechat_article_fetch_sends_the_browser_ua() -> None:
+    # owner 2026-07-24: mp.weixin walls the bot UA; the webpage fetch overrides
+    # the UA for that host only (static string, no cookies — §2.2 holds)
+    body = (
+        "<html><body><article><p>"
+        + "微信公众号正文段落,金融要点。" * 40
+        + "</p></article></body></html>"
+    )
+
+    class _HeaderRecordingClient:
+        def __init__(self) -> None:
+            self.seen: list[dict[str, str] | None] = []
+
+        def get(self, url: str, headers: dict[str, str] | None = None) -> Any:
+            self.seen.append(headers)
+            return SimpleNamespace(
+                text=body, status_code=200, headers={"content-type": "text/html"}
+            )
+
+        def close(self) -> None:
+            pass
+
+    client = _HeaderRecordingClient()
+    result = ingest_one(
+        SourceRequest(kind="url", url="https://mp.weixin.qq.com/s/abc123"),
+        http_client=cast(httpx.Client, client),
+        render_client=MockRenderClient(),
+    )
+    assert client.seen and client.seen[0] is not None
+    assert "Mozilla/5.0" in client.seen[0]["User-Agent"]
+    assert result.status == "ok" and result.source is not None
+    assert result.source.extraction_method == "static_html"

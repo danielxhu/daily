@@ -122,3 +122,15 @@ def test_no_stealth_fetcher_imported_or_instantiated_in_app_code() -> None:
         if any(pat in text for pat in bad_patterns):
             offenders.append(p.name)
     assert offenders == []
+
+
+def test_fetch_headers_browser_ua_for_wechat_only() -> None:
+    # owner 2026-07-24: mp.weixin walls the bot UA but serves the full
+    # server-rendered article to a plain browser UA — a static UA string,
+    # no cookies/captcha (same stance the yt-dlp video path already takes)
+    wx = fp.fetch_headers("https://mp.weixin.qq.com/s/abc123")
+    assert wx is not None and "Mozilla/5.0" in wx["User-Agent"]
+    assert "daily" not in wx["User-Agent"]
+    # everything else keeps the honest default (client-level bot UA)
+    assert fp.fetch_headers("https://www.reuters.com/markets/x") is None
+    assert fp.fetch_headers("https://weixin.qq.com/") is None  # host, not prefix-match
