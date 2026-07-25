@@ -111,16 +111,29 @@ export function KnowledgeView({
         <div className="space-y-1">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-sm font-medium text-ink">{active.title}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setActive(null);
-                setError(null);
-              }}
-              className="btn-ghost shrink-0 text-xs"
-            >
-              {t("knowledge.chat.new")}
-            </button>
+            <div className="flex shrink-0 items-baseline gap-2">
+              <button
+                type="button"
+                onClick={() => remove(active.id)}
+                className={`btn-ghost text-xs ${
+                  confirmDelete === active.id ? "text-warn-fg" : ""
+                }`}
+              >
+                {confirmDelete === active.id
+                  ? t("knowledge.chat.delete.confirm")
+                  : t("knowledge.chat.delete")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActive(null);
+                  setError(null);
+                }}
+                className="btn-ghost text-xs"
+              >
+                {t("knowledge.chat.new")}
+              </button>
+            </div>
           </div>
           <ol className="space-y-3" aria-label={t("knowledge.turns.aria")}>
             {active.messages.map((m, i) => (

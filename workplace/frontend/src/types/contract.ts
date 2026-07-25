@@ -172,6 +172,7 @@ export interface TrackedItemCard {
   url: string | null;
   title: string | null;
   domain: string | null;
+  source_name?: string | null;
   tier: Tier | null;
   published: string | null;
   first_seen: string;

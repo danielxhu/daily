@@ -221,6 +221,9 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
     # the search hit rides along as a hint, after the corpus (2026-07-23 方案0)
     assert "search over this knowledge base matched: item 1" in call["user"]
     assert call["user"].index("Tracked item 1") < call["user"].index("matched: item 1")
+    # the reply language is named explicitly from the question — a Chinese-heavy
+    # corpus must not drag an English question into a Chinese answer
+    assert "(Reply in English — the language of this question.)" in call["user"]
     # answer-first posture with honest limits
     assert "Genuinely ANSWER" in call["system"]
     assert "Never refuse to analyze" in call["system"]
@@ -232,6 +235,7 @@ def test_answer_synthesis_answers_over_notes_and_items_labeled_apart() -> None:
     zh_out = answer_over_knowledge("美联储做了什么?", [note], [item], set(), llm=zh_llm)
     assert zh_out == ("合并获批。", 2)
     assert "来源称合并获批" in zh_llm.calls[0]["user"]
+    assert "(Reply in Chinese — the language of this question.)" in zh_llm.calls[0]["user"]
     # nothing matched → no hint line at all
     assert "matched" not in zh_llm.calls[0]["user"]
 

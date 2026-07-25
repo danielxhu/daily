@@ -347,6 +347,42 @@ def test_create_with_name_and_rename_endpoint(tmp_path: Path) -> None:
     assert client.put("/subscriptions/nope/name", json={"name": "x"}).status_code == 404
 
 
+def test_item_cards_carry_the_source_name(tmp_path: Path) -> None:
+    # feed cards show the user-given source name over the bare domain
+    from datetime import UTC, datetime
+
+    from app.db.subscription_store import set_subscription_name
+    from app.db.tracked_item_store import recent_tracked_items, upsert_discovered
+    from app.tracking.feed import FeedItem
+
+    conn = init_db(str(tmp_path / "daily.db"))
+    board = create_board(conn, "finance")
+    sub = create_subscription(
+        conn,
+        input_url="https://space.bilibili.com/520819684",
+        mode="platform",
+        board_id=board.id,
+        name="小Lin说",
+    )
+    now = datetime(2026, 7, 25, tzinfo=UTC)
+    upsert_discovered(
+        conn,
+        subscription_id=sub.id,
+        board_id=board.id,
+        item=FeedItem(
+            guid=None, url="https://b.example/v/1", title="一期视频", summary=None, published=None
+        ),
+        now=now,
+    )
+    conn.commit()
+    cards = recent_tracked_items(conn, since=now.replace(year=2025))
+    assert [c.source_name for c in cards] == ["小Lin说"]
+    # unnamed source → None; the UI falls back to the domain
+    set_subscription_name(conn, sub.id, None)
+    cards = recent_tracked_items(conn, since=now.replace(year=2025))
+    assert cards[0].source_name is None
+
+
 def test_delete_subscription_never_touches_knowledge_notes(tmp_path: Path) -> None:
     # deleting a source takes its items/seen-set with it, but
     # the knowledge the user distilled and SAVED must survive — notes are the

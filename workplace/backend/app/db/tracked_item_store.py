@@ -114,6 +114,10 @@ def _row_to_card(
     conn: sqlite3.Connection, row: sqlite3.Row, *, similar_count: int = 0
 ) -> TrackedItemCard:
     domain = row["domain"]
+    # the source's user-given display name — shown over the bare domain
+    name_row = conn.execute(
+        "SELECT name FROM subscriptions WHERE id = ?", (row["subscription_id"],)
+    ).fetchone()
     return TrackedItemCard(
         id=row["id"],
         board_id=row["board_id"],
@@ -121,6 +125,7 @@ def _row_to_card(
         url=row["url"],
         title=row["title"],
         domain=domain,
+        source_name=name_row["name"] if name_row else None,
         # P1 lite signal, code-first (§2.4) — derived at read time; wiring the
         # human tier-override store in here can come later if needed
         tier=assign_tier(domain, url=row["url"]) if domain else None,

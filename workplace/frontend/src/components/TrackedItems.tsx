@@ -347,7 +347,12 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
       </span>
       <div className="min-w-0 space-y-1 rounded-lg border border-line bg-panel p-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
-          {item.domain && <span className="mono">{item.domain}</span>}
+          {(item.source_name || item.domain) && (
+            // the user-named source reads as a name; only the bare domain is mono
+            <span className={item.source_name ? undefined : "mono"}>
+              {item.source_name || item.domain}
+            </span>
+          )}
           {item.tier && (
             <span className="badge bg-surface text-muted">{t(TIER_KEY[item.tier])}</span>
           )}

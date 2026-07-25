@@ -104,6 +104,23 @@ describe("KnowledgeView (persisted chats, 2026-07-24)", () => {
     await waitFor(() => expect(deleteFn).toHaveBeenCalledWith("chat_1"));
   });
 
+  it("the open chat has its own delete button (confirm, then close + remove)", async () => {
+    const { deleteFn } = setup();
+    fireEvent.change(screen.getByLabelText("Ask daily"), {
+      target: { value: "美联储最近做了什么?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/按兵不动/);
+    const del = screen.getByRole("button", { name: "Delete chat" });
+    fireEvent.click(del);
+    expect(deleteFn).not.toHaveBeenCalled(); // first click only arms
+    expect(del).toHaveTextContent("Delete?");
+    fireEvent.click(del);
+    await waitFor(() => expect(deleteFn).toHaveBeenCalledWith("chat_1"));
+    // the conversation closed back to the intro
+    await waitFor(() => expect(screen.queryByText(/按兵不动/)).not.toBeInTheDocument());
+  });
+
   it("a failed ask shows a typed error and saves nothing", async () => {
     const createFn = vi.fn(async () => {
       throw new Error("boom");

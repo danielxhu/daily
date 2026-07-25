@@ -158,7 +158,11 @@ def answer_over_knowledge(
         parts.append(f"Conversation so far:\n{convo}")
     if hint:
         parts.append(hint)
-    parts.append(f"Question: {question}")
+    # The corpus is often Chinese while the question may not be — "the user's
+    # language" alone lets the model drift toward the corpus language, so name
+    # the reply language explicitly from the question itself.
+    lang = "Chinese" if re.search(r"[一-鿿]", question) else "English"
+    parts.append(f"Question: {question}\n\n(Reply in {lang} — the language of this question.)")
     user = "\n\n".join(parts)
     try:
         data = llm.complete_json(system=_ANSWER_SYSTEM, user=user, escalate=False)

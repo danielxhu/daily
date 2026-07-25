@@ -309,6 +309,8 @@ class TrackedItemCard(Schema):
     url: str | None
     title: str | None
     domain: str | None
+    # the source's user-given display name; the UI shows it over the bare domain
+    source_name: str | None = None
     tier: Tier | None  # P1 lite signal, code-first (assign_tier), never an LLM
     published: datetime | None
     first_seen: datetime

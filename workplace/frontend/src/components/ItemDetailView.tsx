@@ -247,7 +247,11 @@ function ItemDetail({
           {trackedTitle(item, locale) ?? t("today.tracked.untitled")}
         </h1>
         <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
-          {item.domain && <span className="mono">{item.domain}</span>}
+          {(item.source_name || item.domain) && (
+            <span className={item.source_name ? undefined : "mono"}>
+              {item.source_name || item.domain}
+            </span>
+          )}
           {item.tier && (
             <span className="badge bg-panel text-muted">{t(TIER_KEY[item.tier])}</span>
           )}

@@ -352,6 +352,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
       "AI-generated over {count} knowledge-base entries — check the originals.",
     "knowledge.chat.history": "Chat history",
     "knowledge.chat.history.aria": "Previous chats",
+    "knowledge.chat.delete": "Delete chat",
     "knowledge.chat.delete.aria": "Delete this chat",
     "knowledge.chat.delete.confirm": "Delete?",
 
@@ -764,6 +765,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "knowledge.chat.basedOn": "AI 基于 {count} 条知识库内容生成——请核对原文。",
     "knowledge.chat.history": "聊天记录",
     "knowledge.chat.history.aria": "历史对话",
+    "knowledge.chat.delete": "删除对话",
     "knowledge.chat.delete.aria": "删除这条对话",
     "knowledge.chat.delete.confirm": "确认删除?",
 

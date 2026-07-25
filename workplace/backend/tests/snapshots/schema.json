@@ -1651,6 +1651,18 @@
           "title": "Similar Count",
           "type": "integer"
         },
+        "source_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Name"
+        },
         "status": {
           "enum": [
             "new",
