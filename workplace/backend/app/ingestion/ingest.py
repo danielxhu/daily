@@ -175,9 +175,17 @@ def _ingest_webpage(
     headers = fetch_headers(url)
     try:
         resp = client.get(url, headers=headers) if headers else client.get(url)
-    except httpx.TimeoutException as exc:
-        return _webpage_fail(req, url, "timeout", f"webpage fetch timed out: {exc}")
-    except httpx.RequestError as exc:  # DNS / connection / transport — not a bypass target
+    except (httpx.TimeoutException, httpx.RequestError) as exc:
+        # transport failure (timeout / edge disconnect) — a headless browser can
+        # reach a page a plain client can't (some sites drop non-browser clients
+        # at the edge). Try the render tier before giving up; a render miss falls
+        # back to the transport error. This never bypasses a paywall/anti-bot: a
+        # SUCCESSFUL hostile response below is still typed-skipped, not rendered.
+        rescued = _render_or_none(req, url, render_client)
+        if rescued is not None:
+            return rescued
+        if isinstance(exc, httpx.TimeoutException):
+            return _webpage_fail(req, url, "timeout", f"webpage fetch timed out: {exc}")
         return _webpage_fail(req, url, "fetch_blocked", f"webpage fetch failed: {exc}")
 
     hostile = classify_hostile(status_code=resp.status_code, body=resp.text)
@@ -216,6 +224,22 @@ def _ingest_webpage(
         requested_url=url,
         source_type="webpage",
     )
+
+
+def _render_or_none(
+    req: SourceRequest, url: str, render_client: RenderClient | None
+) -> IngestionResult | None:
+    """Headless render → ok_result, or None when render is unavailable / fails /
+    empty. Used to rescue a transport failure; a render miss is swallowed so the
+    caller can surface the original transport error unchanged."""
+    rc = render_client if render_client is not None else _default_render_client()
+    try:
+        rendered = render_main_text(url, render_client=rc)
+    except Exception:
+        return None
+    if rendered is not None:
+        return ok_result(req, build_webpage_source(url, rendered, "rendered_html"))
+    return None
 
 
 def _webpage_fail(

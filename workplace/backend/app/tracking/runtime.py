@@ -56,7 +56,7 @@ from app.tracking.health import (
     classify_subscription_failure,
     subscription_next_action,
 )
-from app.tracking.poll import Fetch, PollOutcome, poll_all
+from app.tracking.poll import Fetch, PollOutcome, RenderFn, poll_all
 from app.tracking.summarize import enrich_fetched_item
 
 MAX_ITEM_FAILURES_LISTED = 10  # per subscription, the report lists at most this many
@@ -248,13 +248,15 @@ def run_poll(
     ingest_first: IngestFn | None = None,
     subscriptions: list[Subscription] | None = None,
     now: datetime | None = None,
+    render_html: RenderFn | None = None,
 ) -> PollReport:
     """Poll every subscription (or the given list): discover, fetch, excerpt,
     status, bilingual briefing. Returns useful per-subscription counts/errors and
     records one `PipelineRun`. Raises `PollInProgressError` when a poll is
     already running (M14.4) — the manual endpoint answers 409 and the scheduler
     tick simply skips. `ingest_first` is the transcription-deferring ingest used
-    for EVERY poll when provided (whisper never runs inside a poll)."""
+    for EVERY poll when provided (whisper never runs inside a poll). `render_html`
+    lets discovery recover a JS-rendered listing (browser-only sites)."""
     if not _POLL_MUTEX.acquire(blocking=False):
         raise PollInProgressError("a source poll is already running — try again in a moment")
     try:
@@ -266,6 +268,7 @@ def run_poll(
             ingest_first=ingest_first,
             subscriptions=subscriptions,
             now=now,
+            render_html=render_html,
         )
     finally:
         _POLL_MUTEX.release()
@@ -280,6 +283,7 @@ def _run_poll_locked(
     ingest_first: IngestFn | None = None,
     subscriptions: list[Subscription] | None = None,
     now: datetime | None = None,
+    render_html: RenderFn | None = None,
 ) -> PollReport:
     now = now or datetime.now(UTC)
     subs = subscriptions if subscriptions is not None else list_subscriptions(conn)
@@ -296,7 +300,9 @@ def _run_poll_locked(
     # the cascade existed (or by an older build) must never linger in Today
     purge_orphaned_items(conn)
 
-    outcomes = poll_all(conn, fetch=fetch, dispatch=dispatch, subscriptions=subs)
+    outcomes = poll_all(
+        conn, fetch=fetch, dispatch=dispatch, subscriptions=subs, render_html=render_html
+    )
 
     trace = RunTrace(
         conn,
@@ -359,6 +365,7 @@ def poll_due_subscriptions(
     ingest: IngestFn,
     ingest_first: IngestFn | None = None,
     now: datetime | None = None,
+    render_html: RenderFn | None = None,
 ) -> PollReport | None:
     """The scheduler tick: poll only the subscriptions whose interval has elapsed.
     Re-reads the CURRENT active subscriptions from the DB every tick, so sources
@@ -381,6 +388,7 @@ def poll_due_subscriptions(
             ingest_first=ingest_first,
             subscriptions=due,
             now=now,
+            render_html=render_html,
         )
     except PollInProgressError:
         return None  # a manual check is running — this tick just skips (M14.4)

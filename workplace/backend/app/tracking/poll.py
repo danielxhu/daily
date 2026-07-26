@@ -35,6 +35,9 @@ from app.tracking.homepage import extract_candidate_links
 
 # Injected so the loop never touches the network in tests (NFR-3).
 Fetch = Callable[[str], bytes]
+# url -> rendered HTML (headless Chromium); injected, may raise, None = disabled.
+# Used to recover a JS-rendered listing whose article links aren't in raw HTML.
+RenderFn = Callable[[str], str]
 # Hands a new item to the pipeline; the real dispatcher is wired by M7.9.
 Dispatch = Callable[[Subscription, SourceRequest], None]
 
@@ -369,56 +372,115 @@ def _links_as_items(content: bytes, *, base_url: str) -> list[FeedItem]:
 _FEED_CONVENTIONS = ("/feed", "/rss", "/feed.xml", "/index.xml", "/rss.xml")
 
 
-def _items(
-    sub: Subscription, content: bytes, *, conn: sqlite3.Connection, fetch: Fetch
+def _section_prefix(path: str) -> str:
+    """The path prefix a listing's articles live under. A trailing index-page
+    suffix is stripped so a listing at `/insights-index` or `/section/index`
+    matches articles under `/insights/` or `/section/` — a common CMS shape."""
+    p = path.rstrip("/")
+    for suffix in ("/index.html", "/index.htm", "/index"):
+        if p.endswith(suffix):
+            return p[: -len(suffix)] + "/"
+    if p.endswith("-index"):
+        return p[: -len("-index")] + "/"
+    return (p + "/") if p else "/"
+
+
+def _under_section_links(content: bytes, *, base_url: str) -> list[FeedItem]:
+    """The page's article links that live BENEATH the listing's section — trust
+    only links deeper than the section path. A section's articles sit under it,
+    while nav/footer links point elsewhere (and a JS shell's raw HTML is all
+    nav) — filtering to the section keeps articles and drops the chrome."""
+    prefix = _section_prefix(urlsplit(base_url).path)
+    depth = len(prefix.rstrip("/"))
+    out: list[FeedItem] = []
+    for item in _links_as_items(content, base_url=base_url):
+        p = urlsplit(item.url or "").path
+        if p.startswith(prefix) and len(p.rstrip("/")) > depth:
+            out.append(item)
+    return out
+
+
+def _recover_feed_items(
+    sub: Subscription,
+    content: bytes,
+    feed_error: FeedParseError,
+    *,
+    conn: sqlite3.Connection,
+    fetch: Fetch,
+    render_html: RenderFn | None,
+) -> list[FeedItem]:
+    # The #1 add-source mistake: a homepage pasted as a feed. What we fetched is
+    # a page, not a feed — recover by walking the resolution chain an operator
+    # would: the page's own feed hints → platform rules → conventional feed
+    # paths → the page's article links. A real feed found anywhere is persisted,
+    # so later polls fetch it directly.
+    from app.db.subscription_store import set_subscription_feed_url
+    from app.tracking.discover import discover_feeds
+    from app.tracking.platform import platform_feed
+
+    candidates = list(discover_feeds(content, base_url=sub.input_url)[:3])
+    if (pf := platform_feed(sub.input_url, content)) is not None:
+        candidates.append(pf)
+    parts = urlsplit(sub.input_url)
+    origin = f"{parts.scheme}://{parts.netloc}"
+    candidates += [origin + path for path in _FEED_CONVENTIONS]
+    tried = {sub.feed_url or sub.input_url}
+    for candidate in candidates:
+        if candidate in tried:
+            continue
+        tried.add(candidate)
+        try:
+            items = parse_feed(fetch(candidate))
+        except Exception:
+            continue
+        set_subscription_feed_url(conn, sub.id, candidate)
+        return items
+    # No feed anywhere: the page's own article links (beneath its section).
+    if links := _under_section_links(content, base_url=sub.input_url):
+        return links
+    # Raw HTML had none — a JS-rendered listing (article links injected by
+    # script). Render it once and re-extract.
+    if render_html is not None:
+        try:
+            rendered = render_html(sub.input_url).encode()
+        except Exception:
+            rendered = b""
+        if links := _under_section_links(rendered, base_url=sub.input_url):
+            return links
+    raise FeedParseError(
+        f"{feed_error}; no feed discovered on the page and no article links found beneath it"
+    ) from feed_error
+
+
+def _feed_items(
+    sub: Subscription,
+    *,
+    conn: sqlite3.Connection,
+    fetch: Fetch,
+    render_html: RenderFn | None,
 ) -> list[FeedItem]:
     if sub.mode == "homepage_diff":
-        return _links_as_items(content, base_url=sub.input_url)
+        return _links_as_items(fetch(_fetch_url(sub)), base_url=sub.input_url)
+    try:
+        content = fetch(_fetch_url(sub))
+    except Exception as fetch_error:
+        # plain fetch blocked (edge disconnect / 403) — a browser-only listing.
+        # Render it and take the section's article links, else surface the fetch
+        # error unchanged (health classification / risk-control read it).
+        if render_html is not None:
+            try:
+                rendered = render_html(sub.input_url).encode()
+            except Exception:
+                rendered = b""
+            if links := _under_section_links(rendered, base_url=sub.input_url):
+                return links
+        raise fetch_error
     try:
         return parse_feed(content)
     except FeedParseError as feed_error:
-        # The #1 add-source mistake: a homepage pasted as a feed. What we
-        # fetched is a page, not a feed — recover by walking the resolution
-        # chain an operator would: the page's own feed hints → platform rules →
-        # conventional feed paths → the page's article links. A real feed found
-        # anywhere is persisted, so later polls fetch it directly.
-        from app.db.subscription_store import set_subscription_feed_url
-        from app.tracking.discover import discover_feeds
-        from app.tracking.platform import platform_feed
-
-        candidates = list(discover_feeds(content, base_url=sub.input_url)[:3])
-        if (pf := platform_feed(sub.input_url, content)) is not None:
-            candidates.append(pf)
-        parts = urlsplit(sub.input_url)
-        origin = f"{parts.scheme}://{parts.netloc}"
-        candidates += [origin + path for path in _FEED_CONVENTIONS]
-        tried = {sub.feed_url or sub.input_url}
-        for candidate in candidates:
-            if candidate in tried:
-                continue
-            tried.add(candidate)
-            try:
-                items = parse_feed(fetch(candidate))
-            except Exception:
-                continue
-            set_subscription_feed_url(conn, sub.id, candidate)
-            return items
-        # Last resort: the page's own article links — but trust only links UNDER
-        # the pasted page's path. A section page's articles live beneath it while
-        # nav/footer links point elsewhere; a JS-rendered "insights index" exposes
-        # ONLY its nav tree in raw HTML, and sweeping that in floods the feed with
-        # junk pages (and wasted summary calls). A root homepage keeps everything.
-        prefix = parts.path if parts.path.endswith("/") else parts.path + "/"
-        links = [
-            item
-            for item in _links_as_items(content, base_url=sub.input_url)
-            if item.url and urlsplit(item.url).path.startswith(prefix)
-        ]
-        if links:
-            return links
-        raise FeedParseError(
-            f"{feed_error}; no feed discovered on the page and no article links found beneath it"
-        ) from feed_error
+        return _recover_feed_items(
+            sub, content, feed_error, conn=conn, fetch=fetch, render_html=render_html
+        )
 
 
 def poll_subscription(
@@ -427,6 +489,7 @@ def poll_subscription(
     *,
     fetch: Fetch,
     dispatch: Dispatch,
+    render_html: RenderFn | None = None,
 ) -> PollOutcome:
     """Poll one subscription. New items are dispatched as URL `SourceRequest`s and
     marked seen; a fetch/parse error is captured (not raised) so callers stay
@@ -477,7 +540,7 @@ def poll_subscription(
                 )
             ]
         else:
-            found = _items(sub, fetch(_fetch_url(sub)), conn=conn, fetch=fetch)
+            found = _feed_items(sub, conn=conn, fetch=fetch, render_html=render_html)
         new = select_new_items(conn, sub.id, found)
         picked = new
         if sub.last_polled is None and len(new) > config.FIRST_POLL_ITEM_CAP:
@@ -524,8 +587,12 @@ def poll_all(
     fetch: Fetch,
     dispatch: Dispatch,
     subscriptions: list[Subscription] | None = None,
+    render_html: RenderFn | None = None,
 ) -> list[PollOutcome]:
     """Poll every subscription (or the given list), isolating per-subscription
     failures — one broken source never blocks the rest (FR-2 / §6.6)."""
     subs = subscriptions if subscriptions is not None else list_subscriptions(conn)
-    return [poll_subscription(conn, s, fetch=fetch, dispatch=dispatch) for s in subs]
+    return [
+        poll_subscription(conn, s, fetch=fetch, dispatch=dispatch, render_html=render_html)
+        for s in subs
+    ]

@@ -103,7 +103,7 @@ from app.schemas.models import (
 )
 from app.source_pack import default_source_pack
 from app.tracking.digest import assemble_digest, digest_to_rss
-from app.tracking.poll import Fetch
+from app.tracking.poll import Fetch, RenderFn
 from app.tracking.refresh import RefreshError, RefreshFailedError, refresh_item
 from app.tracking.runtime import (
     PollInProgressError,
@@ -220,6 +220,18 @@ def get_feed_fetch() -> Fetch:
     return feed_fetch
 
 
+def _poll_render_fn(settings: Settings) -> RenderFn | None:
+    """The headless-render callable discovery uses to recover a JS-rendered
+    listing (browser-only sites). None unless the render fallback is enabled —
+    the offline suite and a plain `uvicorn` never spawn a browser."""
+    if not settings.enable_html_render:
+        return None
+    from app.ingestion.html_render import PlaywrightRenderClient
+
+    client = PlaywrightRenderClient()
+    return lambda url: client.render(url).html
+
+
 def get_db(request: Request) -> Iterator[sqlite3.Connection]:
     """Per-request SQLite connection over the full local schema (trace + memory +
     boards + tracking + events). Reads the path from the app-injected `Settings`
@@ -279,6 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 fetch=feed_fetch,
                 ingest=ingest_one,
                 ingest_first=get_ingest_first(),
+                render_html=_poll_render_fn(settings),
             )
         finally:
             conn.close()
@@ -715,6 +728,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 fetch=fetch,
                 ingest=ingest,
                 ingest_first=ingest_first,
+                render_html=_poll_render_fn(settings),
             )
         except PollInProgressError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc

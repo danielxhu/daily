@@ -133,6 +133,47 @@ def test_webpage_partial_blurb_falls_through_to_render() -> None:
     assert "$30.8B" in result.source.raw_text
 
 
+def test_transport_disconnect_is_rescued_by_render() -> None:
+    # a site whose edge drops a non-browser client (BCG shape): the plain fetch
+    # raises a transport error, but a headless browser reaches the page → the
+    # article body comes through as rendered_html instead of a fetch_blocked skip
+    class _DisconnectClient:
+        def get(self, url: str, headers: dict[str, str] | None = None) -> Any:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+
+        def close(self) -> None:
+            pass
+
+    rendered_dom = fx.load_text("html/static_article.html")
+    req = SourceRequest(kind="url", url="https://www.bcg.com/publications/2026/report")
+    result = ingest_one(
+        req,
+        http_client=cast(httpx.Client, _DisconnectClient()),
+        render_client=MockRenderClient(rendered_dom),
+    )
+    assert result.status == "ok" and result.source is not None
+    assert result.source.extraction_method == "rendered_html"
+
+
+def test_transport_disconnect_without_render_stays_fetch_blocked() -> None:
+    class _DisconnectClient:
+        def get(self, url: str, headers: dict[str, str] | None = None) -> Any:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+
+        def close(self) -> None:
+            pass
+
+    req = SourceRequest(kind="url", url="https://www.bcg.com/publications/2026/report")
+    # render raises (unavailable) → the original transport error is preserved
+    result = ingest_one(
+        req,
+        http_client=cast(httpx.Client, _DisconnectClient()),
+        render_client=_TimeoutRenderClient(),
+    )
+    assert result.status == "failed" and result.failure is not None
+    assert result.failure.kind == "fetch_blocked"
+
+
 def test_render_failure_is_typed_js_render_failed() -> None:
     # A render exception (timeout / nav / launch) must typed-skip, never bubble or
     # attempt a bypass (M1B.2 guardrail).
