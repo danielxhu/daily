@@ -360,11 +360,54 @@ def _fetch_url(sub: Subscription) -> str:
     return sub.feed_url or sub.input_url
 
 
-def _items(sub: Subscription, content: bytes) -> list[FeedItem]:
+def _links_as_items(content: bytes, *, base_url: str) -> list[FeedItem]:
+    links = extract_candidate_links(content, base_url=base_url)
+    return [FeedItem(guid=None, url=u, title=None, summary=None, published=None) for u in links]
+
+
+# conventional feed locations tried when a page carries no feed hint at all
+_FEED_CONVENTIONS = ("/feed", "/rss", "/feed.xml", "/index.xml", "/rss.xml")
+
+
+def _items(
+    sub: Subscription, content: bytes, *, conn: sqlite3.Connection, fetch: Fetch
+) -> list[FeedItem]:
     if sub.mode == "homepage_diff":
-        links = extract_candidate_links(content, base_url=sub.input_url)
-        return [FeedItem(guid=None, url=u, title=None, summary=None, published=None) for u in links]
-    return parse_feed(content)
+        return _links_as_items(content, base_url=sub.input_url)
+    try:
+        return parse_feed(content)
+    except FeedParseError as feed_error:
+        # The #1 add-source mistake: a homepage pasted as a feed. What we
+        # fetched is a page, not a feed — recover by walking the resolution
+        # chain an operator would: the page's own feed hints → platform rules →
+        # conventional feed paths → the page's article links. A real feed found
+        # anywhere is persisted, so later polls fetch it directly.
+        from app.db.subscription_store import set_subscription_feed_url
+        from app.tracking.discover import discover_feeds
+        from app.tracking.platform import platform_feed
+
+        candidates = list(discover_feeds(content, base_url=sub.input_url)[:3])
+        if (pf := platform_feed(sub.input_url, content)) is not None:
+            candidates.append(pf)
+        parts = urlsplit(sub.input_url)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        candidates += [origin + path for path in _FEED_CONVENTIONS]
+        tried = {sub.feed_url or sub.input_url}
+        for candidate in candidates:
+            if candidate in tried:
+                continue
+            tried.add(candidate)
+            try:
+                items = parse_feed(fetch(candidate))
+            except Exception:
+                continue
+            set_subscription_feed_url(conn, sub.id, candidate)
+            return items
+        if links := _links_as_items(content, base_url=sub.input_url):
+            return links  # no feed anywhere — the page's article links still track
+        raise FeedParseError(
+            f"{feed_error}; no feed discovered on the page and no article links found"
+        ) from feed_error
 
 
 def poll_subscription(
@@ -423,7 +466,7 @@ def poll_subscription(
                 )
             ]
         else:
-            found = _items(sub, fetch(_fetch_url(sub)))
+            found = _items(sub, fetch(_fetch_url(sub)), conn=conn, fetch=fetch)
         new = select_new_items(conn, sub.id, found)
         picked = new
         if sub.last_polled is None and len(new) > config.FIRST_POLL_ITEM_CAP:

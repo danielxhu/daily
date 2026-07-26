@@ -114,6 +114,14 @@ def set_subscription_name(
     return get_subscription(conn, subscription_id)
 
 
+def set_subscription_feed_url(
+    conn: sqlite3.Connection, subscription_id: str, feed_url: str
+) -> None:
+    """Persist a feed the poll recovery discovered — later polls fetch it directly."""
+    conn.execute("UPDATE subscriptions SET feed_url = ? WHERE id = ?", (feed_url, subscription_id))
+    conn.commit()
+
+
 def get_subscription(conn: sqlite3.Connection, subscription_id: str) -> Subscription | None:
     row = conn.execute(
         f"SELECT {_COLUMNS} FROM subscriptions WHERE id = ?", (subscription_id,)

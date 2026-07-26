@@ -476,3 +476,87 @@ def test_watchlater_player_url_canonicalizes_to_the_video_page(tmp_path: Path) -
     # everything downstream sees the canonical video page, not the player URL
     assert fetched == ["https://www.bilibili.com/video/BV1xgoHBLEjd/"]
     assert urls == ["https://www.bilibili.com/video/BV1xgoHBLEjd/"]
+
+
+# --- feed-mode auto-recovery: a homepage pasted as a "Feed URL" ----------------
+
+
+def _shell_page(body_links: str = "", head: str = "") -> bytes:
+    return (
+        "<!DOCTYPE html><html><head>" + head + "</head><body>" + body_links + "</body></html>"
+    ).encode()
+
+
+def test_feed_mode_recovers_via_page_autodiscovery_and_persists(tmp_path: Path) -> None:
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://blog.example.com/", mode="direct")
+    page = _shell_page(
+        head='<link rel="alternate" type="application/rss+xml" href="/real-feed.xml">'
+    )
+
+    def fetch(url: str) -> bytes:
+        if url == "https://blog.example.com/real-feed.xml":
+            return _rss()
+        return page
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=rec)
+    assert out.ok is True and out.new_count > 0
+    # the discovered feed is persisted — the next poll fetches it directly
+    from app.db.subscription_store import get_subscription
+
+    saved = get_subscription(conn, sub.id)
+    assert saved is not None and saved.feed_url == "https://blog.example.com/real-feed.xml"
+
+
+def test_feed_mode_recovers_via_conventional_feed_path(tmp_path: Path) -> None:
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://blog.example.com/posts", mode="direct")
+
+    def fetch(url: str) -> bytes:
+        if url == "https://blog.example.com/feed":
+            return _rss()
+        if url == "https://blog.example.com/posts":
+            return _shell_page()
+        raise RuntimeError("404")
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert out.ok is True and out.new_count > 0
+
+
+def test_feed_mode_falls_back_to_the_pages_article_links(tmp_path: Path) -> None:
+    # no feed anywhere (the consulting-site case) — the page's article links
+    # still track, exactly like homepage_diff mode
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://firm.example.com/insights", mode="direct")
+    page = _shell_page(
+        body_links='<a href="/insights/report-1">Report one</a>'
+        '<a href="/insights/report-2">Report two</a>'
+    )
+
+    def fetch(url: str) -> bytes:
+        if url == "https://firm.example.com/insights":
+            return page
+        raise RuntimeError("404")
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=rec)
+    assert out.ok is True
+    assert {r.url for _s, r in rec.calls} == {
+        "https://firm.example.com/insights/report-1",
+        "https://firm.example.com/insights/report-2",
+    }
+
+
+def test_feed_mode_with_no_feed_and_no_links_stays_a_typed_failure(tmp_path: Path) -> None:
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://dead.example.com/", mode="direct")
+
+    def fetch(url: str) -> bytes:
+        if url == "https://dead.example.com/":
+            return _shell_page()
+        raise RuntimeError("404")
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert out.ok is False
+    assert out.error is not None and "no article links found" in out.error
