@@ -53,6 +53,22 @@ const config: Config = {
           "system-ui",
           "sans-serif",
         ],
+        // editorial spine — a local platform serif (no remote fonts); Songti /
+        // Noto Serif CJK cover Chinese. Used for the masthead, day dividers,
+        // and item headlines.
+        serif: [
+          "Iowan Old Style",
+          "Palatino Linotype",
+          "Palatino",
+          "Book Antiqua",
+          "Songti SC",
+          "Noto Serif CJK SC",
+          "Source Han Serif SC",
+          "ui-serif",
+          "Georgia",
+          "Times New Roman",
+          "serif",
+        ],
         mono: [
           "ui-monospace",
           "SF Mono",

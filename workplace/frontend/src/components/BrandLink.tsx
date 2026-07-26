@@ -11,7 +11,7 @@ export function BrandLink() {
   return (
     <Link
       href="/"
-      className="text-base font-semibold tracking-tight text-ink"
+      className="serif text-xl font-semibold tracking-tight text-ink"
       aria-label={t("layout.home.aria")}
     >
       daily

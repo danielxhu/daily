@@ -21,7 +21,10 @@ function MastheadDate() {
     );
   }, [locale]);
   return (
-    <p className="mono tnum mb-2 text-xs text-faint" suppressHydrationWarning>
+    <p
+      className="mono tnum text-[11px] uppercase tracking-[0.18em] text-faint"
+      suppressHydrationWarning
+    >
       {date}
     </p>
   );
@@ -31,14 +34,19 @@ export default function Home() {
   const t = useT();
   return (
     <div>
-      <header className="border-b border-line pb-5">
+      {/* broadsheet masthead: a dateline over a serif nameplate, closed by a
+          two-weight rule (a firm ink rule above a hairline) */}
+      <header className="border-t-2 border-ink pt-4">
         <MastheadDate />
-        <h1 className="text-[28px] font-semibold tracking-[-0.02em] text-ink">{t("page.today.title")}</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="serif mt-3 text-[clamp(2.25rem,6vw,3rem)] font-semibold leading-[1.05] tracking-[-0.02em] text-balance text-ink">
+          {t("page.today.title")}
+        </h1>
+        <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-muted">
           {t("page.today.subtitle")}
         </p>
+        <div aria-hidden="true" className="mt-5 border-b border-line" />
       </header>
-      <section className="py-8">
+      <section className="py-9">
         <TodayView />
       </section>
     </div>

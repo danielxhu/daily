@@ -2,41 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens (DESIGN.md Revision 4 — "Private Intelligence Desk").
-   Near-achromatic charcoal structure; chroma only where it means something
-   (source health, typed statuses, categories, one interaction accent).
-   Space-separated RGB channels so Tailwind alpha works. */
+/* Design tokens (DESIGN.md Revision 5 — "Broadsheet"). An editorial, light,
+   print-like surface: cool near-white paper (chroma ~0, deliberately NOT the
+   warm cream/beige AI default), near-black ink, hairline rules. Chroma appears
+   only as signal — source health, typed states, categories, one interaction
+   accent. Space-separated RGB channels so Tailwind alpha works. */
 :root {
-  color-scheme: dark;
-  /* achromatic structure (hue-less charcoal, not navy) */
-  --surface: 11 12 15;
-  --panel: 22 24 29;
-  --card: 16 18 22;
-  --line: 36 39 46;
-  --line-strong: 70 76 88;
+  color-scheme: light;
+  /* achromatic structure — cool near-white paper, not warm cream */
+  --surface: 252 252 253; /* #FCFCFD page */
+  --panel: 242 243 245; /* #F2F3F5 insets, chips, quiet fills, inputs */
+  --card: 255 255 255; /* #FFFFFF raised surfaces */
+  --line: 227 228 232; /* #E3E4E8 hairline */
+  --line-strong: 201 203 209; /* #C9CBD1 */
   /* text */
-  --ink: 237 239 243;
-  --muted: 168 176 191;
-  --faint: 118 127 143;
-  /* one interaction accent — muted steel-indigo */
-  --accent: 138 150 232;
-  --accent-strong: 173 182 242;
-  --accent-soft: 26 29 44;
-  /* status/health colors — luminous but desaturated (band aliases also serve frozen check-era components) */
-  --ok-fg: 70 192 138;
-  --ok-bg: 16 37 28;
-  --warn-fg: 217 174 78;
-  --warn-bg: 42 34 16;
-  --bad-fg: 224 108 95;
-  --bad-bg: 43 22 20;
-  /* finance category hues (chips) */
-  --cat-earnings: 217 161 59;
-  --cat-policy: 109 159 232;
-  --cat-ma: 180 140 232;
-  --cat-rumor: 224 133 115;
-  --cat-sector: 79 191 174;
-  --cat-other: 147 160 178;
-  /* local-first font stacks (no remote fonts) */
+  --ink: 23 24 27; /* #17181B near-black (~16:1 on paper) */
+  --muted: 82 86 94; /* #52565E secondary (AA on paper + panel) */
+  --faint: 130 134 142; /* #82868E meta only */
+  /* one interaction accent — a restrained editorial ink-blue */
+  --accent: 45 74 194; /* #2D4AC2 links, focus, active */
+  --accent-strong: 30 52 150; /* #1E3496 hover (darker on light) */
+  --accent-soft: 232 236 250; /* #E8ECFA active fills */
+  /* status/health — semantic hues re-tuned for a light surface (AA on paper) */
+  --ok-fg: 21 122 58; /* #157A3A */
+  --ok-bg: 226 242 231;
+  --warn-fg: 150 102 4; /* #966604 */
+  --warn-bg: 248 240 217;
+  --bad-fg: 183 42 42; /* #B72A2A */
+  --bad-bg: 249 227 227;
+  /* finance category hues (chips) — lower L for contrast on light */
+  --cat-earnings: 161 98 7;
+  --cat-policy: 37 92 184;
+  --cat-ma: 122 58 188;
+  --cat-rumor: 176 68 48;
+  --cat-sector: 15 118 110;
+  --cat-other: 88 94 104;
+  /* local-first font stacks (no remote fonts). A platform SERIF carries the
+     editorial masthead/headlines; the system sans carries UI + body; mono is
+     for figures. Songti/Noto Serif CJK cover Chinese without a download. */
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+    "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", ui-serif, Georgia,
+    "Times New Roman", serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
     "Liberation Mono", monospace;
 }
@@ -45,26 +51,16 @@
   body {
     @apply bg-surface text-ink antialiased;
   }
-  /* the one ambient layer: a soft top radial in the accent hue (DESIGN.md §5) */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background: radial-gradient(
-      55% 36% at 50% 0%,
-      rgb(var(--accent) / 0.05),
-      transparent 70%
-    );
-  }
   .tnum {
     font-variant-numeric: tabular-nums;
   }
   .mono {
     font-family: var(--font-mono);
   }
-  /* evidence highlight (<mark>) readable on dark */
+  .serif {
+    font-family: var(--font-serif);
+  }
+  /* evidence highlight (<mark>) on the light surface */
   mark {
     background: rgb(var(--warn-bg));
     color: rgb(var(--warn-fg));
@@ -80,52 +76,45 @@
 
 @layer components {
   .btn-primary {
-    /* near-white on charcoal: the most decisive action treatment on this surface */
-    @apply inline-flex items-center justify-center rounded-lg bg-ink px-4 py-2
+    /* near-black ink on paper: the decisive editorial action treatment */
+    @apply inline-flex items-center justify-center rounded-md bg-ink px-4 py-2
       text-sm font-medium text-surface transition-colors
       disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary:hover:not(:disabled) {
-    background: #ffffff;
+    background: #000000;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm text-muted
+    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm text-muted
       transition-colors hover:bg-panel hover:text-ink;
   }
-  /* raised surface: hairline + layered gradient material + inset top highlight */
+  /* raised surface: white paper card, crisp hairline, restrained radius. Depth
+     is a soft shadow, only on interactive hover — resting surfaces stay flat. */
   .card {
-    @apply rounded-xl border border-line p-4 transition;
-    background: linear-gradient(180deg, #12141a 0%, #0f1116 100%);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    @apply rounded-md border border-line bg-card p-4 transition;
   }
   .card-link:hover,
   a .card:hover,
   li.card:hover {
     border-color: rgb(var(--line-strong));
-    transform: translateY(-1px);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.05),
-      0 8px 32px rgb(0 0 0 / 0.5);
+    box-shadow: 0 6px 20px rgb(23 24 27 / 0.08);
   }
-  /* the anti-card-stack: one bordered surface, dense internal rows (DESIGN.md §4) */
+  /* the anti-card-stack: one bordered surface, hairline-divided rows */
   .row-list {
-    @apply divide-y divide-line/60 overflow-hidden rounded-xl border border-line;
-    background: linear-gradient(180deg, #12141a 0%, #0f1116 100%);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    @apply divide-y divide-line overflow-hidden rounded-md border border-line bg-card;
   }
   .row-list > li {
     @apply px-4 py-3 transition-colors;
   }
   .row-list > li:hover {
-    background: rgb(255 255 255 / 0.02);
+    background: rgb(23 24 27 / 0.02);
   }
   .input {
-    @apply block w-full rounded-lg border border-line bg-panel px-3 py-2 text-sm
+    @apply block w-full rounded-md border border-line bg-card px-3 py-2 text-sm
       text-ink transition-colors placeholder:text-faint hover:border-line-strong;
   }
-  /* section head: small title + mono count + a hairline rule filling the width —
-     the structural replacement for eyebrow kickers (DESIGN.md §5). The rule is an
-     explicit `.section-rule` span so trailing links can sit after it. */
+  /* section head: small sans title + mono count + a hairline rule filling the
+     width — a quiet structural divider, not an eyebrow kicker. */
   .section-head {
     @apply flex items-baseline gap-3;
   }
@@ -136,7 +125,7 @@
     @apply text-[13px] font-semibold text-ink;
   }
   .badge {
-    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium;
   }
   .chip-cat {
     @apply inline-flex items-center rounded px-1.5 py-px text-[11px] font-medium;
@@ -144,27 +133,19 @@
     background: rgb(var(--cat) / 0.1);
     border: 1px solid rgb(var(--cat) / 0.25);
   }
-  /* ScoreBlock support: the glowing band bar under the hero numeral */
+  /* ScoreBlock support (frozen check-era components): band bar on light */
   .score-bar {
     @apply h-0.5 w-full overflow-hidden rounded-full bg-panel;
   }
   .score-fill {
     height: 100%;
-    background: linear-gradient(90deg, rgb(var(--band) / 0.5), rgb(var(--band)));
-    box-shadow: 0 0 10px rgb(var(--band) / 0.4);
+    background: rgb(var(--band));
   }
-  /* L2 staggered entrance — toggled by the Reveal component */
+  /* near-zero motion (Rev 5): the editorial surface has no entrance choreography
+     — content is simply present. `.reveal` stays a structural no-op so the
+     component tree is unchanged and nothing can ship blank. */
   .reveal {
-    opacity: 0;
-    transform: translateY(8px);
-    transition:
-      opacity 0.5s ease-out,
-      transform 0.5s ease-out;
-    transition-delay: calc(var(--reveal-i, 0) * 60ms);
-  }
-  .reveal.revealed {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -174,16 +155,11 @@
   }
   .reveal {
     opacity: 1 !important;
-    transform: none !important;
     transition: none !important;
   }
   .card,
   .card-link,
   .row-list > li {
     transition: none !important;
-  }
-  .card:hover,
-  .card-link:hover {
-    transform: none !important;
   }
 }

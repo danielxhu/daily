@@ -67,7 +67,7 @@ export function TrackedItemLite({ item }: { item: TrackedItemCard }) {
     <div className="min-w-0 space-y-1">
       {/* M16.4: the title opens the item's OWN detail page;
           the original link moves to the meta line below */}
-      <p className="break-words text-[15px] font-medium text-ink">
+      <p className="serif break-words text-[16px] font-semibold leading-snug text-ink">
         <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
           {trackedTitle(item, locale) ?? item.url ?? t("today.tracked.untitled")}
         </Link>
@@ -321,8 +321,9 @@ export function TrackedItemsSection({
 
 // --- AIHOT-style timeline: Today's read surface -------------------------------
 
-/** One timeline row: time on a left rail, then the card — source line on top
- * (matching the reference screenshots), title, AI summary, tags/status. */
+/** One editorial row: a marginal timestamp, then the article — a source line, a
+ * serif headline, the AI summary lede, then tags/status. Hairline-separated on
+ * the paper (the parent list draws the dividers), no boxed card. */
 function TimelineRow({ item }: { item: TrackedItemCard }) {
   const t = useT();
   const intlLocale = useIntlLocale();
@@ -337,46 +338,43 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
     : null;
   const tags = item.enrichment?.tags ?? [];
   return (
-    <li className="grid grid-cols-[3.25rem_auto_1fr] gap-x-3">
-      <span className="mono tnum pt-0.5 text-right text-xs text-faint">
+    <li className="grid grid-cols-[3rem_1fr] gap-x-4 py-5 first:pt-1 sm:grid-cols-[3.5rem_1fr] sm:gap-x-6">
+      <span className="mono tnum pt-1 text-right text-[11px] leading-none text-faint">
         {when.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", hour12: false })}
       </span>
-      <span aria-hidden="true" className="relative flex w-3 justify-center">
-        <span className="absolute inset-y-0 w-px bg-line" />
-        <span className="relative mt-1.5 h-2 w-2 rounded-lg border border-line bg-panel" />
-      </span>
-      <div className="min-w-0 space-y-1 rounded-lg border border-line bg-panel p-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
           {(item.source_name || item.domain) && (
             // the user-named source reads as a name; only the bare domain is mono
-            <span className={item.source_name ? undefined : "mono"}>
+            <span className={item.source_name ? "font-medium text-muted" : "mono text-muted"}>
               {item.source_name || item.domain}
             </span>
           )}
           {item.tier && (
-            <span className="badge bg-surface text-muted">{t(TIER_KEY[item.tier])}</span>
+            <span className="rounded border border-line px-1.5 py-px text-[10px] font-medium text-faint">
+              {t(TIER_KEY[item.tier])}
+            </span>
           )}
         </div>
-        <p className="break-words text-[15px] font-medium leading-snug text-ink">
+        <p className="serif mt-1.5 break-words text-[19px] font-semibold leading-[1.25] tracking-[-0.01em] text-ink">
           <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
             {trackedTitle(item, locale) ?? item.url ?? t("today.tracked.untitled")}
           </Link>
         </p>
         {summary ? (
-          // the (now three-paragraph) briefing lives on the detail page — the
-          // timeline shows the lede only
-          <p className="line-clamp-4 max-w-[72ch] text-xs leading-relaxed text-muted">
-            <span className="badge mr-1.5 bg-surface text-faint">{t("digest.ai.label")}</span>
+          // the full briefing lives on the detail page — show the lede only
+          <p className="mt-2 line-clamp-3 max-w-[68ch] text-[13px] leading-relaxed text-muted">
+            <span className="badge mr-1.5 bg-panel text-faint">{t("digest.ai.label")}</span>
             {summary}
           </p>
         ) : (
           item.status === "fetched" && (
-            <p className="text-xs italic text-faint">{t("tracked.summary.pending")}</p>
+            <p className="mt-2 text-[13px] italic text-faint">{t("tracked.summary.pending")}</p>
           )
         )}
-        <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
           {tags.map((tag) => (
-            <span key={tag} className="badge bg-surface text-muted">
+            <span key={tag} className="rounded bg-panel px-1.5 py-0.5 text-muted">
               {tag}
             </span>
           ))}
@@ -404,9 +402,9 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
   );
 }
 
-/** The AIHOT-style chronological feed: strictly newest-first,
- * grouped under day headers, a time rail on the left. Pure presentation over the
- * same tracked cards — no score, no featured badge (deliberately none). */
+/** The chronological reading surface: strictly newest-first, grouped under
+ * serif day dividers, timestamps in the margin. Pure presentation over the same
+ * tracked cards — no score, no ranking (reverse-chronological only). */
 export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
   const intlLocale = useIntlLocale();
   const sorted = [...items].sort((a, b) =>
@@ -415,18 +413,21 @@ export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
   const days: { day: string; items: TrackedItemCard[] }[] = [];
   for (const item of sorted) {
     const day = new Date(item.published ?? item.first_seen).toLocaleDateString(intlLocale, {
-      dateStyle: "medium",
+      dateStyle: "long",
     });
     const last = days.at(-1);
     if (last && last.day === day) last.items.push(item);
     else days.push({ day, items: [item] });
   }
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       {days.map((group) => (
-        <section key={group.day} aria-label={group.day} className="space-y-3">
-          <h3 className="tnum text-[13px] font-semibold text-ink">{group.day}</h3>
-          <ul className="space-y-3">
+        <section key={group.day} aria-label={group.day} className="space-y-1">
+          <h3 className="serif flex items-baseline gap-3 text-[15px] font-semibold text-ink">
+            <span>{group.day}</span>
+            <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
+          </h3>
+          <ul className="divide-y divide-line">
             {group.items.map((item) => (
               <TimelineRow key={item.id} item={item} />
             ))}
