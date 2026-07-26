@@ -5,7 +5,6 @@ import { BrandLink } from "@/components/BrandLink";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { FooterNav } from "@/components/FooterNav";
 import { HelpButton } from "@/components/HelpButton";
-import { LangToggle } from "@/components/LangToggle";
 import { MockProvider } from "@/components/MockProvider";
 import { Nav } from "@/components/Nav";
 import { Onboarding } from "@/components/Onboarding";
@@ -34,7 +33,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <BrandLink />
                   <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1">
                     <Nav />
-                    <LangToggle />
                     <HelpButton />
                   </div>
                 </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { clearApiSlot, getApiSettings, saveApiSlot, type ApiSlotInput } from "@/lib/api";
-import { useT } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n";
 import type { ApiSlotView } from "@/types/contract";
 
 /** Model API credentials: two slots. "text" powers
@@ -16,6 +16,41 @@ interface SettingsViewProps {
   getFn?: typeof getApiSettings;
   saveFn?: typeof saveApiSlot;
   clearFn?: typeof clearApiSlot;
+}
+
+function LanguageSetting() {
+  const { locale, setLocale } = useLocale();
+  const t = useT();
+  return (
+    <section aria-label={t("lang.aria")} className="space-y-4">
+      <div className="section-head">
+        <h2 className="section-title">{t("settings.lang.title")}</h2>
+        <span aria-hidden="true" className="section-rule" />
+      </div>
+      <div className="flex gap-2">
+        {(
+          [
+            ["zh", "中文"],
+            ["en", "English"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setLocale(value)}
+            aria-pressed={locale === value}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              locale === value
+                ? "border-accent bg-panel font-medium text-ink"
+                : "border-line text-muted hover:bg-panel/60 hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export function SettingsView({
@@ -55,15 +90,28 @@ export function SettingsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t is render-fresh by design
   }, [getFn]);
 
-  if (error) return <p className="text-sm text-warn-fg">{error}</p>;
-  if (!slots) return <p className="text-sm text-muted">{t("settings.api.loading")}</p>;
-
+  // the language choice is client-side — never blocked by the API slots' load
   return (
     <div className="space-y-10">
-      {slots.map((slot) => (
-        <SlotEditor key={slot.slot} view={slot} onChanged={load} saveFn={saveFn} clearFn={clearFn} />
-      ))}
-      <p className="max-w-[65ch] text-xs text-faint">{t("settings.api.privacy")}</p>
+      <LanguageSetting />
+      {error ? (
+        <p className="text-sm text-warn-fg">{error}</p>
+      ) : !slots ? (
+        <p className="text-sm text-muted">{t("settings.api.loading")}</p>
+      ) : (
+        <>
+          {slots.map((slot) => (
+            <SlotEditor
+              key={slot.slot}
+              view={slot}
+              onChanged={load}
+              saveFn={saveFn}
+              clearFn={clearFn}
+            />
+          ))}
+          <p className="max-w-[65ch] text-xs text-faint">{t("settings.api.privacy")}</p>
+        </>
+      )}
     </div>
   );
 }

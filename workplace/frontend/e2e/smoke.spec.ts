@@ -14,15 +14,16 @@ async function openMockApp(page: Page, path = "/") {
 // entry, and the absence of any check surface. The verify UI specs left with the
 // /check route; the backend engine stays frozen for a later iteration.
 
-test("the shell: Today home, three primary destinations, no check entries", async ({ page }) => {
+test("the shell: Today home, four primary destinations, no check entries", async ({ page }) => {
   await openMockApp(page);
   await expect(page.getByRole("heading", { name: "Today", level: 1 })).toBeVisible();
 
   const nav = page.getByLabel("Primary");
-  await expect(nav.getByRole("link")).toHaveCount(3);
+  await expect(nav.getByRole("link")).toHaveCount(4);
   await expect(nav.getByRole("link", { name: "Today" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Sources" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Knowledge" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Settings" })).toBeVisible();
 
   // no link anywhere points at the retired routes
   for (const href of await page

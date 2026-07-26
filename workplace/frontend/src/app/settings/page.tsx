@@ -3,9 +3,9 @@
 import { SettingsView } from "@/components/SettingsView";
 import { useT } from "@/lib/i18n";
 
-/** Settings: the model API credential slots. Secondary
- * surface (footer link) — daily works out of the box with the built-in text
- * model and the local on-device image OCR. */
+/** Settings: the interface language and the model API credential slots —
+ * daily works out of the box with the built-in text model and the local
+ * on-device image OCR. */
 export default function SettingsPage() {
   const t = useT();
   return (

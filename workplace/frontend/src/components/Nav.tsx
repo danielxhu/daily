@@ -14,6 +14,9 @@ export const PRIMARY_NAV = [
   { href: "/", key: "nav.today" },
   { href: "/tracking", key: "nav.sources" },
   { href: "/knowledge", key: "nav.knowledge" },
+  // settings holds the model credentials and the language choice — a top-level
+  // entry, not a buried footer link
+  { href: "/settings", key: "nav.settings" },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

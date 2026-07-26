@@ -1,13 +1,13 @@
 export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
   en: {
-    // LangToggle
+    // language
     "lang.aria": "Switch language",
-    "lang.other": "中文",
 
     // Nav
     "nav.today": "Today",
     "nav.sources": "Sources",
     "nav.knowledge": "Knowledge",
+    "nav.settings": "Settings",
     "nav.primary.aria": "Primary",
     "layout.home.aria": "daily — home",
 
@@ -176,10 +176,10 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     // FooterNav / layout
     "footer.fullDigest": "Full digest",
     "footer.runDetails": "Run details",
-    "footer.settings": "Settings",
     "page.settings.title": "Settings",
     "page.settings.subtitle":
       "Model API credentials. daily works out of the box — change these only to use your own endpoint.",
+    "settings.lang.title": "Language",
     "settings.api.loading": "Loading…",
     "settings.api.loadError": "Couldn't load settings — is the backend running?",
     "settings.api.saveError": "Saving failed — try again.",
@@ -430,14 +430,14 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
   },
 
   zh: {
-    // LangToggle
+    // language
     "lang.aria": "切换语言",
-    "lang.other": "EN",
 
     // Nav
     "nav.today": "今日",
     "nav.sources": "来源",
     "nav.knowledge": "知识库",
+    "nav.settings": "设置",
     "nav.primary.aria": "主导航",
     "layout.home.aria": "daily — 主页",
 
@@ -600,9 +600,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     // FooterNav / layout
     "footer.fullDigest": "完整日报",
     "footer.runDetails": "运行详情",
-    "footer.settings": "设置",
     "page.settings.title": "设置",
     "page.settings.subtitle": "模型 API 配置。daily 开箱即用——只有想换成自己的接口时才需要改这里。",
+    "settings.lang.title": "语言",
     "settings.api.loading": "加载中…",
     "settings.api.loadError": "设置加载失败——后端在运行吗?",
     "settings.api.saveError": "保存失败——请重试。",

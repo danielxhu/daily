@@ -6,9 +6,9 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 import { Nav } from "@/components/Nav";
 
 describe("Nav (primary information architecture)", () => {
-  it("shows the three user-task items in plain language", () => {
+  it("shows the user-task items in plain language", () => {
     render(<Nav />);
-    for (const label of ["Today", "Sources", "Knowledge"]) {
+    for (const label of ["Today", "Sources", "Knowledge", "Settings"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });

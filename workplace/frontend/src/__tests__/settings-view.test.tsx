@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SettingsView } from "@/components/SettingsView";
 import type { getApiSettings } from "@/lib/api";
+import { LocaleProvider } from "@/lib/i18n";
 import type { ApiSlotView } from "@/types/contract";
 
 const ENV_TEXT: ApiSlotView = {
@@ -29,6 +30,22 @@ describe("SettingsView (model API credentials, 2026-07-23)", () => {
     expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
     // honest local-only note, and no key material anywhere
     expect(screen.getByText(/stored only in the local database/)).toBeInTheDocument();
+  });
+
+  it("offers the language choice, marking the current one", async () => {
+    const getFn = vi.fn(async () => ({ slots: [ENV_TEXT, EMPTY_VISION] }));
+    render(
+      <LocaleProvider>
+        <SettingsView getFn={getFn} />
+      </LocaleProvider>,
+    );
+    // client-side setting — present immediately, not gated on the API load
+    const zh = screen.getByRole("button", { name: "中文" });
+    const en = screen.getByRole("button", { name: "English" });
+    expect(en).toHaveAttribute("aria-pressed", "true"); // tests render in English
+    fireEvent.click(zh);
+    expect(zh).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("文本模型(必填)")).toBeInTheDocument();
   });
 
   it("saves a custom text endpoint and shows the masked key", async () => {

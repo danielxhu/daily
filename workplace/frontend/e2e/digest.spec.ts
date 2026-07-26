@@ -67,10 +67,12 @@ test("the AI summary follows the language toggle instantly (M16.3)", async ({ pa
     section.getByText("The source says its market-structure rulemaking enters a comment period."),
   ).toBeVisible();
 
-  // the language toggle must switch the source items' language too — fixed:
-  // both languages ride in the enrichment, so the switch is instant, no refetch.
-  // (the section's accessible name follows the locale too — re-resolve it)
-  await page.getByRole("button", { name: "Switch language" }).click();
+  // the language choice lives on the Settings page; it applies app-wide and
+  // survives navigation. Both languages ride in the enrichment, so the switch
+  // needs no refetch. (the section's accessible name follows the locale too)
+  await page.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "中文" }).click();
+  await page.goBack();
   const sectionZh = page.getByRole("region", { name: "来源新内容" });
   await expect(sectionZh.getByText("来源称其市场结构规则制定进入公众评议期。")).toBeVisible();
   // 2026-07-10: the TITLE follows the toggle too (translated via the enrichment)
