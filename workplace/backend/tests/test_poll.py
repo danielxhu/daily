@@ -548,6 +548,27 @@ def test_feed_mode_falls_back_to_the_pages_article_links(tmp_path: Path) -> None
     }
 
 
+def test_feed_mode_fallback_rejects_links_outside_the_pages_path(tmp_path: Path) -> None:
+    # a JS-rendered "insights index" exposes only its NAV tree in raw HTML —
+    # links outside the pasted page's own path are navigation, not articles,
+    # and sweeping them in floods the feed with junk section pages
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://firm.example.com/en/insights", mode="direct")
+    page = _shell_page(
+        body_links='<a href="/en/services/ai">AI services</a>'
+        '<a href="/en/industries/energy">Energy</a>'
+    )
+
+    def fetch(url: str) -> bytes:
+        if url == "https://firm.example.com/en/insights":
+            return page
+        raise RuntimeError("404")
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert out.ok is False
+    assert out.error is not None and "no article links" in out.error
+
+
 def test_feed_mode_with_no_feed_and_no_links_stays_a_typed_failure(tmp_path: Path) -> None:
     conn = init_db(str(tmp_path / "daily.db"))
     sub = create_subscription(conn, input_url="https://dead.example.com/", mode="direct")
@@ -559,4 +580,4 @@ def test_feed_mode_with_no_feed_and_no_links_stays_a_typed_failure(tmp_path: Pat
 
     out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
     assert out.ok is False
-    assert out.error is not None and "no article links found" in out.error
+    assert out.error is not None and "no article links" in out.error

@@ -403,10 +403,21 @@ def _items(
                 continue
             set_subscription_feed_url(conn, sub.id, candidate)
             return items
-        if links := _links_as_items(content, base_url=sub.input_url):
-            return links  # no feed anywhere — the page's article links still track
+        # Last resort: the page's own article links — but trust only links UNDER
+        # the pasted page's path. A section page's articles live beneath it while
+        # nav/footer links point elsewhere; a JS-rendered "insights index" exposes
+        # ONLY its nav tree in raw HTML, and sweeping that in floods the feed with
+        # junk pages (and wasted summary calls). A root homepage keeps everything.
+        prefix = parts.path if parts.path.endswith("/") else parts.path + "/"
+        links = [
+            item
+            for item in _links_as_items(content, base_url=sub.input_url)
+            if item.url and urlsplit(item.url).path.startswith(prefix)
+        ]
+        if links:
+            return links
         raise FeedParseError(
-            f"{feed_error}; no feed discovered on the page and no article links found"
+            f"{feed_error}; no feed discovered on the page and no article links found beneath it"
         ) from feed_error
 
 
