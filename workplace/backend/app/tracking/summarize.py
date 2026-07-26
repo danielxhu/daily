@@ -39,8 +39,11 @@ _ITEM_ENRICH_JSON = (
     '{"summary_zh": "<中文综述,按上述段落规划,段落间以空行分隔,仍是来源口吻,不加外部知识>", '
     '"summary_en": "<the summary in English, same paragraph plan, blank lines '
     'between paragraphs, still attributed to the source, no outside knowledge>", '
-    '"title_zh": "<原标题的中文版:忠实翻译,原文已是中文则原样保留,不改写不美化>", '
-    '"title_en": "<the title in English: faithful translation, keep as-is if already English>", '
+    '"title_zh": "<原标题的中文版:忠实翻译,原文已是中文则原样保留,不改写不美化;'
+    '若来源没有明确标题,用一句话根据内容拟一个简短标题,禁止输出「未知」「无标题」这类占位词>", '
+    '"title_en": "<the title in English: faithful translation, keep as-is if already '
+    "English; if the source has no clear title, write a short descriptive one from the "
+    'content — never a placeholder like \\"Unknown\\" or \\"Untitled\\">", '
     '"tags": ["<2-6 short lowercase topic tags>"]}'
 )
 

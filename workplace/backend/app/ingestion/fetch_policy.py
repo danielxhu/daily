@@ -37,7 +37,18 @@ FETCH_TIMEOUT_MS = 15000
 # 3.3MB full text on one UA string). A static browser UA is the stance the
 # yt-dlp video path already takes; a wall that still appears stays a typed
 # failure, never bypassed (§2.2).
-_BROWSER_UA_HOSTS = ("mp.weixin.qq.com",)
+_BROWSER_UA_HOSTS = (
+    "mp.weixin.qq.com",
+    # consulting-firm sites that serve their pages to a browser UA but wall the
+    # bot UA (Accenture article bodies return the full text; others may still
+    # time out / disconnect — a wall that persists stays a typed failure)
+    "www.accenture.com",
+    "accenture.com",
+    "www.mckinsey.com",
+    "mckinsey.com",
+    "www.bcg.com",
+    "bcg.com",
+)
 BROWSER_FETCH_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"

@@ -17,12 +17,13 @@ from __future__ import annotations
 
 import httpx
 
-from app.ingestion.fetch_policy import httpx_client_kwargs
+from app.ingestion.fetch_policy import fetch_headers, httpx_client_kwargs
 
 
 def feed_fetch(url: str) -> bytes:
-    """Fetch a feed/homepage URL → raw bytes (policy-bound httpx GET)."""
+    """Fetch a feed/homepage URL → raw bytes (policy-bound httpx GET). Hosts on
+    the browser-UA whitelist get that UA (a static string, no cookies/captcha)."""
     with httpx.Client(**httpx_client_kwargs()) as client:  # type: ignore[arg-type]
-        resp = client.get(url)
+        resp = client.get(url, headers=fetch_headers(url))
         resp.raise_for_status()
         return resp.content
