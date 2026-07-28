@@ -48,6 +48,29 @@ describe("SettingsView (model API credentials, 2026-07-23)", () => {
     expect(await screen.findByText("文本模型(必填)")).toBeInTheDocument();
   });
 
+  it("switches the theme and writes it where the token layer reads it", async () => {
+    window.localStorage.clear(); // no locale/theme choice left over from another test
+    const getFn = vi.fn(async () => ({ slots: [ENV_TEXT, EMPTY_VISION] }));
+    render(
+      <LocaleProvider>
+        <SettingsView getFn={getFn} />
+      </LocaleProvider>,
+    );
+    const light = screen.getByRole("button", { name: "Light" });
+    const dark = screen.getByRole("button", { name: "Dark" });
+    expect(light).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(dark);
+    expect(dark).toHaveAttribute("aria-pressed", "true");
+    // the whole token layer keys off this attribute, so it must reach the root
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(window.localStorage.getItem("daily.theme")).toBe("dark");
+
+    fireEvent.click(light);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    await screen.findByText("Text model (required)");
+  });
+
   it("saves a custom text endpoint and shows the masked key", async () => {
     let slots: ApiSlotView[] = [ENV_TEXT, EMPTY_VISION];
     const getFn = vi.fn(async () => ({ slots })) as unknown as typeof getApiSettings;

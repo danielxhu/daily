@@ -16,6 +16,37 @@ function read(): number {
     : DEFAULT_WINDOW_DAYS;
 }
 
+/** Light or dark. Written to `data-theme` on the document root, where the token
+ * layer picks it up. Defaults to the OS preference until the user chooses. */
+const THEME_KEY = "daily.theme";
+export type Theme = "light" | "dark";
+
+function systemTheme(): Theme {
+  // matchMedia is absent in SSR and in some test environments
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function applyStoredTheme(): Theme {
+  const saved = typeof window !== "undefined" ? window.localStorage.getItem(THEME_KEY) : null;
+  const theme: Theme = saved === "dark" || saved === "light" ? saved : systemTheme();
+  document.documentElement.dataset.theme = theme;
+  return theme;
+}
+
+export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
+  const [theme, setThemeState] = useState<Theme>("light");
+  useEffect(() => {
+    setThemeState(applyStoredTheme());
+  }, []);
+  const setTheme = useCallback((t: Theme) => {
+    setThemeState(t);
+    document.documentElement.dataset.theme = t;
+    if (typeof window !== "undefined") window.localStorage.setItem(THEME_KEY, t);
+  }, []);
+  return { theme, setTheme };
+}
+
 export function useWindowDays(): { windowDays: number; setWindowDays: (days: number) => void } {
   // default first so SSR and the first client render agree, then adopt the stored
   // value on mount (reading localStorage during render would hydrate-mismatch)

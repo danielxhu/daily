@@ -21,7 +21,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* set the theme before first paint, else the stored choice flashes */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('daily.theme');" +
+              "if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';" +
+              "document.documentElement.dataset.theme=t}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-screen">
         <MockProvider>
           <LocaleProvider>

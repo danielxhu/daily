@@ -45,6 +45,44 @@
     "Times New Roman", serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
     "Liberation Mono", monospace;
+  /* derived: the decisive-action hover, the row wash, and the lift shadow all
+     invert with the theme, so they are tokens rather than literals */
+  --ink-press: 0 0 0;
+  --wash: 23 24 27;
+  --lift: 0 6px 20px rgb(23 24 27 / 0.08);
+}
+
+/* Dark theme: the same token names re-valued, so every surface follows without
+   touching a component (raw palette classes are banned project-wide). Structure
+   stays achromatic charcoal — no navy cast; chroma is still signal only. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: 12 13 16; /* #0C0D10 page */
+  --panel: 24 26 31; /* #181A1F insets, chips, quiet fills, inputs */
+  --card: 18 20 24; /* #121418 raised surfaces */
+  --line: 38 41 48; /* #262930 hairline */
+  --line-strong: 62 66 75; /* #3E424B */
+  --ink: 237 239 243; /* #EDEFF3 (~15:1 on page) */
+  --muted: 165 172 185; /* #A5ACB9 secondary (AA on page + card) */
+  --faint: 122 130 143; /* #7A828F meta only */
+  --accent: 141 165 255; /* #8DA5FF links/focus — lifted for dark */
+  --accent-strong: 178 195 255; /* #B2C3FF hover */
+  --accent-soft: 26 31 51; /* #1A1F33 active fills */
+  --ok-fg: 78 200 141; /* #4EC88D */
+  --ok-bg: 17 40 30;
+  --warn-fg: 222 178 84; /* #DEB254 */
+  --warn-bg: 44 35 16;
+  --bad-fg: 232 122 110; /* #E87A6E */
+  --bad-bg: 46 23 21;
+  --cat-earnings: 220 168 74;
+  --cat-policy: 122 166 235;
+  --cat-ma: 186 148 235;
+  --cat-rumor: 228 142 124;
+  --cat-sector: 90 196 179;
+  --cat-other: 154 164 180;
+  --ink-press: 255 255 255;
+  --wash: 255 255 255;
+  --lift: 0 8px 28px rgb(0 0 0 / 0.55);
 }
 
 @layer base {
@@ -82,7 +120,7 @@
       disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-primary:hover:not(:disabled) {
-    background: #000000;
+    background: rgb(var(--ink-press));
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm text-muted
@@ -97,7 +135,7 @@
   a .card:hover,
   li.card:hover {
     border-color: rgb(var(--line-strong));
-    box-shadow: 0 6px 20px rgb(23 24 27 / 0.08);
+    box-shadow: var(--lift);
   }
   /* the anti-card-stack: one bordered surface, hairline-divided rows */
   .row-list {
@@ -107,7 +145,7 @@
     @apply px-4 py-3 transition-colors;
   }
   .row-list > li:hover {
-    background: rgb(23 24 27 / 0.02);
+    background: rgb(var(--wash) / 0.03);
   }
   .input {
     @apply block w-full rounded-md border border-line bg-card px-3 py-2 text-sm

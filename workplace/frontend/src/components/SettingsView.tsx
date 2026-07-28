@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { clearApiSlot, getApiSettings, saveApiSlot, type ApiSlotInput } from "@/lib/api";
 import { useLocale, useT } from "@/lib/i18n";
-import { WINDOW_DAY_OPTIONS, useWindowDays } from "@/lib/prefs";
+import { WINDOW_DAY_OPTIONS, useTheme, useWindowDays } from "@/lib/prefs";
 import type { ApiSlotView } from "@/types/contract";
 
 /** Model API credentials: two slots. "text" powers
@@ -42,6 +42,42 @@ function LanguageSetting() {
             aria-pressed={locale === value}
             className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
               locale === value
+                ? "border-accent bg-panel font-medium text-ink"
+                : "border-line text-muted hover:bg-panel/60 hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Light or dark surface. */
+function ThemeSetting() {
+  const { theme, setTheme } = useTheme();
+  const t = useT();
+  return (
+    <section aria-label={t("settings.theme.title")} className="space-y-4">
+      <div className="section-head">
+        <h2 className="section-title">{t("settings.theme.title")}</h2>
+        <span aria-hidden="true" className="section-rule" />
+      </div>
+      <div className="flex gap-2">
+        {(
+          [
+            ["light", t("settings.theme.light")],
+            ["dark", t("settings.theme.dark")],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setTheme(value)}
+            aria-pressed={theme === value}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              theme === value
                 ? "border-accent bg-panel font-medium text-ink"
                 : "border-line text-muted hover:bg-panel/60 hover:text-ink"
             }`}
@@ -127,6 +163,7 @@ export function SettingsView({
   return (
     <div className="space-y-10">
       <LanguageSetting />
+      <ThemeSetting />
       <WindowSetting />
       {error ? (
         <p className="text-sm text-warn-fg">{error}</p>
