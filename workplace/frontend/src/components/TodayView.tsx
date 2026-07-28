@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Reveal } from "@/components/Reveal";
 import { TrackedTimeline, useTrackedGrouping } from "@/components/TrackedItems";
+import { SignalField, type SignalPoint } from "@/components/SignalField";
 import {
   ApiError,
   adoptSourcePack,
@@ -154,6 +155,11 @@ export function TodayView({
 
   const tracked = digest.tracked ?? [];
   const filtered = boardTab ? tracked.filter((i) => i.board_id === boardTab) : tracked;
+  // the field follows the board filter, so it always depicts what is listed below
+  const field: SignalPoint[] = filtered.map((i) => ({
+    at: new Date(i.published ?? i.first_seen).getTime(),
+    source: i.source_name || i.domain || i.subscription_id || "?",
+  }));
   const unhealthy = subs.filter(needsLook);
   // M16.6 header: today's date + the latest poll across sources. Honest boundary
   // stays in tracking language — polling is periodic, never real-time (§2.2).
@@ -190,6 +196,7 @@ export function TodayView({
       <Reveal index={0}>
         {/* the time range moved to Settings; the masthead carries the heading */}
         <section aria-label={t("today.tracked.heading")} className="space-y-4">
+          {field.length > 0 && <SignalField points={field} />}
           {tracked.length === 0 ? (
             <p className="text-sm text-muted">
               {t("today.briefing.empty").split("{sourcesLink}")[0]}
