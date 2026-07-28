@@ -241,7 +241,8 @@ describe("ItemDetailView (M16.4)", () => {
 
     // step 1: the user asks daily for the initial curated draft
     fireEvent.click(await screen.findByRole("button", { name: "Draft a note" }));
-    await waitFor(() => expect(draftNoteFn).toHaveBeenCalledWith("ti1", [], "en"));
+    // the item discussion (empty here) rides along
+    await waitFor(() => expect(draftNoteFn).toHaveBeenCalledWith("ti1", [], "en", {}, []));
     expect(await screen.findByText("Key point: comment period opened.")).toBeInTheDocument();
     expect(screen.getByText("AI draft — not saved yet")).toBeInTheDocument();
     // nothing saved yet
@@ -260,6 +261,8 @@ describe("ItemDetailView (M16.4)", () => {
           { role: "user", content: "mention the effective date" },
         ],
         "en",
+        {},
+        [],
       ),
     );
     expect(

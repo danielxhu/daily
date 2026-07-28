@@ -234,6 +234,8 @@ function ItemDetail({
   const { locale } = useLocale();
   const intlLocale = useIntlLocale();
   const item = detail.item;
+  // lifted out of the panel: the note draft below is written from it too
+  const [discussion, setDiscussion] = useState<DiscussMessage[]>([]);
   const e = item.enrichment;
   const summary = e ? (locale === "zh" ? e.summary_zh : e.summary_en) : null;
 
@@ -283,6 +285,10 @@ function ItemDetail({
           </p>
         ) : (
           <p className="max-w-[65ch] text-sm text-muted">{t("item.pending.note")}</p>
+        )}
+        {detail.excerpt_method === "feed_summary" && (
+          // the stored text is the feed's description, not the article — disclose it
+          <p className="max-w-[65ch] text-xs text-faint">{t("item.fromFeed.note")}</p>
         )}
         {item.status === "deferred" && !item.content_available ? (
           // transcription happens in the background worker —
@@ -341,6 +347,8 @@ function ItemDetail({
         itemId={item.id}
         contentAvailable={item.content_available === true}
         discussFn={discussFn}
+        messages={discussion}
+        setMessages={setDiscussion}
       />
 
       <ItemNote
@@ -349,6 +357,7 @@ function ItemDetail({
         contentAvailable={item.content_available === true}
         createNoteFn={createNoteFn}
         draftNoteFn={draftNoteFn}
+        discussion={discussion}
       />
     </article>
   );
@@ -364,13 +373,16 @@ function ItemDiscussPanel({
   itemId,
   contentAvailable,
   discussFn,
+  messages,
+  setMessages,
 }: {
   itemId: string;
   contentAvailable: boolean;
   discussFn: typeof discussTrackedItem;
+  messages: DiscussMessage[];
+  setMessages: React.Dispatch<React.SetStateAction<DiscussMessage[]>>;
 }) {
   const t = useT();
-  const [messages, setMessages] = useState<DiscussMessage[]>([]);
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,12 +483,15 @@ function ItemNote({
   contentAvailable,
   createNoteFn,
   draftNoteFn,
+  discussion,
 }: {
   itemId: string;
   boardId: string | null;
   contentAvailable: boolean;
   createNoteFn: typeof createNote;
   draftNoteFn: typeof draftItemNote;
+  // the discussion above, which the draft continues
+  discussion: DiscussMessage[];
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -492,7 +507,7 @@ function ItemNote({
     setError(null);
     setState("idle");
     try {
-      const res = await draftNoteFn(itemId, messages, locale);
+      const res = await draftNoteFn(itemId, messages, locale, {}, discussion);
       setDraft(res.draft);
       setHistory([...messages, { role: "assistant", content: res.draft }]);
     } catch (err) {

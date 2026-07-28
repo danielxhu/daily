@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ItemDetailView } from "@/components/ItemDetailView";
-import { ApiError, discussTrackedItem, getTrackedItem } from "@/lib/api";
+import { ApiError, discussTrackedItem, draftItemNote, getTrackedItem } from "@/lib/api";
 import { LocaleProvider } from "@/lib/i18n";
 import type { TrackedItemCard, TrackedItemDetail } from "@/types/contract";
 
@@ -42,13 +42,18 @@ function detail(overrides: Partial<TrackedItemDetail> = {}): TrackedItemDetail {
   };
 }
 
-function setup(d: TrackedItemDetail, discussFn: typeof discussTrackedItem) {
+function setup(
+  d: TrackedItemDetail,
+  discussFn: typeof discussTrackedItem,
+  draftNoteFn?: typeof draftItemNote,
+) {
   render(
     <LocaleProvider>
       <ItemDetailView
         itemId={d.item.id}
         detailFn={vi.fn(async () => d) as unknown as typeof getTrackedItem}
         discussFn={discussFn}
+        {...(draftNoteFn ? { draftNoteFn } : {})}
       />
     </LocaleProvider>,
   );
@@ -136,5 +141,37 @@ describe("ItemDiscussPanel (M16.5)", () => {
     const panel = await screen.findByRole("region", { name: "讨论这条信息" });
     expect(within(panel).getByText("和 AI 讨论一下这条消息。")).toBeInTheDocument();
     expect(within(panel).getByRole("button", { name: "发送" })).toBeInTheDocument();
+  });
+});
+
+describe("the discussion feeds the note draft", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("sends what was discussed along with the draft request", async () => {
+    const discussFn = vi.fn(async () => ({ reply: "来源称结算周期将缩短。" }));
+    const draftNoteFn = vi.fn(async () => ({ draft: "要点:结算周期缩短。" }));
+    setup(
+      detail(),
+      discussFn as unknown as typeof discussTrackedItem,
+      draftNoteFn as unknown as typeof draftItemNote,
+    );
+
+    // discuss the item first
+    const panel = await screen.findByRole("region", { name: "Discuss this item" });
+    fireEvent.change(within(panel).getByRole("textbox", { name: "Your question about this item" }), {
+      target: { value: "对结算业务的影响?" },
+    });
+    fireEvent.click(within(panel).getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(discussFn).toHaveBeenCalled());
+    await screen.findByText("来源称结算周期将缩短。");
+
+    // the draft request carries the discussion
+    fireEvent.click(screen.getByRole("button", { name: "Draft a note" }));
+    await waitFor(() =>
+      expect(draftNoteFn).toHaveBeenCalledWith("ti1", [], expect.any(String), {}, [
+        { role: "user", content: "对结算业务的影响?" },
+        { role: "assistant", content: "来源称结算周期将缩短。" },
+      ]),
+    );
   });
 });

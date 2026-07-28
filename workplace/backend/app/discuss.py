@@ -133,15 +133,23 @@ def draft_item_note(
     excerpt: str,
     messages: list[DiscussMessage],
     *,
+    discussion: list[DiscussMessage] | None = None,
     locale: str = "zh",
     llm: LLMClient,
 ) -> str:
     """Draft (or revise) the knowledge note for a tracked item — one flash call,
     grounded in the item's persisted material. `messages` empty = initial draft;
     otherwise the revision chat (earlier drafts as assistant turns, the user's
-    instruction last). READ-ONLY. Raises DiscussError on LLM failure."""
+    instruction last). `discussion` is the item's discussion so far, which the draft
+    continues. READ-ONLY. Raises DiscussError on LLM failure."""
     system = _NOTE_DRAFT_SYSTEM.format(language="Chinese" if locale == "zh" else "English")
     parts = [_item_material_block(card, excerpt)]
+    if discussion:
+        talked = "\n".join(f"{m.role}: {m.content}" for m in discussion)
+        parts.append(
+            "The user already discussed this item with you. What they asked about is what "
+            f"they care about — let it shape the note's emphasis:\n{talked}"
+        )
     if messages:
         convo = "\n".join(f"{m.role}: {m.content}" for m in messages)
         parts.append(f"Earlier drafts and revision instructions:\n{convo}")

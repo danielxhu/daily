@@ -328,6 +328,52 @@ def test_note_draft_initial_then_revision_carries_the_chat(tmp_path: Path) -> No
     assert "in English" in llm3.calls[0][0]
 
 
+def test_note_draft_is_shaped_by_the_items_discussion(tmp_path: Path) -> None:
+    """The item's discussion reaches the draft prompt, separately from the draft's
+    own revision chat."""
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    sec = _discover(
+        conn,
+        "https://www.sec.gov/news/item-1",
+        title="SEC adopts rules",
+        excerpt=_SEC_EXCERPT,
+        enrichment=_enrichment(),
+    )
+    conn.close()
+
+    llm = _DraftLLM()
+    res = _client(db, llm).post(
+        f"/tracked-items/{sec}/note-draft",
+        json={
+            "messages": [],
+            "discussion": [
+                {"role": "user", "content": "这条对券商结算业务的影响是什么?"},
+                {"role": "assistant", "content": "来源称结算周期将缩短。"},
+            ],
+            "locale": "zh",
+        },
+    )
+    assert res.status_code == 200
+    _, user = llm.calls[0]
+    assert "user: 这条对券商结算业务的影响是什么?" in user
+    assert "assistant: 来源称结算周期将缩短。" in user
+    # labeled as the discussion, not folded into the revision chat
+    assert "already discussed this item" in user
+    assert "revision instructions" not in user
+
+
+def test_note_draft_without_a_discussion_is_unchanged(tmp_path: Path) -> None:
+    # absent when there is nothing to carry over
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    sec = _discover(conn, "https://www.sec.gov/news/item-1", title="t", excerpt=_SEC_EXCERPT)
+    conn.close()
+    llm = _DraftLLM()
+    _client(db, llm).post(f"/tracked-items/{sec}/note-draft", json={"discussion": []})
+    assert "already discussed this item" not in llm.calls[0][1]
+
+
 def test_note_draft_typed_errors(tmp_path: Path) -> None:
     db = str(tmp_path / "daily.db")
     conn = init_db(db)

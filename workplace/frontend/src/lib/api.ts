@@ -161,10 +161,11 @@ export async function draftItemNote(
   messages: DiscussMessage[],
   locale: "zh" | "en",
   opts: QueryOptions = {},
+  discussion: DiscussMessage[] = [],
 ): Promise<ItemNoteDraftReply> {
   return postJson<ItemNoteDraftReply>(
     `/tracked-items/${itemId}/note-draft`,
-    { messages, locale },
+    { messages, locale, discussion },
     opts,
   );
 }
