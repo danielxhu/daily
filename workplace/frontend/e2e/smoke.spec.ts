@@ -69,6 +69,8 @@ test("Today: date/poll header, chronological timeline, board tabs filter", async
   await expect(
     page.getByRole("link", { name: "SEC statement on market-structure rulemaking" }),
   ).toBeVisible();
+  // undated items live in the collapsed section — expand to read them
+  await page.getByText(/No publish date/).click();
   await expect(page.getByText("Markets Daily — episode 214")).toBeVisible();
   // board tabs narrow the feed; All brings everything back
   const tabs = page.getByRole("group", { name: "Board filter" });
@@ -78,6 +80,7 @@ test("Today: date/poll header, chronological timeline, board tabs filter", async
   ).toBeVisible();
   await expect(page.getByText("Markets Daily — episode 214")).toHaveCount(0);
   await tabs.getByRole("button", { name: "All" }).click();
+  await page.getByText(/No publish date/).click();
   await expect(page.getByText("Markets Daily — episode 214")).toBeVisible();
   // no score / featured badge anywhere (deliberately none)
   await expect(page.locator("body")).not.toContainText(/精选|\/100|credibility|verdict/i);

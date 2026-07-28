@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { clearApiSlot, getApiSettings, saveApiSlot, type ApiSlotInput } from "@/lib/api";
 import { useLocale, useT } from "@/lib/i18n";
+import { WINDOW_DAY_OPTIONS, useWindowDays } from "@/lib/prefs";
 import type { ApiSlotView } from "@/types/contract";
 
 /** Model API credentials: two slots. "text" powers
@@ -53,6 +54,38 @@ function LanguageSetting() {
   );
 }
 
+/** How far back Today looks when listing what the sources published. */
+function WindowSetting() {
+  const { windowDays, setWindowDays } = useWindowDays();
+  const t = useT();
+  return (
+    <section aria-label={t("settings.window.title")} className="space-y-4">
+      <div className="section-head">
+        <h2 className="section-title">{t("settings.window.title")}</h2>
+        <span aria-hidden="true" className="section-rule" />
+      </div>
+      <p className="max-w-[60ch] text-sm text-muted">{t("settings.window.desc")}</p>
+      <div className="flex gap-2">
+        {WINDOW_DAY_OPTIONS.map((days) => (
+          <button
+            key={days}
+            type="button"
+            onClick={() => setWindowDays(days)}
+            aria-pressed={windowDays === days}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              windowDays === days
+                ? "border-accent bg-panel font-medium text-ink"
+                : "border-line text-muted hover:bg-panel/60 hover:text-ink"
+            }`}
+          >
+            {t("digest.window.option", { days })}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function SettingsView({
   getFn = getApiSettings,
   saveFn = saveApiSlot,
@@ -94,6 +127,7 @@ export function SettingsView({
   return (
     <div className="space-y-10">
       <LanguageSetting />
+      <WindowSetting />
       {error ? (
         <p className="text-sm text-warn-fg">{error}</p>
       ) : !slots ? (

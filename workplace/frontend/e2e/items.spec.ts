@@ -56,7 +56,9 @@ test("a pending item fetches + summarizes automatically on open (no click)", asy
 }) => {
   await openMockApp(page);
   // the podcast item has no enrichment in the fixture (degraded → pending);
-  // opening its detail page starts fetch-&-summarize by itself (2026-07-10)
+  // opening its detail page starts fetch-&-summarize by itself (2026-07-10);
+  // it is undated, so it sits in the collapsed section
+  await page.getByText(/No publish date/).click();
   await page.getByRole("link", { name: "Markets Daily — episode 214" }).click();
   await expect(
     page.getByText("The source says this episode discusses market trends."),

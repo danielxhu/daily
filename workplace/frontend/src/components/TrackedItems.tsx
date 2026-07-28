@@ -324,7 +324,7 @@ export function TrackedItemsSection({
 /** One editorial row: a marginal timestamp, then the article — a source line, a
  * serif headline, the AI summary lede, then tags/status. Hairline-separated on
  * the paper (the parent list draws the dividers), no boxed card. */
-function TimelineRow({ item }: { item: TrackedItemCard }) {
+function TimelineRow({ item, undated = false }: { item: TrackedItemCard; undated?: boolean }) {
   const t = useT();
   const intlLocale = useIntlLocale();
   const { locale } = useLocale();
@@ -340,7 +340,13 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
   return (
     <li className="grid grid-cols-[3rem_1fr] gap-x-4 py-5 first:pt-1 sm:grid-cols-[3.5rem_1fr] sm:gap-x-6">
       <span className="mono tnum pt-1 text-right text-[11px] leading-none text-faint">
-        {when.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", hour12: false })}
+        {undated
+          ? "—"
+          : when.toLocaleTimeString(intlLocale, {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
       </span>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
@@ -406,8 +412,15 @@ function TimelineRow({ item }: { item: TrackedItemCard }) {
  * serif day dividers, timestamps in the margin. Pure presentation over the same
  * tracked cards — no score, no ranking (reverse-chronological only). */
 export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
+  const t = useT();
   const intlLocale = useIntlLocale();
-  const sorted = [...items].sort((a, b) =>
+  // undated items would all read as "today" and drown the real chronology, so they
+  // fold. Includes typed failures (also undated); they stay listed with their
+  // status inside the fold — never dropped (v0.13).
+  const isUndated = (i: TrackedItemCard) => !i.published;
+  const primary = items.filter((i) => !isUndated(i));
+  const undated = items.filter(isUndated);
+  const sorted = [...primary].sort((a, b) =>
     (b.published ?? b.first_seen).localeCompare(a.published ?? a.first_seen),
   );
   const days: { day: string; items: TrackedItemCard[] }[] = [];
@@ -421,6 +434,28 @@ export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
   }
   return (
     <div className="space-y-8">
+      {undated.length > 0 && (
+        <details className="group border-b border-line pb-4">
+          <summary className="serif flex cursor-pointer list-none items-baseline gap-3 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+            <span>{t("today.undated.heading", { count: undated.length })}</span>
+            <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
+            <span
+              aria-hidden="true"
+              className="text-[11px] font-normal text-faint transition-transform group-open:rotate-180"
+            >
+              ▾
+            </span>
+          </summary>
+          <p className="mt-2 max-w-[65ch] text-[11px] leading-relaxed text-faint">
+            {t("today.undated.note")}
+          </p>
+          <ul className="mt-1 divide-y divide-line">
+            {undated.map((item) => (
+              <TimelineRow key={item.id} item={item} undated />
+            ))}
+          </ul>
+        </details>
+      )}
       {days.map((group) => (
         <section key={group.day} aria-label={group.day} className="space-y-1">
           <h3 className="serif flex items-baseline gap-3 text-[15px] font-semibold text-ink">

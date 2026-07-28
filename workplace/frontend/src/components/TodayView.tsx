@@ -15,6 +15,7 @@ import {
   querySubscriptions,
 } from "@/lib/api";
 import { useIntlLocale, useT } from "@/lib/i18n";
+import { useWindowDays } from "@/lib/prefs";
 import type { DailyDigest, Subscription } from "@/types/contract";
 
 interface TodayViewProps {
@@ -46,8 +47,8 @@ export function TodayView({
   const [boardTab, setBoardTab] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [seeding, setSeeding] = useState(false);
-  // M14.6: the briefing shows RECENT changes — default a month, adjustable
-  const [windowDays, setWindowDays] = useState(30);
+  // M14.6: recent changes only; the range is a Settings preference
+  const { windowDays } = useWindowDays();
   const adoptTried = useRef(false); // once per mount; the backend flag is the real gate
   // M14.4 review fix: the seeding flow must survive its OWN effect's cleanup — the
   // interval refresh writes `subs`, which re-runs the effect; an effect-scoped
@@ -187,31 +188,8 @@ export function TodayView({
         </p>
       )}
       <Reveal index={0}>
-        <section aria-labelledby="tracked-items" className="space-y-4">
-          <div className="section-head">
-            <h2 id="tracked-items" className="section-title">
-              {t("today.tracked.heading")}
-            </h2>
-            {tracked.length > 0 && (
-              <span className="mono tnum text-[11px] text-faint">{tracked.length}</span>
-            )}
-            <span aria-hidden="true" className="section-rule" />
-            <select
-              value={windowDays}
-              onChange={(e) => setWindowDays(Number(e.target.value))}
-              aria-label={t("digest.window.aria")}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-xs text-muted"
-            >
-              {[7, 30, 90].map((days) => (
-                <option key={days} value={days}>
-                  {t("digest.window.option", { days })}
-                </option>
-              ))}
-            </select>
-            <Link href="/digest" className="text-xs text-faint transition-colors hover:text-muted">
-              {t("today.briefing.fullDigest")}
-            </Link>
-          </div>
+        {/* the time range moved to Settings; the masthead carries the heading */}
+        <section aria-label={t("today.tracked.heading")} className="space-y-4">
           {tracked.length === 0 ? (
             <p className="text-sm text-muted">
               {t("today.briefing.empty").split("{sourcesLink}")[0]}
@@ -222,7 +200,6 @@ export function TodayView({
             </p>
           ) : (
             <>
-              <p className="max-w-[65ch] text-xs text-faint">{t("today.tracked.note")}</p>
               {(grouping?.boards.length ?? 0) > 0 && (
                 <div
                   role="group"
