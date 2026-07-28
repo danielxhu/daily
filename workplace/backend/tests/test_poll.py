@@ -8,6 +8,7 @@ dispatch are injected; the scheduler backend is faked (no real APScheduler)."""
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -279,18 +280,26 @@ def test_a_single_video_url_becomes_a_one_item_source(tmp_path: Path) -> None:
         "</body></html>"
     )
     urls, dispatch = _collect_dispatch()
+    fetches: list[str] = []
 
-    out = poll_subscription(conn, sub, fetch=lambda _u: page.encode(), dispatch=dispatch)
+    def fetch(u: str) -> bytes:
+        fetches.append(u)
+        return page.encode()
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=dispatch)
     assert out.ok and out.new_count == 1
     assert urls == ["https://www.bilibili.com/video/BV14eRcBnEpE/?spm_id_from=x"]
+    assert len(fetches) == 1  # first poll fetches the page once
     row = conn.execute("SELECT title, published FROM tracked_items").fetchone()
     assert row["title"] == "【测试】某视频标题_哔哩哔哩"
     # the item carries the video's PUBLISH date (embedded
     # `pubdate`), never the date the user happened to add it
     assert row["published"] is not None and row["published"].startswith("2026-07-01")
 
-    again = poll_subscription(conn, sub, fetch=lambda _u: page.encode(), dispatch=dispatch)
+    again = poll_subscription(conn, sub, fetch=fetch, dispatch=dispatch)
     assert again.ok and again.new_count == 0  # dedup: the one item never repeats
+    # …and the seen item is NOT re-fetched — no wasted request, no risk-control bait
+    assert len(fetches) == 1
 
 
 def test_a_youtube_bot_shell_falls_back_to_the_oembed_title(tmp_path: Path) -> None:
@@ -487,6 +496,25 @@ def _shell_page(body_links: str = "", head: str = "") -> bytes:
     ).encode()
 
 
+def _article_page(title: str = "A report", published: str = "2026-07-01T09:00:00+00:00") -> bytes:
+    """A real article page: og:type=article + a publish date."""
+    head = (
+        f'<meta property="og:type" content="article">'
+        f'<meta property="og:title" content="{title}">'
+        f'<meta property="article:published_time" content="{published}">'
+    )
+    return _shell_page(head=head)
+
+
+def _section_page(title: str = "Insights") -> bytes:
+    """A topic/section landing page as CMS sites really serve them: claims
+    `og:type=article` but carries NO publish date — the gate drops it on the date."""
+    return _shell_page(
+        head=f'<meta property="og:type" content="article">'
+        f'<meta property="og:title" content="{title}">'
+    )
+
+
 def test_feed_mode_recovers_via_page_autodiscovery_and_persists(tmp_path: Path) -> None:
     conn = init_db(str(tmp_path / "daily.db"))
     sub = create_subscription(conn, input_url="https://blog.example.com/", mode="direct")
@@ -537,6 +565,8 @@ def test_feed_mode_falls_back_to_the_pages_article_links(tmp_path: Path) -> None
     def fetch(url: str) -> bytes:
         if url == "https://firm.example.com/insights":
             return page
+        if url.startswith("https://firm.example.com/insights/report-"):
+            return _article_page(title=url.rsplit("/", 1)[1])
         raise RuntimeError("404")
 
     rec = _Recorder()
@@ -546,6 +576,12 @@ def test_feed_mode_falls_back_to_the_pages_article_links(tmp_path: Path) -> None
         "https://firm.example.com/insights/report-1",
         "https://firm.example.com/insights/report-2",
     }
+    # the recovered links were resolved: title + publish date are now filled in
+    from app.db.tracked_item_store import list_all_cards
+
+    cards = list_all_cards(conn)
+    assert {c.title for c in cards} == {"report-1", "report-2"}
+    assert all(c.published is not None for c in cards)
 
 
 def test_feed_mode_fallback_rejects_links_outside_the_pages_path(tmp_path: Path) -> None:
@@ -583,6 +619,70 @@ def test_feed_mode_with_no_feed_and_no_links_stays_a_typed_failure(tmp_path: Pat
     assert out.error is not None and "no article links" in out.error
 
 
+def test_any_dated_article_page_becomes_a_one_item_source_on_any_host(tmp_path: Path) -> None:
+    """Host-independent single-content detection: the URL rules only cover a fixed
+    set of platforms, so a titled + dated page on an unknown host is a one-item
+    source rather than a typed failure."""
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://some-podcast.example/ep/42", mode="direct")
+
+    def fetch(url: str) -> bytes:
+        if url == "https://some-podcast.example/ep/42":
+            return _article_page(title="Episode 42", published="2026-07-05T00:00:00+00:00")
+        raise RuntimeError("404")
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=rec)
+    assert out.ok and out.new_count == 1
+    assert [r.url for _s, r in rec.calls] == ["https://some-podcast.example/ep/42"]
+
+    from app.db.tracked_item_store import list_all_cards
+
+    card = list_all_cards(conn)[0]
+    assert card.title == "Episode 42" and card.published is not None
+
+    # …and it dedups on the next poll instead of re-adding the same item
+    again = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert again.ok and again.new_count == 0
+
+
+def test_an_undated_page_with_no_feed_still_fails_typed(tmp_path: Path) -> None:
+    # guard on the rule above: an undated page stays a typed failure
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://vague.example/page", mode="direct")
+
+    def fetch(url: str) -> bytes:
+        if url == "https://vague.example/page":
+            return _section_page(title="Some landing page")
+        raise RuntimeError("404")
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert out.ok is False and out.error is not None
+
+
+def test_feed_summaries_ride_along_on_the_outcome(tmp_path: Path) -> None:
+    # the feed's descriptions leave the poll so the runtime can fall back to them
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(
+        conn,
+        input_url="https://firm.example/rss",
+        mode="direct",
+        feed_url="https://firm.example/rss",
+    )
+    feed = (
+        b'<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>'
+        b"<item><link>https://firm.example/a</link><title>A report</title>"
+        b"<description>The source's own summary of the report.</description></item>"
+        b"</channel></rss>"
+    )
+
+    out = poll_subscription(conn, sub, fetch=lambda _u: feed, dispatch=_Recorder())
+    assert out.ok
+    assert out.dispatched_summaries == {
+        "https://firm.example/a": "The source's own summary of the report."
+    }
+
+
 def test_fallback_maps_an_index_listing_to_its_section(tmp_path: Path) -> None:
     # a listing at `/insights-index` whose articles live under `/insights/`
     # (the Accenture shape): the section prefix strips `-index` so the real
@@ -600,6 +700,8 @@ def test_fallback_maps_an_index_listing_to_its_section(tmp_path: Path) -> None:
     def fetch(url: str) -> bytes:
         if url.endswith("/us-en/insights-index"):
             return page
+        if "/insights/" in url:
+            return _article_page(title=url.rsplit("/", 1)[1])
         raise RuntimeError("404")
 
     rec = _Recorder()
@@ -609,6 +711,136 @@ def test_fallback_maps_an_index_listing_to_its_section(tmp_path: Path) -> None:
         "https://firm.example.com/us-en/insights/ai/report-one",
         "https://firm.example.com/us-en/insights/health/report-two",
     }
+
+
+def test_recovered_links_gate_drops_section_pages_and_dates_the_articles(tmp_path: Path) -> None:
+    # recovery used to harvest section/topic pages as articles: title-less rows all
+    # dated "today". The gate reads each link and keeps only dated articles.
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://firm.example.com/insights", mode="direct")
+    page = _shell_page(
+        body_links='<a href="/insights/global-topics/">Global topics</a>'  # section — dropped
+        '<a href="/insights/the-real-report">The real report</a>'  # article — kept
+    )
+
+    def fetch(url: str) -> bytes:
+        if url == "https://firm.example.com/insights":
+            return page
+        if url.endswith("/insights/the-real-report"):
+            return _article_page(title="The real report", published="2026-06-15T00:00:00+00:00")
+        if url.endswith("/insights/global-topics/"):
+            return _section_page(title="Global topics")
+        raise RuntimeError("404")
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=rec)
+    assert out.ok is True
+    assert [r.url for _s, r in rec.calls] == ["https://firm.example.com/insights/the-real-report"]
+
+    from app.db.tracked_item_store import list_all_cards
+
+    cards = list_all_cards(conn)
+    assert len(cards) == 1 and cards[0].title == "The real report"
+    assert cards[0].published is not None and cards[0].published.year == 2026
+
+    # the section page stays seen — it never re-queues on the next poll
+    rec2 = _Recorder()
+    out2 = poll_subscription(conn, sub, fetch=fetch, dispatch=rec2)
+    assert out2.ok is True and rec2.calls == []
+
+
+def test_recovered_article_falls_back_to_the_browser_when_plain_fetch_is_refused(
+    tmp_path: Path,
+) -> None:
+    # pages that answer a plain client with 403/a disconnect but serve a browser:
+    # resolved by rendering. An outright refusal stays a typed failure.
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://firm.example.com/insights", mode="direct")
+    listing = _shell_page(body_links='<a href="/insights/2026/browser-only">Report</a>')
+
+    def fetch(url: str) -> bytes:
+        if url == "https://firm.example.com/insights":
+            return listing
+        raise RuntimeError("403 Forbidden")  # article pages refuse plain clients
+
+    def render_html(url: str) -> str:
+        return _article_page(
+            title="Browser-only report", published="2026-07-22T00:00:00+00:00"
+        ).decode()
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=rec, render_html=render_html)
+    assert out.ok is True
+    assert [r.url for _s, r in rec.calls] == ["https://firm.example.com/insights/2026/browser-only"]
+
+    from app.db.tracked_item_store import list_all_cards
+
+    card = list_all_cards(conn)[0]
+    assert card.title == "Browser-only report" and card.published is not None
+
+
+def test_a_xiaoyuzhou_show_lists_its_episodes_with_real_publish_dates(tmp_path: Path) -> None:
+    # no RSS advertised; the episode list is server-rendered JSON and each episode
+    # keeps its own publish date
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(
+        conn,
+        input_url="https://www.xiaoyuzhoufm.com/podcast/60502e253c92d4f62c2a9577",
+        mode="direct",
+    )
+    payload = {
+        "props": {
+            "pageProps": {
+                "podcast": {
+                    "episodes": [
+                        {"eid": "a" * 24, "title": "第二集", "pubDate": "2026-07-26T16:00:00.000Z"},
+                        {"eid": "b" * 24, "title": "第一集", "pubDate": "2026-07-19T16:00:00.000Z"},
+                    ]
+                }
+            }
+        }
+    }
+    page = (
+        '<html><body><script id="__NEXT_DATA__" type="application/json">'
+        + json.dumps(payload, ensure_ascii=False)
+        + "</script></body></html>"
+    ).encode()
+
+    rec = _Recorder()
+    out = poll_subscription(conn, sub, fetch=lambda _u: page, dispatch=rec)
+    assert out.ok and out.new_count == 2
+    assert [r.url for _s, r in rec.calls] == [
+        f"https://www.xiaoyuzhoufm.com/episode/{'a' * 24}",
+        f"https://www.xiaoyuzhoufm.com/episode/{'b' * 24}",
+    ]
+    from app.db.tracked_item_store import list_all_cards
+
+    cards = {c.title: c for c in list_all_cards(conn)}
+    assert cards["第二集"].published is not None
+    assert cards["第二集"].published.strftime("%Y-%m-%d") == "2026-07-26"
+
+    # the show is a FEED, so a later poll keeps polling it (a new episode would land)
+    again = poll_subscription(conn, sub, fetch=lambda _u: page, dispatch=_Recorder())
+    assert again.ok and again.new_count == 0
+
+
+def test_a_single_xiaoyuzhou_episode_is_a_one_item_source(tmp_path: Path) -> None:
+    # ONE episode page is single content: fetched once, then never re-fetched
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(
+        conn, input_url=f"https://www.xiaoyuzhoufm.com/episode/{'c' * 24}", mode="direct"
+    )
+    fetches: list[str] = []
+
+    def fetch(u: str) -> bytes:
+        fetches.append(u)
+        return "<html><head><title>某一集</title></head><body></body></html>".encode()
+
+    out = poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert out.ok and out.new_count == 1
+    assert conn.execute("SELECT title FROM tracked_items").fetchone()["title"] == "某一集"
+    poll_subscription(conn, sub, fetch=fetch, dispatch=_Recorder())
+    assert len(fetches) == 1  # the single episode is not re-fetched
 
 
 def test_feed_mode_renders_a_js_listing_when_raw_html_has_no_links(tmp_path: Path) -> None:
@@ -622,6 +854,8 @@ def test_feed_mode_renders_a_js_listing_when_raw_html_has_no_links(tmp_path: Pat
     def fetch(url: str) -> bytes:
         if url.endswith("/publications"):
             return _shell_page()  # shell: no links, not a feed
+        if url.endswith("/publications/2026/a-real-report"):
+            return _article_page(title="Report")  # the article itself IS fetchable
         raise RuntimeError("404")
 
     def render_html(url: str) -> str:
@@ -644,7 +878,13 @@ def test_feed_mode_renders_when_the_plain_fetch_is_blocked(tmp_path: Path) -> No
     )
 
     def fetch(url: str) -> bytes:
-        raise RuntimeError("Server disconnected without sending a response.")
+        # the heavy listing page disconnects (edge anti-bot); article pages are
+        # served normally, so the recovered links still resolve
+        if url.endswith("/publications"):
+            raise RuntimeError("Server disconnected without sending a response.")
+        if url.endswith("/publications/2026/deep-report"):
+            return _article_page(title="Deep report")
+        raise RuntimeError("404")
 
     def render_html(url: str) -> str:
         return '<html><body><a href="/publications/2026/deep-report">R</a></body></html>'

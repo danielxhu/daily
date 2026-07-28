@@ -61,6 +61,9 @@ class PollOutcome:
     # item (transcription_deferred) and the next poll re-discovers it. The key may
     # be a guid, which is not recoverable from the URL alone — hence carried here.
     dispatched_keys: dict[str, str] = field(default_factory=dict)
+    # dispatched URL → the description the feed carried; the runtime falls back to
+    # it when the article page refuses every client (§6.6 items_unfetchable)
+    dispatched_summaries: dict[str, str] = field(default_factory=dict)
 
 
 def newest_first(items: list[FeedItem]) -> list[FeedItem]:
@@ -132,12 +135,16 @@ def _is_single_video(url: str) -> bool:
 
 
 def _is_single_content(url: str) -> bool:
-    """Single-content pages beyond videos: a Reddit post, a Weibo status."""
+    """Single-content pages beyond videos: a Reddit post, a Weibo status, one
+    podcast episode."""
     if _is_single_video(url):
         return True
     parts = urlsplit(url)
     host = _host(url)
     if host.endswith("reddit.com") and "/comments/" in parts.path:
+        return True
+    # ONE Xiaoyuzhou episode (the show page — /podcast/<pid> — is a feed instead)
+    if host == "xiaoyuzhoufm.com" and parts.path.startswith("/episode/"):
         return True
     if host in ("weibo.com", "weibo.cn") and re.fullmatch(r"/\d+/[A-Za-z0-9]+/?", parts.path):
         return True
@@ -157,6 +164,50 @@ def _is_douyin_user(url: str) -> bool:
     """A Douyin creator page (douyin.com/user/…) — best-effort via yt-dlp; Douyin
     rate-controls aggressively, so a block is a typed retryable failure."""
     return _host(url) == "douyin.com" and urlsplit(url).path.startswith("/user/")
+
+
+def _is_xiaoyuzhou_show(url: str) -> bool:
+    """A Xiaoyuzhou show page (xiaoyuzhoufm.com/podcast/<pid>) — a feed of episodes.
+    No RSS is advertised, but the page server-renders its episode list as JSON."""
+    return _host(url) == "xiaoyuzhoufm.com" and urlsplit(url).path.startswith("/podcast/")
+
+
+_NEXT_DATA_RE = re.compile(
+    rb'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>', re.DOTALL
+)
+
+
+def xiaoyuzhou_episodes(url: str, fetch: Fetch, *, limit: int = 20) -> list[FeedItem]:
+    """A Xiaoyuzhou show's latest episodes from the page's server-rendered JSON,
+    each with its own title and publish date. Newest first (page order)."""
+    m = _NEXT_DATA_RE.search(fetch(url))
+    if m is None:
+        raise FeedParseError("Xiaoyuzhou page carried no episode data")
+    try:
+        episodes = json.loads(m.group(1))["props"]["pageProps"]["podcast"]["episodes"]
+    except (ValueError, KeyError, TypeError) as exc:
+        raise FeedParseError("Xiaoyuzhou episode list not in the expected shape") from exc
+    items: list[FeedItem] = []
+    for ep in episodes[:limit]:
+        eid = ep.get("eid")
+        if not eid:
+            continue
+        published = None
+        if raw_date := ep.get("pubDate"):
+            try:  # RFC 3339 with a 'Z' zone
+                published = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+            except ValueError:
+                published = None
+        items.append(
+            FeedItem(
+                guid=str(eid),
+                url=f"https://www.xiaoyuzhoufm.com/episode/{eid}",
+                title=str(ep["title"]).strip() if ep.get("title") else None,
+                summary=None,
+                published=published,
+            )
+        )
+    return items
 
 
 def _weibo_uid(url: str) -> str | None:
@@ -237,6 +288,8 @@ _PUBLISHED_RES = (
     re.compile(
         rb'property="(?:article|og):published_time"\s+content="([0-9T:+\-.]+)"', re.IGNORECASE
     ),
+    # JSON-LD Article schema — the common shape on CMS-built insight/report pages
+    re.compile(rb'"datePublished"\s*:\s*"([0-9T:+\-.Z]+)"'),
 )
 
 
@@ -268,6 +321,80 @@ def _html_title(content: bytes) -> str | None:
     # (an item once ended up literally named "- YouTube")
     title = re.sub(r"\s*-\s*YouTube$", "", title).strip()
     return title or None
+
+
+def _og(content: bytes, prop: bytes) -> str | None:
+    """One Open Graph meta value (property before content)."""
+    m = re.search(rb'property="og:' + prop + rb'"\s+content="([^"]*)"', content, re.IGNORECASE)
+    if not m:
+        return None
+    return unescape(m.group(1).decode("utf-8", errors="replace")).strip() or None
+
+
+def _article_meta(content: bytes) -> tuple[str | None, datetime | None]:
+    """A recovered page's title and publish date. The DATE is what separates an
+    article from a section/nav page — `og:type=article` is not a usable
+    discriminator, since CMS insight sites stamp it on topic landing pages too."""
+    return _og(content, b"title") or _html_title(content), _html_published(content)
+
+
+# bounded so a huge listing can't fan out into hundreds of GETs in one poll;
+# the rest carry over to the next
+_RECOVER_ENRICH_LIMIT = 30
+
+
+def _read_page(url: str, fetch: Fetch, render_html: RenderFn | None) -> bytes | None:
+    """One page's HTML: plain fetch, then the headless browser. None if neither."""
+    try:
+        return fetch(url)
+    except Exception:
+        if render_html is None:
+            return None
+    try:
+        return render_html(url).encode()
+    except Exception:
+        return None
+
+
+def _resolve_recovered(
+    items: list[FeedItem], fetch: Fetch, render_html: RenderFn | None = None
+) -> tuple[list[FeedItem], list[FeedItem]]:
+    """Resolve bare recovered listing links into articles: read each page once and
+    keep only the dated ones (see `_article_meta`). Already-titled/dated feed items
+    pass through. A fetch that fails falls back to `render_html` — some sites serve
+    article pages only to a browser; a page that refuses the browser too stays a
+    typed failure.
+
+    Returns ``(keep, seen)``: links that could not be read at all are EXCLUDED from
+    ``seen`` so a transient failure retries instead of being swallowed."""
+    keep: list[FeedItem] = []
+    seen: list[FeedItem] = []
+    budget = _RECOVER_ENRICH_LIMIT
+    for item in items:
+        if item.title is not None or item.published is not None:
+            # a real feed item, not a bare recovered link
+            keep.append(item)
+            seen.append(item)
+            continue
+        if not item.url or budget <= 0:  # over budget this poll — retry next
+            continue
+        budget -= 1
+        page = _read_page(item.url, fetch, render_html)
+        if page is None:
+            continue  # unreadable this poll — leave unseen so it retries
+        seen.append(item)
+        title, published = _article_meta(page)
+        if title and published is not None:  # else a section/nav/undated page
+            keep.append(
+                FeedItem(
+                    guid=item.guid,
+                    url=item.url,
+                    title=title,
+                    summary=item.summary,
+                    published=published,
+                )
+            )
+    return keep, seen
 
 
 def _oembed_title(video_url: str, fetch: Callable[[str], bytes]) -> str | None:
@@ -447,6 +574,13 @@ def _recover_feed_items(
             rendered = b""
         if links := _under_section_links(rendered, base_url=sub.input_url):
             return links
+    # Not a feed and not a listing: a titled + dated page IS one piece of content.
+    # Host-independent counterpart to the `_is_single_content` URL rules.
+    title, published = _article_meta(content)
+    if title and published is not None:
+        return [
+            FeedItem(guid=None, url=sub.input_url, title=title, summary=None, published=published)
+        ]
     raise FeedParseError(
         f"{feed_error}; no feed discovered on the page and no article links found beneath it"
     ) from feed_error
@@ -512,11 +646,15 @@ def poll_subscription(
             error=f"domain under risk-control backoff until {until.isoformat(timespec='minutes')}",
         )
     try:
+        from_feed = False  # set on the feed/listing path — the one that recovers links
         if (msg := _unsupported_platform(sub.input_url)) is not None:
             raise FeedParseError(msg)
         if _is_bilibili_space(sub.input_url) or _is_douyin_user(sub.input_url):
             # JS-shell creator page → list videos via yt-dlp (B 站/抖音)
             found = list_platform_videos(sub.input_url)
+        elif _is_xiaoyuzhou_show(sub.input_url):
+            # podcast show with no RSS → episodes from the page's own JSON
+            found = xiaoyuzhou_episodes(sub.input_url, fetch)
         elif (uid := _weibo_uid(sub.input_url)) is not None:
             # Weibo profile → public mobile JSON endpoint (through injected fetch)
             found = _weibo_items(uid, fetch)
@@ -525,23 +663,35 @@ def poll_subscription(
             # fetched only for its server-rendered <title>). Playlist/watch-later
             # player URLs canonicalize to the plain /video/ page first.
             video_url = _canonical_video_url(sub.input_url)
-            page = fetch(video_url)
-            title = _html_title(page)
-            if title is None and is_youtube(video_url):
-                # the watch page was a bot-check shell — oEmbed still has the title
-                title = _oembed_title(video_url, fetch)
-            found = [
-                FeedItem(
-                    guid=None,
-                    url=video_url,
-                    title=title,
-                    summary=None,
-                    published=_html_published(page),
-                )
-            ]
+            # a single item never changes: skip the fetch once it is seen (repeated
+            # hits also invite risk control). A failed first poll stays unseen.
+            probe = FeedItem(guid=None, url=video_url, title=None, summary=None, published=None)
+            if not select_new_items(conn, sub.id, [probe]):
+                found = []
+            else:
+                page = fetch(video_url)
+                title = _html_title(page)
+                if title is None and is_youtube(video_url):
+                    # the watch page was a bot-check shell — oEmbed still has the title
+                    title = _oembed_title(video_url, fetch)
+                found = [
+                    FeedItem(
+                        guid=None,
+                        url=video_url,
+                        title=title,
+                        summary=None,
+                        published=_html_published(page),
+                    )
+                ]
         else:
             found = _feed_items(sub, conn=conn, fetch=fetch, render_html=render_html)
+            from_feed = True
         new = select_new_items(conn, sub.id, found)
+        seen_now = new
+        if from_feed and sub.mode != "homepage_diff":
+            # recovered listing links are bare URLs: resolve each to a dated article
+            # and drop nav/section pages. Feed items and homepage_diff pass through.
+            new, seen_now = _resolve_recovered(new, fetch, render_html)
         picked = new
         if sub.last_polled is None and len(new) > config.FIRST_POLL_ITEM_CAP:
             # "latest N" means BY DATE where the feed provides one — never trust
@@ -549,12 +699,15 @@ def poll_subscription(
             picked = newest_first(new)[: config.FIRST_POLL_ITEM_CAP]
         dispatched: list[str] = []
         dispatched_keys: dict[str, str] = {}
+        dispatched_summaries: dict[str, str] = {}
         now = datetime.now(UTC)
         for item in picked:
             if item.url:
                 dispatch(sub, SourceRequest(kind="url", url=item.url))
                 dispatched.append(item.url)
                 dispatched_keys[item.url] = dedup_key(item)
+                if item.summary and item.summary.strip():
+                    dispatched_summaries[item.url] = item.summary.strip()
                 # M15.1a (v0.12 P0): discovery IS the visibility gate — the item
                 # exists as knowledge from this moment, whatever the deep pipeline
                 # later does to it. A re-discovered (deferred) item resets to new.
@@ -566,7 +719,9 @@ def poll_subscription(
                     now=now,
                     module_id=sub.module_id,  # M15.1: item inherits the source's module
                 )
-        mark_items_seen(conn, sub.id, new)  # ALL new items — the backlog never re-queues
+        # every judged item, so the backlog never re-queues; unreadable links are
+        # excluded from seen_now so they retry
+        mark_items_seen(conn, sub.id, seen_now)
         return PollOutcome(
             sub.id,
             ok=True,
@@ -574,6 +729,7 @@ def poll_subscription(
             dispatched=dispatched,
             backlog_skipped=len(new) - len(picked),
             dispatched_keys=dispatched_keys,
+            dispatched_summaries=dispatched_summaries,
         )
     except Exception as exc:  # isolation: a broken source must not crash the run
         if is_risk_control(str(exc)):
