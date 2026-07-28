@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import {
   ApiError,
@@ -16,14 +15,12 @@ import {
   queryModules,
   querySubscriptions,
 } from "@/lib/api";
-import { trackedTitle } from "@/components/TrackedItems";
-import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
+import { useIntlLocale, useT } from "@/lib/i18n";
 import type {
   Board,
   KnowledgeModule,
   KnowledgeNote,
   Subscription,
-  TrackedItemCard,
 } from "@/types/contract";
 
 interface BoardsViewProps {
@@ -256,7 +253,6 @@ function BoardDetail({
   const [notes, setNotes] = useState<KnowledgeNote[] | null>(null);
   const [modules, setModules] = useState<KnowledgeModule[] | null>(null);
   const [sources, setSources] = useState<Subscription[] | null>(null);
-  const [items, setItems] = useState<TrackedItemCard[] | null>(null);
   // M15.3: the module filter narrows sources + items; notes stay board-level
   const [moduleFilter, setModuleFilter] = useState<string | null>(null);
   // to keep the page uncluttered, the reading surface (chips → items →
@@ -269,7 +265,6 @@ function BoardDetail({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [confirmingModuleDelete, setConfirmingModuleDelete] = useState<string | null>(null);
   const t = useT();
-  const { locale } = useLocale(); // M16.3: enrichment summaries follow the toggle
 
   useEffect(() => {
     let active = true;
@@ -284,7 +279,6 @@ function BoardDetail({
         setNotes(n);
         setModules(m);
         setSources(subs.filter((s) => s.board_id === board.id));
-        setItems(digest.tracked ?? []);
       })
       .catch((err) => active && setError(message(err, t("boards.errLoadBoard"))));
     return () => {
@@ -315,9 +309,6 @@ function BoardDetail({
       setModules((prev) => (prev ?? []).filter((m) => m.id !== moduleId));
       setSources((prev) =>
         (prev ?? []).map((s) => (s.module_id === moduleId ? { ...s, module_id: null } : s)),
-      );
-      setItems((prev) =>
-        (prev ?? []).map((i) => (i.module_id === moduleId ? { ...i, module_id: null } : i)),
       );
       setModuleFilter((prev) => (prev === moduleId ? null : prev));
     } catch (err) {
@@ -528,39 +519,6 @@ function BoardDetail({
           </div>
         )}
 
-        {/* tracked items in this board — the reading list. Titles go to the
-            item detail page (the original link lives there); summaries show the
-            lede only. */}
-        {items &&
-          items.filter((i) => moduleFilter === null || i.module_id === moduleFilter).length ===
-            0 && <p className="text-sm text-muted">{t("boards.items.none")}</p>}
-        <ul className="space-y-4" aria-label={t("boards.items.aria")}>
-          {items
-            ?.filter((i) => moduleFilter === null || i.module_id === moduleFilter)
-            .map((item) => (
-              <li key={item.id} className="min-w-0 space-y-1">
-                <p className="break-words text-[15px] font-medium leading-snug text-ink">
-                  <Link
-                    href={`/items/${item.id}`}
-                    className="transition-colors hover:text-accent"
-                  >
-                    {trackedTitle(item, locale) ?? item.url ?? item.domain ?? "—"}
-                  </Link>
-                </p>
-                {/* M16.3: the bilingual enrichment follows the locale; clamp to
-                    the lede — the three-paragraph briefing lives on the detail */}
-                {item.enrichment && (
-                  <p className="line-clamp-2 max-w-[72ch] text-xs leading-relaxed text-muted">
-                    <span className="badge mr-1.5 bg-panel text-faint">
-                      {t("digest.ai.label")}
-                    </span>
-                    {locale === "zh" ? item.enrichment.summary_zh : item.enrichment.summary_en}
-                  </p>
-                )}
-                {item.domain && <p className="mono text-xs text-faint">{item.domain}</p>}
-              </li>
-            ))}
-        </ul>
       </section>
 
       {/* Operator notes — human-authored */}

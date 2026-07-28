@@ -53,11 +53,9 @@ test("knowledge hierarchy: create a module, move a source, filter items (M15.3)"
   await openFinanceBoard(page);
   const section = page.getByRole("region", { name: "Modules and sources" });
 
-  // the reading surface: module chips + tracked items, no admin chrome yet
+  // module chips, no admin chrome yet; Knowledge lists saved notes, not every item
   await expect(section.getByRole("button", { name: "Rates", exact: true })).toBeVisible();
-  await expect(
-    section.getByRole("link", { name: "Board-scoped tracked item" }),
-  ).toBeVisible();
+  await expect(section.getByRole("link", { name: "Board-scoped tracked item" })).toHaveCount(0);
   await expect(section.getByLabel("New module name")).toHaveCount(0);
 
   // management chrome (module add/delete, source module moves) is behind Manage
@@ -71,14 +69,8 @@ test("knowledge hierarchy: create a module, move a source, filter items (M15.3)"
   // move the board's source into it
   await section.getByLabel(/Module:/).first().selectOption({ label: "AI chips" });
 
-  // filter by the new module: the tracked item (ungrouped) drops out honestly
   await section.getByRole("button", { name: "AI chips", exact: true }).click();
-  await expect(section.getByRole("link", { name: "Board-scoped tracked item" })).toHaveCount(0);
-  await expect(section.getByText(/No tracked items here yet/)).toBeVisible();
   await section.getByRole("button", { name: "All", exact: true }).click();
-  await expect(
-    section.getByRole("link", { name: "Board-scoped tracked item" }),
-  ).toBeVisible();
 
   // the hierarchy must not squeeze the page sideways (mobile project included)
   const noOverflow = await page.evaluate(

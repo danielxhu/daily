@@ -157,21 +157,14 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
     // modules of this board render as filter chips
     const section = screen.getByRole("region", { name: "Modules and sources" });
     expect(within(section).getByRole("button", { name: "Rates" })).toBeInTheDocument();
-    // tracked items are the reading list (check badges retired by M16.1)
-    const items = within(section).getByRole("list", { name: "Tracked items in this board" });
+    // Knowledge lists saved notes; the every-tracked-item reading list is not here
     expect(
-      within(items).getByRole("link", { name: "Board-scoped tracked item" }),
-    ).toBeInTheDocument();
-    // …and titles go to the item detail page, not straight off-site
+      within(section).queryByRole("list", { name: "Tracked items in this board" }),
+    ).toBeNull();
     expect(
-      within(items).getByRole("link", { name: "Board-scoped tracked item" }),
-    ).toHaveAttribute("href", expect.stringMatching(/^\/items\//));
-    // M16.3: the bilingual enrichment renders in the active locale (en default);
-    // the legacy single-language line never renders (M16.1)
-    expect(
-      within(items).getByText(/The source says a board-scoped update landed./),
-    ).toBeInTheDocument();
-    expect(within(items).queryByText(/LEGACY-ONLY/)).toBeNull();
+      within(section).queryByRole("link", { name: "Board-scoped tracked item" }),
+    ).toBeNull();
+    expect(within(section).queryByText(/LEGACY-ONLY/)).toBeNull();
     expect(within(section).queryByText(/deeply checked/i)).toBeNull();
     // the reading surface carries NO management chrome…
     expect(within(section).queryByRole("list", { name: "Sources in this board" })).toBeNull();
@@ -210,11 +203,8 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
     fireEvent.click(within(section).getByRole("button", { name: "Remove it" }));
     await waitFor(() => expect(deleteModuleFn).toHaveBeenCalledWith("m_rates"));
     expect(within(section).queryByRole("button", { name: "Rates" })).not.toBeInTheDocument();
-    // sources and items are still listed (now ungrouped)
+    // the board's sources are still listed, now ungrouped
     expect(within(section).getByText(/federalreserve.gov/)).toBeInTheDocument();
-    expect(
-      within(section).getByRole("link", { name: "Board-scoped tracked item" }),
-    ).toBeInTheDocument();
   });
 
   it("moves a source into a module via the selector", async () => {
@@ -229,21 +219,17 @@ describe("BoardsView knowledge hierarchy (M15.3)", () => {
     await waitFor(() => expect(assignModuleFn).toHaveBeenCalledWith("sub_fed", "m_rates"));
   });
 
-  it("the module filter narrows sources and items; All restores", async () => {
+  it("the module filter narrows the sources list; All restores", async () => {
     setup();
     await openFinance();
     openManage();
     const section = screen.getByRole("region", { name: "Modules and sources" });
     fireEvent.click(within(section).getByRole("button", { name: "Rates" }));
-    // nothing is assigned to Rates yet → both lists show their honest empty states
+    // nothing is assigned to Rates yet
     expect(
       within(section).getByText(/No sources assigned to this board yet/),
     ).toBeInTheDocument();
-    expect(within(section).queryByRole("link", { name: "Board-scoped tracked item" })).toBeNull();
-    expect(within(section).getByText(/No tracked items here yet/)).toBeInTheDocument();
     fireEvent.click(within(section).getByRole("button", { name: "All" }));
-    expect(
-      await within(section).findByRole("link", { name: "Board-scoped tracked item" }),
-    ).toBeInTheDocument();
+    expect(await within(section).findByText(/federalreserve.gov/)).toBeInTheDocument();
   });
 });
