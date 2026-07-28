@@ -11,16 +11,24 @@ import {
   createBoard,
   deleteBoard,
   queryBoards,
+  queryDigest,
   renameSubscription,
   querySubscriptions,
 } from "@/lib/api";
 import type { PollReport, PollSubReport } from "@/lib/api";
-import { useT } from "@/lib/i18n";
-import type { Board, Subscription, SubscriptionFailureKind } from "@/types/contract";
+import { trackedTitle } from "@/components/TrackedItems";
+import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
+import type {
+  Board,
+  Subscription,
+  SubscriptionFailureKind,
+  TrackedItemCard,
+} from "@/types/contract";
 
-// User-facing labels for the poll-mode enum. The backend still receives the raw enum
-// value (`mode`), but the operator never sees engineering words like `homepage_diff`.
-const MODES: Subscription["mode"][] = ["direct", "autodiscover", "platform", "homepage_diff"];
+// The add form asks only what the URL can't answer: treat a plain page as a feed
+// (the type is auto-detected) or watch it for new links. `autodiscover`/`platform`
+// stay valid backend values for existing sources.
+const MODES: Subscription["mode"][] = ["direct", "homepage_diff"];
 
 // Isomorphic with backend app/tracking/health.py SUBSCRIPTION_NEXT_ACTION (§6.6):
 // a failed source shows the user a NEXT STEP, not just a log line.
@@ -40,6 +48,68 @@ const MODE_KEY: Record<Subscription["mode"], string> = {
   homepage_diff: "tracking.mode.homepage_diff",
 };
 
+// What a source is, read from its URL — mirrors poll.py's routing predicates
+// (`_is_single_video` / `_is_single_content` / …). Display only: the backend decides
+// handling, so a mislabel here is cosmetic.
+function sourceKindKey(sub: Pick<Subscription, "input_url" | "mode">): string {
+  if (sub.mode === "homepage_diff") return "kind.homepage";
+  let host = "";
+  let path = "";
+  try {
+    const u = new URL(sub.input_url);
+    host = u.hostname.replace(/^www\./, "").replace(/^m\./, "");
+    path = u.pathname;
+  } catch {
+    return "kind.feed";
+  }
+  const bvid = /[?&]bvid=BV[0-9A-Za-z]+/.test(sub.input_url);
+  if (["youtu.be", "b23.tv", "v.douyin.com"].includes(host)) return "kind.video";
+  if (host === "xhslink.com") return "kind.note";
+  if (host.endsWith("youtube.com") && (path === "/watch" || path.startsWith("/shorts/")))
+    return "kind.video";
+  if (host === "bilibili.com" && (path.startsWith("/video/") || bvid)) return "kind.video";
+  if (host === "douyin.com" && path.startsWith("/video/")) return "kind.video";
+  if (host === "xiaohongshu.com" && (path.startsWith("/explore/") || path.startsWith("/discovery/item/")))
+    return "kind.note";
+  if (host.endsWith("reddit.com") && path.includes("/comments/")) return "kind.post";
+  if (host === "space.bilibili.com") return "kind.channel";
+  if (host === "douyin.com" && path.startsWith("/user/")) return "kind.channel";
+  if (host.endsWith("youtube.com") && /^\/(@|channel\/|c\/|user\/)/.test(path)) return "kind.channel";
+  if (host === "weibo.com" || host === "weibo.cn") return "kind.social";
+  return "kind.feed";
+}
+
+/** One source's own items, inline on its row. Newest first. */
+function SourceContent({ items }: { items: TrackedItemCard[] }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const intlLocale = useIntlLocale();
+  if (items.length === 0) {
+    return <p className="mt-2 text-xs text-faint">{t("tracking.content.none")}</p>;
+  }
+  const sorted = [...items].sort((a, b) =>
+    (b.published ?? b.first_seen).localeCompare(a.published ?? a.first_seen),
+  );
+  return (
+    <ul className="mt-2 divide-y divide-line border-t border-line">
+      {sorted.map((item) => (
+        <li key={item.id} className="flex items-baseline gap-3 py-2">
+          <span className="mono tnum w-20 shrink-0 text-[11px] text-faint">
+            {item.published
+              ? new Date(item.published).toLocaleDateString(intlLocale)
+              : t("tracking.content.undated")}
+          </span>
+          <span className="min-w-0 text-[13px] leading-snug text-ink">
+            <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
+              {trackedTitle(item, locale) ?? item.url ?? "—"}
+            </Link>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface TrackingViewProps {
   // injectable so tests never hit the network
   subscriptionsFn?: typeof querySubscriptions;
@@ -50,6 +120,7 @@ interface TrackingViewProps {
   createBoardFn?: typeof createBoard;
   deleteBoardFn?: typeof deleteBoard;
   renameFn?: typeof renameSubscription;
+  digestFn?: typeof queryDigest;
 }
 
 function message(err: unknown, fallback: string): string {
@@ -137,8 +208,11 @@ export function TrackingView({
   createBoardFn = createBoard,
   deleteBoardFn = deleteBoard,
   renameFn = renameSubscription,
+  digestFn = queryDigest,
 }: TrackingViewProps) {
   const [subs, setSubs] = useState<Subscription[] | null>(null);
+  const [items, setItems] = useState<TrackedItemCard[]>([]);
+  const [openSource, setOpenSource] = useState<string | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState("");
@@ -168,10 +242,14 @@ export function TrackingView({
     boardsFn()
       .then((b) => active && setBoards(b))
       .catch(() => active && setBoards([]));
+    // 365 is the endpoint's maximum window; a failure just drops the affordance
+    digestFn({ windowDays: 365 })
+      .then((d) => active && setItems(d.tracked ?? []))
+      .catch(() => active && setItems([]));
     return () => {
       active = false;
     };
-  }, [subscriptionsFn, boardsFn]);
+  }, [subscriptionsFn, boardsFn, digestFn]);
 
   async function addBoard() {
     const name = newBoardName.trim();
@@ -386,6 +464,7 @@ export function TrackingView({
             )}
           </label>
         </div>
+        <p className="max-w-[60ch] text-xs text-faint">{t("tracking.mode.help")}</p>
         <button type="submit" className="btn-primary">
           {t("tracking.addSource")}
         </button>
@@ -450,15 +529,30 @@ export function TrackingView({
             <li key={sub.id} className="space-y-1">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  {/* the user-given name leads; the URL stays visible below it
-                      (URLs alone are hard to tell apart) */}
+                  {/* the user-given name leads, the URL stays visible below it
+                      (URLs alone are hard to tell apart); both open the source */}
                   <p className="truncate text-sm font-medium text-ink">
-                    {sub.name || sub.input_url}
+                    <a
+                      href={sub.input_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={t("tracking.open.aria", { url: sub.input_url })}
+                      className="transition-colors hover:text-accent hover:underline underline-offset-2"
+                    >
+                      {sub.name || sub.input_url}
+                    </a>
                   </p>
                   {sub.name && (
-                    <p className="mono truncate text-xs text-faint">{sub.input_url}</p>
+                    <a
+                      href={sub.input_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mono block truncate text-xs text-faint transition-colors hover:text-accent"
+                    >
+                      {sub.input_url}
+                    </a>
                   )}
-                  <p className="text-xs text-faint">{t(MODE_KEY[sub.mode])}</p>
+                  <p className="text-xs text-faint">{t(sourceKindKey(sub))}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span
@@ -485,6 +579,17 @@ export function TrackingView({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setOpenSource((prev) => (prev === sub.id ? null : sub.id))}
+                    aria-expanded={openSource === sub.id}
+                    aria-label={t("tracking.content.aria", { url: sub.input_url })}
+                    className="text-xs text-muted underline underline-offset-2 hover:text-ink"
+                  >
+                    {t("tracking.content", {
+                      count: items.filter((i) => i.subscription_id === sub.id).length,
+                    })}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleRemove(sub.id)}
                     aria-label={t("tracking.remove.aria", { url: sub.input_url })}
                     className="text-xs text-muted underline underline-offset-2 hover:text-ink"
@@ -493,6 +598,9 @@ export function TrackingView({
                   </button>
                 </div>
               </div>
+              {openSource === sub.id && (
+                <SourceContent items={items.filter((i) => i.subscription_id === sub.id)} />
+              )}
               {renamingId === sub.id && (
                 <form
                   onSubmit={(e) => {

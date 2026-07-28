@@ -100,9 +100,8 @@ describe("TrackingView", () => {
     ).toBeInTheDocument();
     expect(within(list).getByText("ok")).toBeInTheDocument();
     expect(within(list).getByText("unhealthy")).toBeInTheDocument();
-    // the mode is shown in user language — never the raw enum (the mock has a
-    // `homepage_diff` source, which must read as "Watch homepage for changes")
-    expect(within(list).getByText("Watch homepage for changes")).toBeInTheDocument();
+    // the type shows in user language, never the raw enum
+    expect(within(list).getByText("Homepage watch")).toBeInTheDocument();
     expect(within(list).queryByText("homepage_diff")).toBeNull();
     // §6.6: the unhealthy source shows the user a NEXT STEP …
     expect(within(list).getByText(/Replace or remove this source/)).toBeInTheDocument();
@@ -118,15 +117,17 @@ describe("TrackingView", () => {
     });
     // the option reads in user language …
     expect(
-      screen.getByRole("option", { name: "Watch homepage for changes" }),
+      screen.getByRole("option", { name: "Watch this page for updates" }),
     ).toBeInTheDocument();
     // … but selecting it still submits the backend enum value
-    fireEvent.change(screen.getByLabelText("Mode"), { target: { value: "platform" } });
+    fireEvent.change(screen.getByLabelText("How to track"), {
+      target: { value: "homepage_diff" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Add source" }));
     await waitFor(() =>
       expect(createFn).toHaveBeenCalledWith({
         input_url: "https://x.example/feed.xml",
-        mode: "platform",
+        mode: "homepage_diff",
         board_id: null,
         name: null,
       }),
