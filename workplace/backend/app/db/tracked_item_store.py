@@ -144,6 +144,7 @@ def _row_to_card(
         ),
         content_available=row["content_excerpt"] is not None,
         similar_count=similar_count,
+        subscription_id=row["subscription_id"],
     )
 
 
