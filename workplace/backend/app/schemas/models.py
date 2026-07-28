@@ -56,6 +56,8 @@ ExtractionMethod = Literal[
     "whisper",
     "pasted_text",
     "frame_ocr",
+    # the source's own feed description, when its article page can't be read
+    "feed_summary",
 ]
 
 
@@ -304,6 +306,8 @@ class TrackedItemCard(Schema):
 
     id: str
     board_id: str | None
+    # the source that produced this item (Sources page filters on it)
+    subscription_id: str | None = None
     # M15.1: the source's module at discovery time (board → module → source → item)
     module_id: str | None = None
     url: str | None
@@ -347,6 +351,9 @@ class TrackedItemDetail(Schema):
     # capped excerpt still grounds discussion/refresh server-side). None = no
     # stored text (legacy pre-v0.13 row or fetch-failed item).
     excerpt_preview: str | None
+    # how that text was obtained; `feed_summary` = the feed's description stood in
+    # for an unreadable article page, which the page must disclose
+    excerpt_method: ExtractionMethod | None = None
 
 
 class ItemProgress(Schema):
@@ -420,6 +427,9 @@ class ItemNoteDraftRequest(Schema):
     never writes — the user saves the final text via the notes endpoint."""
 
     messages: list[DiscussMessage] = []
+    # the item's discussion so far, so the draft continues it. Separate from
+    # `messages`, which is the draft's own revision chat.
+    discussion: list[DiscussMessage] = []
     # the UI locale the initial draft should be written in (a user instruction
     # in another language overrides it)
     locale: Literal["zh", "en"] = "zh"

@@ -130,6 +130,27 @@ def _ingest_only(
     return sources, failed
 
 
+def _sources_from_feed_summaries(
+    o: PollOutcome, failed: list[IngestionResult]
+) -> list[NormalizedSource]:
+    """A source per failed item whose feed carried a usable description. Items with
+    only a teaser keep their typed failure."""
+    from app.ingestion.html_static import build_webpage_source
+
+    rescued: list[NormalizedSource] = []
+    for r in failed:
+        url = (r.failure.requested_url if r.failure else None) or r.requested.url
+        summary = o.dispatched_summaries.get(url or "")
+        if not url or not summary or len(summary) < _FEED_SUMMARY_MIN_CHARS:
+            continue
+        rescued.append(build_webpage_source(url, summary, "feed_summary"))
+    return rescued
+
+
+# shorter than this is a teaser ("Read the full report →"), not material
+_FEED_SUMMARY_MIN_CHARS = 80
+
+
 def _summarize_new_items(
     conn: sqlite3.Connection,
     o: PollOutcome,
@@ -457,6 +478,18 @@ def _process_outcome(
         if r.failure is not None and r.failure.kind == "transcription_deferred"
     ]
     failed = [r for r in all_failed if r not in deferred]
+    # article pages that refuse every client fall back to the feed's own description,
+    # recorded as `feed_summary`. Only fills items that would carry nothing.
+    rescued_from_feed = _sources_from_feed_summaries(o, failed)
+    if rescued_from_feed:
+        rescued_urls = {s.url for s in rescued_from_feed}
+        failed = [
+            r
+            for r in failed
+            if ((r.failure.requested_url if r.failure else None) or r.requested.url)
+            not in rescued_urls
+        ]
+        sources = sources + rescued_from_feed
 
     # settle each discovered item's OWN lifecycle status (M15.1a — the row was
     # written at dispatch; nothing later deletes it)

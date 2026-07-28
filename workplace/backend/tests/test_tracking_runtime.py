@@ -344,6 +344,60 @@ def test_all_items_failing_is_a_typed_failure_not_silence(tmp_path: Path) -> Non
     assert reset.consecutive_failures == 0 and reset.subscription_failure_kind is None
 
 
+_FEED_WITH_DESCRIPTIONS = (
+    b'<?xml version="1.0"?><rss version="2.0"><channel><title>Firm insights</title>'
+    b"<item><link>https://firm.example/reports/one</link><title>The first report</title>"
+    b"<description>The publisher's own summary: this report examines how the industry is "
+    b"reallocating capital and what changes for operators over the next year.</description>"
+    b"</item>"
+    b"<item><link>https://firm.example/reports/two</link><title>The second report</title>"
+    b"<description>Read more &#8594;</description></item>"
+    b"</channel></rss>"
+)
+
+
+def test_an_unreadable_article_falls_back_to_the_feeds_own_description(tmp_path: Path) -> None:
+    """When article pages refuse every client, the feed's own description becomes the
+    item's material, recorded as `feed_summary`."""
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(
+        conn,
+        input_url="https://firm.example/rss",
+        mode="direct",
+        feed_url="https://firm.example/rss",
+    )
+
+    report = run_poll(
+        conn,
+        fetch=lambda _url: _FEED_WITH_DESCRIPTIONS,
+        ingest=_anti_bot_ingest,  # every article page refuses us
+        llm=_llm(),
+        now=NOW,
+    )
+
+    s = report.subscriptions[0]
+    # the item with a real description is no longer a failure …
+    assert s.items_ok == 1 and s.items_failed == 1
+    # … and its stored material is the feed's text, marked as such
+    row = conn.execute(
+        "SELECT content_excerpt, extraction_method FROM tracked_items WHERE url = ?",
+        ("https://firm.example/reports/one",),
+    ).fetchone()
+    assert row["extraction_method"] == "feed_summary"
+    assert "reallocating capital" in row["content_excerpt"]
+
+    # the teaser-only item is too thin to stand in for the article
+    thin = conn.execute(
+        "SELECT content_excerpt, status FROM tracked_items WHERE url = ?",
+        ("https://firm.example/reports/two",),
+    ).fetchone()
+    assert thin["content_excerpt"] is None and thin["status"] == "failed"
+
+    # not flagged items_unfetchable — something came through
+    refreshed = get_subscription(conn, sub.id)
+    assert refreshed is not None and refreshed.subscription_failure_kind != "items_unfetchable"
+
+
 def test_concurrent_poll_is_refused_honestly_not_a_zero_report(tmp_path: Path) -> None:
     """M14.4: a second poll while one runs used to see every item already marked
     seen and report a misleading 'checked N · 0 new'. Now it is refused (409 at

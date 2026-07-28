@@ -753,6 +753,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return TrackedItemDetail(
             item=card,
             excerpt_preview=excerpt[:_EXCERPT_PREVIEW_CHARS] if excerpt else None,
+            excerpt_method=row["extraction_method"],
         )
 
     @app.post(
@@ -899,7 +900,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "run fetch-&-summarize (refresh) first",
             )
         try:
-            draft = draft_item_note(card, excerpt, body.messages, locale=body.locale, llm=llm)
+            draft = draft_item_note(
+                card,
+                excerpt,
+                body.messages,
+                discussion=body.discussion,
+                locale=body.locale,
+                llm=llm,
+            )
         except DiscussError as exc:
             raise HTTPException(status_code=502, detail=f"note drafting failed: {exc}") from exc
         return ItemNoteDraftReply(draft=draft)

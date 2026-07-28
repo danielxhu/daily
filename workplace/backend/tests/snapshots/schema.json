@@ -401,6 +401,14 @@
       "additionalProperties": false,
       "description": "`POST /tracked-items/{id}/note-draft` body (2026-07-13): notes saved to\nKnowledge are LLM-curated first. Empty messages = ask for the initial draft;\notherwise the revision chat so far (assistant turns are earlier drafts, the\nlast message must be the user's revision instruction). READ-ONLY: drafting\nnever writes — the user saves the final text via the notes endpoint.",
       "properties": {
+        "discussion": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiscussMessage"
+          },
+          "title": "Discussion",
+          "type": "array"
+        },
         "locale": {
           "default": "zh",
           "enum": [
@@ -736,7 +744,8 @@
                 "caption",
                 "whisper",
                 "pasted_text",
-                "frame_ocr"
+                "frame_ocr",
+                "feed_summary"
               ],
               "type": "string"
             },
@@ -1673,6 +1682,18 @@
           "title": "Status",
           "type": "string"
         },
+        "subscription_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subscription Id"
+        },
         "summary": {
           "anyOf": [
             {
@@ -1742,6 +1763,29 @@
       "additionalProperties": false,
       "description": "`GET /tracked-items/{id}` (M16.4): the item detail page payload — the card\nplus what only the detail view needs. Everything stays in tracking language:\nno score, no verdict, no stance (v0.13).",
       "properties": {
+        "excerpt_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "static_html",
+                "structured_html",
+                "rendered_html",
+                "pdf_text",
+                "caption",
+                "whisper",
+                "pasted_text",
+                "frame_ocr",
+                "feed_summary"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt Method"
+        },
         "excerpt_preview": {
           "anyOf": [
             {

@@ -278,8 +278,10 @@ def test_detail_returns_the_card_and_excerpt_preview_only(tmp_path: Path) -> Non
     assert body["item"]["id"] == item_id
     assert body["excerpt_preview"]
     assert len(body["excerpt_preview"]) <= 2000
-    # the provenance/related blocks left the payload with the page (2026-07-13)
-    assert set(body) == {"item", "excerpt_preview"}
+    # the provenance/related blocks left the payload with the page (2026-07-13);
+    # `excerpt_method` is only how the stored text was obtained
+    assert set(body) == {"item", "excerpt_preview", "excerpt_method"}
+    assert body["excerpt_method"] in (None, "static_html")
     # zero check language anywhere in the payload keys/values
     assert "credibility" not in res.text and "verdict" not in res.text
 
