@@ -125,6 +125,40 @@ def test_record_failure_on_missing_subscription_returns_none(tmp_path: Path) -> 
     assert record_poll_failure(conn, "ghost", "network", "x") is None
 
 
+def test_a_quiet_poll_cannot_erase_a_standing_items_unfetchable_verdict(tmp_path: Path) -> None:
+    """A poll with no new items never fetched one, so it must not clear a standing
+    item-level verdict — otherwise a source delivering nothing reads as healthy."""
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://firm/feed", mode="direct")
+    record_poll_failure(conn, sub.id, "items_unfetchable", "all 50 articles timed out")
+
+    # a later poll of the same feed finds nothing new (new_count == 0)
+    apply_poll_health(conn, [PollOutcome(sub.id, ok=True, new_count=0, dispatched=[])])
+    kept = get_subscription(conn, sub.id)
+    assert kept is not None
+    assert kept.subscription_failure_kind == "items_unfetchable"
+    assert kept.last_error == "all 50 articles timed out"
+    assert kept.last_polled is not None  # the poll itself is still recorded
+
+    # a poll that DID bring items through clears it
+    apply_poll_health(conn, [PollOutcome(sub.id, ok=True, new_count=2, dispatched=["a", "b"])])
+    healed = get_subscription(conn, sub.id)
+    assert healed is not None
+    assert healed.subscription_failure_kind is None and healed.health == "ok"
+
+
+def test_a_quiet_poll_still_clears_an_ordinary_feed_level_failure(tmp_path: Path) -> None:
+    # only the item-level verdict is sticky: an ordinary failure still clears
+    conn = init_db(str(tmp_path / "daily.db"))
+    sub = create_subscription(conn, input_url="https://x/feed", mode="direct")
+    record_poll_failure(conn, sub.id, "network", "timeout")
+    apply_poll_health(conn, [PollOutcome(sub.id, ok=True, new_count=0, dispatched=[])])
+    healed = get_subscription(conn, sub.id)
+    assert healed is not None
+    assert healed.consecutive_failures == 0 and healed.health == "ok"
+    assert healed.subscription_failure_kind is None and healed.last_error is None
+
+
 # --- batch application ------------------------------------------------------
 
 

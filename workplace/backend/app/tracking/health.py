@@ -127,7 +127,11 @@ def apply_poll_health(
         return SystemAnomaly(total=len(outcomes), failed=len(system_side))
     for outcome in outcomes:
         if outcome.ok and outcome.subscription_id not in item_failures:
-            record_poll_success(conn, outcome.subscription_id)
+            # a poll with no new items never fetched one, so it cannot clear a
+            # standing item-level verdict
+            record_poll_success(
+                conn, outcome.subscription_id, keep_item_verdict=outcome.new_count == 0
+            )
     for outcome, kind in classified:
         record_poll_failure(conn, outcome.subscription_id, kind, outcome.error or "")
     for subscription_id, error in item_failures.items():

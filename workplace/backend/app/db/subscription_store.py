@@ -189,12 +189,31 @@ def delete_subscription(conn: sqlite3.Connection, subscription_id: str) -> bool:
 
 
 def record_poll_success(
-    conn: sqlite3.Connection, subscription_id: str, *, polled_at: datetime | None = None
+    conn: sqlite3.Connection,
+    subscription_id: str,
+    *,
+    polled_at: datetime | None = None,
+    keep_item_verdict: bool = False,
 ) -> None:
     """A clean poll resets the health bookkeeping (§6.6): zero failures, healthy,
     clear the last error/kind. The interval is left as-is (a backed-off interval is
-    not auto-restored — §6.6 only specifies resetting the failure count/health)."""
+    not auto-restored — §6.6 only specifies resetting the failure count/health).
+
+    `keep_item_verdict`: a poll with no new items never fetched one, so a standing
+    `items_unfetchable` verdict survives it — otherwise one quiet poll erases the
+    evidence and a source whose every article fails reads as healthy."""
     ts = (polled_at or datetime.now(UTC)).isoformat()
+    if keep_item_verdict:
+        row = conn.execute(
+            "SELECT subscription_failure_kind FROM subscriptions WHERE id = ?",
+            (subscription_id,),
+        ).fetchone()
+        if row is not None and row["subscription_failure_kind"] == "items_unfetchable":
+            conn.execute(
+                "UPDATE subscriptions SET last_polled = ? WHERE id = ?", (ts, subscription_id)
+            )
+            conn.commit()
+            return
     conn.execute(
         "UPDATE subscriptions SET consecutive_failures = 0, health = 'ok',"
         " last_error = NULL, subscription_failure_kind = NULL, last_polled = ?"
