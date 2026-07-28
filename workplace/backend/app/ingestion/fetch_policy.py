@@ -31,6 +31,10 @@ ALLOW_LOGIN = False
 FETCH_USER_AGENT = "daily/0.1 (+source tracker; contact via repo)"
 FETCH_TIMEOUT_MS = 15000
 
+# Listing pages often inject their article grid after `load`. Bounded wait: heavy
+# pages never fully idle, so a timeout still yields what rendered.
+RENDER_SETTLE_MS = 5000
+
 # Hosts that answer the bot UA with a verification wall but serve the SAME
 # server-rendered article to a plain browser UA — no cookies, no login, no
 # captcha solving (WeChat articles: measured 环境异常 wall vs

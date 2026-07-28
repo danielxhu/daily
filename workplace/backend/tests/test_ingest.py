@@ -260,6 +260,33 @@ def test_http_403_with_no_markers_is_fetch_blocked() -> None:
     assert result.failure.kind == "fetch_blocked"
 
 
+def test_a_bare_403_is_retried_in_the_browser_and_can_succeed() -> None:
+    """A 4xx with no paywall/login/challenge marker gets one normal render attempt
+    (no cookies/proxy/stealth). Without a usable render it stays `fetch_blocked`."""
+    client = _FakeHtmlClient("<html><body>Forbidden</body></html>", status_code=403)
+    req = SourceRequest(kind="url", url="https://firm.example.com/publications/report")
+    result = ingest_one(
+        req,
+        http_client=cast(httpx.Client, client),
+        render_client=MockRenderClient(fx.load_text("html/static_article.html")),
+    )
+    assert result.status == "ok"
+    assert result.source is not None and result.source.extraction_method == "rendered_html"
+
+
+def test_a_paywall_is_never_retried_in_the_browser() -> None:
+    # a paywall / login wall / bot challenge is never rendered around (§2.2)
+    client = _FakeHtmlClient(fx.load_text("html/paywall_bloomberg.html"))
+    req = SourceRequest(kind="url", url="https://markets.example.com/story")
+    result = ingest_one(
+        req,
+        http_client=cast(httpx.Client, client),
+        render_client=MockRenderClient(fx.load_text("html/static_article.html")),
+    )
+    assert result.status == "failed"
+    assert result.failure is not None and result.failure.kind == "paywall"
+
+
 def test_malformed_pdf_is_typed_unsupported_not_crash() -> None:
     # bytes start with %PDF- but are corrupt → typed-skip, must not bubble (FR-2).
     client = cast(httpx.Client, _FakeBytesClient(b"%PDF-1.4\nnot actually a valid pdf"))

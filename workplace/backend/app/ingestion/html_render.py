@@ -15,10 +15,15 @@ browser is never launched (NFR-3).
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import Any
 
 from app.clients.base import RenderClient, RenderResult
-from app.ingestion.fetch_policy import FETCH_TIMEOUT_MS, playwright_context_kwargs
+from app.ingestion.fetch_policy import (
+    FETCH_TIMEOUT_MS,
+    RENDER_SETTLE_MS,
+    playwright_context_kwargs,
+)
 from app.ingestion.html_static import extract_main_text
 
 
@@ -36,6 +41,9 @@ class PlaywrightRenderClient:
                 context.set_default_navigation_timeout(FETCH_TIMEOUT_MS)
                 page = context.new_page()
                 page.goto(url)
+                # best-effort: a page that never idles still returns what rendered
+                with suppress(Exception):
+                    page.wait_for_load_state("networkidle", timeout=RENDER_SETTLE_MS)
                 html: Any = page.content()
                 final_url: Any = page.url
             finally:

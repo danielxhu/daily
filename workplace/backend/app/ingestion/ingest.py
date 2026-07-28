@@ -189,7 +189,15 @@ def _ingest_webpage(
         return _webpage_fail(req, url, "fetch_blocked", f"webpage fetch failed: {exc}")
 
     hostile = classify_hostile(status_code=resp.status_code, body=resp.text)
+    if hostile == "fetch_blocked":
+        # A bare 4xx with no paywall/login/challenge marker often just means "not a
+        # browser": retry once in the plain headless browser (no cookies, no proxy,
+        # no stealth). A refusal there falls through to the typed failure below.
+        rescued = _render_or_none(req, url, render_client)
+        if rescued is not None:
+            return rescued
     if hostile is not None:
+        # paywall / login_required / anti_bot are never worked around (§2.2)
         return _webpage_fail(
             req, url, hostile, f"hostile source ({hostile}); not bypassed — paste the text."
         )
