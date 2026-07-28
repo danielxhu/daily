@@ -23,7 +23,7 @@ import json
 import time
 from typing import Any
 
-from openai import APIError
+from openai import APIError, BadRequestError
 
 from app.clients.base import LLMClient
 from app.core.config import Settings, get_settings
@@ -31,6 +31,9 @@ from app.db.credential_store import ApiCredential
 
 _MAX_ATTEMPTS = 3  # 1 initial + 2 retries (§10)
 _BACKOFF_BASE_S = 0.5
+# DeepSeek-specific knob: other OpenAI-compatible endpoints don't know it and
+# strict ones 400 on it, so it is only sent to a DeepSeek base_url — the user's
+# text slot must accept any OpenAI-compatible provider.
 _THINKING_DISABLED = {"thinking": {"type": "disabled"}}
 
 
@@ -44,7 +47,7 @@ class LLMJSONError(LLMError):
 
 class DeepSeekClient:
     """DeepSeek implementation of `LLMClient`. A user-saved "text" credential
-    (settings page, 2026-07-23) points the same OpenAI-compatible wrapper at a
+    (settings page) points the same OpenAI-compatible wrapper at a
     different endpoint/model; escalation then reuses that single model (a custom
     endpoint has no pro tier of ours to climb to)."""
 
@@ -58,6 +61,18 @@ class DeepSeekClient:
         self._settings = settings or get_settings()
         self._client = openai_client  # injectable; lazily built if None
         self._credential = credential
+        # flips off once an endpoint rejects response_format: the prompts demand
+        # JSON anyway and complete_json parses + validates, so JSON mode is an
+        # optimization, never a requirement
+        self._json_mode_supported = True
+
+    def _endpoint_is_deepseek(self) -> bool:
+        base = (
+            self._credential.base_url
+            if self._credential is not None
+            else self._settings.deepseek_base_url
+        )
+        return "deepseek" in (base or "").lower()
 
     def _get_client(self) -> Any:
         if self._client is None:
@@ -80,26 +95,45 @@ class DeepSeekClient:
             )
         return self._client
 
+    def _request_kwargs(self, *, model: str, system: str, user: str) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0,
+        }
+        if self._json_mode_supported:
+            kwargs["response_format"] = {"type": "json_object"}  # JSON mode
+        if self._endpoint_is_deepseek():
+            kwargs["extra_body"] = _THINKING_DISABLED
+        return kwargs
+
     def _create_with_retries(self, *, model: str, system: str, user: str) -> Any:
         client = self._get_client()
         last_exc: Exception | None = None
         for attempt in range(_MAX_ATTEMPTS):
             try:
                 return client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    temperature=0,
-                    response_format={"type": "json_object"},  # JSON mode
-                    extra_body=_THINKING_DISABLED,
+                    **self._request_kwargs(model=model, system=system, user=user)
                 )
+            except BadRequestError as exc:
+                # a 400 is deterministic, not transient. A custom endpoint may
+                # simply not know response_format: drop it for this client and
+                # retry — JSON is enforced by the prompts + parse/validate either
+                # way. On a DeepSeek endpoint (our own request shape) a 400 is a
+                # real bug: raise.
+                if self._json_mode_supported and not self._endpoint_is_deepseek():
+                    self._json_mode_supported = False
+                    last_exc = exc
+                    continue
+                raise LLMError(f"LLM endpoint rejected the request: {exc}") from exc
             except APIError as exc:  # transient API/network error → backoff + retry
                 last_exc = exc
                 if attempt < _MAX_ATTEMPTS - 1:
                     time.sleep(_BACKOFF_BASE_S * (2**attempt))
-        raise LLMError(f"DeepSeek call failed after {_MAX_ATTEMPTS} attempts: {last_exc}")
+        raise LLMError(f"LLM call failed after {_MAX_ATTEMPTS} attempts: {last_exc}")
 
     def complete_json(self, *, system: str, user: str, escalate: bool = False) -> dict[str, Any]:
         if self._credential is not None:

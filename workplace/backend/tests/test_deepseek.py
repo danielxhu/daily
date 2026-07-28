@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 import pytest
-from openai import APIConnectionError
+from openai import APIConnectionError, BadRequestError
 
 from app.clients.base import LLMClient
 from app.clients.deepseek import (
@@ -19,6 +19,7 @@ from app.clients.deepseek import (
     call_with_escalation,
 )
 from app.core.config import Settings
+from app.db.credential_store import ApiCredential
 
 
 def _resp(content: str) -> SimpleNamespace:
@@ -146,3 +147,64 @@ def test_lazy_client_bounds_timeout_and_disables_sdk_retries(
     DeepSeekClient(settings=_settings())._get_client()
     assert captured["timeout"] == 60.0
     assert captured["max_retries"] == 0
+
+
+# --- the text slot accepts any OpenAI-compatible provider -----------------------
+
+
+def _anthropic_credential() -> ApiCredential:
+    return ApiCredential(
+        slot="text",
+        base_url="https://api.anthropic.com/v1",
+        model="claude-sonnet-5",
+        api_key="user-key",
+    )
+
+
+def _bad_request() -> BadRequestError:
+    return BadRequestError(
+        "unknown parameter: response_format",
+        response=httpx.Response(400, request=httpx.Request("POST", "https://api.anthropic.com")),
+        body=None,
+    )
+
+
+def test_custom_endpoint_never_receives_the_deepseek_thinking_knob() -> None:
+    create = _FakeCreate({"claude-sonnet-5": json.dumps({"ok": True})})
+    client = DeepSeekClient(
+        settings=_settings(), openai_client=_fake_openai(create), credential=_anthropic_credential()
+    )
+    assert client.complete_json(system="s", user="u") == {"ok": True}
+    call = create.calls[0]
+    assert "extra_body" not in call  # DeepSeek-V4-specific; strict endpoints would 400
+    assert call["response_format"] == {"type": "json_object"}  # still tried first
+
+
+def test_custom_endpoint_rejecting_json_mode_degrades_and_remembers() -> None:
+    calls: list[dict[str, Any]] = []
+
+    def picky(**kwargs: Any) -> SimpleNamespace:
+        calls.append(kwargs)
+        if "response_format" in kwargs:
+            raise _bad_request()
+        return _resp(json.dumps({"ok": True}))
+
+    client = DeepSeekClient(
+        settings=_settings(), openai_client=_fake_openai(picky), credential=_anthropic_credential()
+    )
+    # first call: tries JSON mode, gets the 400, drops it, succeeds
+    assert client.complete_json(system="s", user="u") == {"ok": True}
+    assert [("response_format" in c) for c in calls] == [True, False]
+    # second call: the rejection is remembered — no wasted 400 round-trip
+    assert client.complete_json(system="s", user="u") == {"ok": True}
+    assert "response_format" not in calls[-1]
+
+
+def test_deepseek_endpoint_bad_request_raises_instead_of_degrading() -> None:
+    # on OUR own request shape a 400 is a bug to surface, not a param to drop
+    def reject(**kwargs: Any) -> SimpleNamespace:
+        raise _bad_request()
+
+    client = DeepSeekClient(settings=_settings(), openai_client=_fake_openai(reject))
+    with pytest.raises(LLMError, match="rejected"):
+        client.complete_json(system="s", user="u")
