@@ -8,7 +8,6 @@ import { FooterNav } from "@/components/FooterNav";
 import { HelpButton } from "@/components/HelpButton";
 import { Nav } from "@/components/Nav";
 import { Shell } from "@/components/Shell";
-import { SmoothScroll } from "@/components/SmoothScroll";
 
 /** The app chrome (header + container + footer). The welcome page is a full-bleed
  * composition with its own scroll and nav, so it renders bare — wrapping it in the
@@ -18,7 +17,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
   if (bare) return <main>{children}</main>;
   return (
     <>
-      <SmoothScroll />
       <header className="sticky top-0 z-20 border-b border-line bg-surface/80 backdrop-blur">
         {/* flex-wrap + compact paddings: the labeled Guide entry (M16.1) made
             the control cluster wider — the 375px header must never overlap */}

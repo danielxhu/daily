@@ -319,122 +319,12 @@ export function TrackedItemsSection({
   );
 }
 
-// --- Today's read surface -----------------------------------------------------
+// --- AIHOT-style timeline: Today's read surface -------------------------------
 
-/** A stable hue per source, drawn from the token layer's six category colors.
- * Colour carries source identity here — the same source always reads the same,
- * which is what makes a long day scannable. It never encodes importance. */
-const SOURCE_HUES = [
-  "--cat-policy",
-  "--cat-sector",
-  "--cat-ma",
-  "--cat-earnings",
-  "--cat-rumor",
-  "--cat-other",
-] as const;
-
-function sourceHue(key: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i += 1) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return SOURCE_HUES[(h >>> 0) % SOURCE_HUES.length];
-}
-
-/** What the item IS, from how its text was obtained — a podcast, a video, a PDF
- * report and an OCR'd image note are different objects and should not all render
- * as the same paragraph. */
-type ItemKind = "audio" | "video" | "report" | "image" | "feed" | "article";
-
-function itemKind(item: TrackedItemCard): ItemKind {
-  switch (item.extraction_method) {
-    case "whisper":
-      return "audio";
-    case "caption":
-      return "video";
-    case "pdf_text":
-      return "report";
-    case "frame_ocr":
-      return "image";
-    case "feed_summary":
-      return "feed";
-    default:
-      return "article";
-  }
-}
-
-const KIND_LABEL: Record<ItemKind, string> = {
-  audio: "itemkind.audio",
-  video: "itemkind.video",
-  report: "itemkind.report",
-  image: "itemkind.image",
-  feed: "itemkind.feed",
-  article: "itemkind.article",
-};
-
-/** The source's mark: its initial on its own hue. Gives the left margin a
- * scannable identity column instead of nothing. */
-function SourceMark({ label, hue }: { label: string; hue: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{
-        color: `rgb(var(${hue}))`,
-        background: `rgb(var(${hue}) / 0.12)`,
-        borderColor: `rgb(var(${hue}) / 0.32)`,
-      }}
-      className="mono inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border text-[11px] font-medium uppercase"
-    >
-      {label.slice(0, 1)}
-    </span>
-  );
-}
-
-/** A few bars standing in for a waveform — audio and video items get a shape of
- * their own so the page is not one paragraph repeated. Decorative only. */
-function WaveMark({ hue }: { hue: string }) {
-  const bars = [5, 11, 7, 14, 9, 16, 6, 12, 8];
-  return (
-    <span aria-hidden="true" className="flex items-end gap-[2px]">
-      {bars.map((height, i) => (
-        <span
-          key={i}
-          style={{ height, background: `rgb(var(${hue}) / ${0.35 + (height / 16) * 0.5})` }}
-          className="w-[2px] rounded-full"
-        />
-      ))}
-    </span>
-  );
-}
-
-function KindMark({ kind, hue, label }: { kind: ItemKind; hue: string; label: string }) {
-  return (
-    <span className="flex items-center gap-2">
-      {(kind === "audio" || kind === "video") && <WaveMark hue={hue} />}
-      <span
-        style={{ color: `rgb(var(${hue}))` }}
-        className="mono text-[10px] uppercase tracking-[0.12em]"
-      >
-        {label}
-      </span>
-    </span>
-  );
-}
-
-/** One item. `size` sets how much room it gets: the lead of a day reads large,
- * items with a summary read medium, and anything with no summary (a typed
- * failure, a pending fetch) compresses to a single dense line. Weight follows
- * how much daily actually HAS — never a ranking. */
-function TimelineRow({
-  item,
-  size = "mid",
-  undated = false,
-}: {
-  item: TrackedItemCard;
-  size?: "lead" | "mid" | "thin";
-  undated?: boolean;
-}) {
+/** One editorial row: a marginal timestamp, then the article — a source line, a
+ * serif headline, the AI summary lede, then tags/status. Hairline-separated on
+ * the paper (the parent list draws the dividers), no boxed card. */
+function TimelineRow({ item, undated = false }: { item: TrackedItemCard; undated?: boolean }) {
   const t = useT();
   const intlLocale = useIntlLocale();
   const { locale } = useLocale();
@@ -447,121 +337,72 @@ function TimelineRow({
       : item.enrichment.summary_en
     : null;
   const tags = item.enrichment?.tags ?? [];
-  const sourceLabel = item.source_name || item.domain || "?";
-  const hue = sourceHue(sourceLabel);
-  const kind = itemKind(item);
-  const title = trackedTitle(item, locale) ?? item.url ?? t("today.tracked.untitled");
-  const time = undated
-    ? "—"
-    : when.toLocaleTimeString(intlLocale, { hour: "2-digit", minute: "2-digit", hour12: false });
-
-  if (size === "thin") {
-    return (
-      <li className="group/item flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2.5 transition-opacity group-hover/day:opacity-45 hover:!opacity-100">
-        <span className="mono tnum w-10 shrink-0 text-[11px] text-faint">{time}</span>
-        <span style={{ color: `rgb(var(${hue}))` }} className="w-24 shrink-0 truncate text-[11px]">
-          {sourceLabel}
-        </span>
-        {item.tier && (
-          <span className="shrink-0 rounded border border-line px-1.5 py-px text-[10px] font-medium text-faint">
-            {t(TIER_KEY[item.tier])}
-          </span>
-        )}
-        <Link
-          href={`/items/${item.id}`}
-          className="min-w-0 flex-1 truncate text-[14px] text-ink transition-colors hover:text-accent"
-        >
-          {title}
-        </Link>
-        {!summary && item.status === "fetched" && (
-          <span className="text-[11px] italic text-faint">{t("tracked.summary.pending")}</span>
-        )}
-        {similar > 0 && (
-          <span className="shrink-0 text-[11px] text-faint">
-            {similar === 1
-              ? t("tracked.similar", { count: similar })
-              : t("tracked.similar_plural", { count: similar })}
-          </span>
-        )}
-        {status && <span className="text-[11px] italic text-faint">{status}</span>}
-        {/* the original stays reachable from every row, however compressed */}
-        {item.url && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[11px] text-accent underline underline-offset-2 transition-colors hover:text-accent-strong"
-          >
-            {t("tracked.original")}
-          </a>
-        )}
-      </li>
-    );
-  }
-
-  const lead = size === "lead";
   return (
-    <li className="group/item py-5 transition-opacity duration-300 group-hover/day:opacity-45 hover:!opacity-100">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <SourceMark label={sourceLabel} hue={hue} />
-        <span style={{ color: `rgb(var(${hue}))` }} className="text-[12px] font-medium">
-          {sourceLabel}
-        </span>
-        <KindMark kind={kind} hue={hue} label={t(KIND_LABEL[kind])} />
-        <span className="mono tnum text-[11px] text-faint">{time}</span>
-        {item.tier && (
-          <span className="rounded border border-line px-1.5 py-px text-[10px] font-medium text-faint">
-            {t(TIER_KEY[item.tier])}
-          </span>
-        )}
-      </div>
-      <p
-        className={`serif mt-2 break-words font-semibold tracking-[-0.012em] text-ink ${
-          lead ? "text-[clamp(1.4rem,3.1vw,2rem)] leading-[1.18]" : "text-[19px] leading-[1.28]"
-        }`}
-      >
-        <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
-          {title}
-        </Link>
-      </p>
-      {summary ? (
-        <p
-          className={`mt-2.5 max-w-[68ch] leading-[1.75] text-muted ${
-            lead ? "text-[14.5px]" : "line-clamp-3 text-[13px]"
-          }`}
-        >
-          <span className="badge mr-1.5 bg-panel text-faint">{t("digest.ai.label")}</span>
-          {summary}
+    <li className="grid grid-cols-[3rem_1fr] gap-x-4 py-5 first:pt-1 sm:grid-cols-[3.5rem_1fr] sm:gap-x-6">
+      <span className="mono tnum pt-1 text-right text-[11px] leading-none text-faint">
+        {undated
+          ? "—"
+          : when.toLocaleTimeString(intlLocale, {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}
+      </span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
+          {(item.source_name || item.domain) && (
+            // the user-named source reads as a name; only the bare domain is mono
+            <span className={item.source_name ? "font-medium text-muted" : "mono text-muted"}>
+              {item.source_name || item.domain}
+            </span>
+          )}
+          {item.tier && (
+            <span className="rounded border border-line px-1.5 py-px text-[10px] font-medium text-faint">
+              {t(TIER_KEY[item.tier])}
+            </span>
+          )}
+        </div>
+        <p className="serif mt-1.5 break-words text-[19px] font-semibold leading-[1.25] tracking-[-0.01em] text-ink">
+          <Link href={`/items/${item.id}`} className="transition-colors hover:text-accent">
+            {trackedTitle(item, locale) ?? item.url ?? t("today.tracked.untitled")}
+          </Link>
         </p>
-      ) : (
-        item.status === "fetched" && (
-          <p className="mt-2 text-[13px] italic text-faint">{t("tracked.summary.pending")}</p>
-        )
-      )}
-      <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
-        {tags.slice(0, lead ? 4 : 2).map((tag) => (
-          <span key={tag} className="rounded bg-panel px-2 py-0.5 text-muted">
-            {tag}
-          </span>
-        ))}
-        {similar > 0 && (
-          <span>
-            {similar === 1
-              ? t("tracked.similar", { count: similar })
-              : t("tracked.similar_plural", { count: similar })}
-          </span>
+        {summary ? (
+          // the full briefing lives on the detail page — show the lede only
+          <p className="mt-2 line-clamp-3 max-w-[68ch] text-[13px] leading-relaxed text-muted">
+            <span className="badge mr-1.5 bg-panel text-faint">{t("digest.ai.label")}</span>
+            {summary}
+          </p>
+        ) : (
+          item.status === "fetched" && (
+            <p className="mt-2 text-[13px] italic text-faint">{t("tracked.summary.pending")}</p>
+          )
         )}
-        {status && <span className="italic">{status}</span>}
-        {item.url && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent underline underline-offset-2 transition-colors hover:text-accent-strong"
-          >
-            {t("tracked.original")}
-          </a>
-        )}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
+          {tags.map((tag) => (
+            <span key={tag} className="rounded bg-panel px-1.5 py-0.5 text-muted">
+              {tag}
+            </span>
+          ))}
+          {similar > 0 && (
+            <span>
+              {similar === 1
+                ? t("tracked.similar", { count: similar })
+                : t("tracked.similar_plural", { count: similar })}
+            </span>
+          )}
+          {status && <span className="italic">{status}</span>}
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent underline underline-offset-2 transition-colors hover:text-accent-strong"
+            >
+              {t("tracked.original")}
+            </a>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -610,46 +451,24 @@ export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
           </p>
           <ul className="mt-1 divide-y divide-line">
             {undated.map((item) => (
-              <TimelineRow key={item.id} item={item} size="thin" undated />
+              <TimelineRow key={item.id} item={item} undated />
             ))}
           </ul>
         </details>
       )}
-      {days.map((group, gi) => {
-        // rhythm: the day's first item leads; anything without a summary drops to
-        // a dense line; the rest read medium. Order is untouched.
-        const hasSummary = (i: TrackedItemCard) => Boolean(i.enrichment);
-        return (
-          <section
-            key={group.day}
-            aria-label={group.day}
-            className="group/day relative pl-6 sm:pl-8"
-          >
-            {/* the spine: a rail down the margin with a node per day */}
-            <span aria-hidden="true" className="absolute inset-y-0 left-1 w-px bg-line sm:left-2" />
-            <span
-              aria-hidden="true"
-              className="absolute left-0 top-2 h-2 w-2 rounded-full border-[1.5px] border-accent bg-surface sm:left-1"
-            />
-            <h3 className="serif flex items-baseline gap-3 text-[15px] font-semibold text-ink">
-              <span>{group.day}</span>
-              <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
-              <span className="mono tnum text-[11px] font-normal text-faint">
-                {group.items.length}
-              </span>
-            </h3>
-            <ul className="divide-y divide-line">
-              {group.items.map((item, i) => (
-                <TimelineRow
-                  key={item.id}
-                  item={item}
-                  size={!hasSummary(item) ? "thin" : gi === 0 && i === 0 ? "lead" : "mid"}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      {days.map((group) => (
+        <section key={group.day} aria-label={group.day} className="space-y-1">
+          <h3 className="serif flex items-baseline gap-3 text-[15px] font-semibold text-ink">
+            <span>{group.day}</span>
+            <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
+          </h3>
+          <ul className="divide-y divide-line">
+            {group.items.map((item) => (
+              <TimelineRow key={item.id} item={item} />
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }
