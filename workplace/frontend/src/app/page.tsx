@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useLocale, useT } from "@/lib/i18n";
 import { TodayView } from "@/components/TodayView";
+import { WelcomeGate } from "@/components/WelcomeGate";
 
 /** The masthead date, in the active locale. Rendered after mount so SSR output is
  * stable (the date itself is presentation, not data). */
@@ -34,6 +35,7 @@ export default function Home() {
   const t = useT();
   return (
     <div>
+      <WelcomeGate />
       {/* broadsheet masthead: a dateline over a serif nameplate, closed by a
           two-weight rule (a firm ink rule above a hairline) */}
       <header className="border-t-2 border-ink pt-4">

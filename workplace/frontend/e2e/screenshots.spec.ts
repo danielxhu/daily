@@ -6,6 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 // mobile). The screenshots are the "doesn't look half-finished" review evidence.
 
 async function open(page: Page, path: string) {
+  await page.addInitScript(() => window.localStorage.setItem("daily.onboarded", "1"));
   await page.goto(path);
   await expect(page.locator("html[data-msw-ready='true']")).toBeAttached({ timeout: 30_000 });
   // mount fetches are gated on the worker (lib/api waitForMock), so once the worker

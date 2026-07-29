@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Open the app and wait for the mock worker before interacting.
 async function openMockApp(page: Page, path = "/") {
+  // returning-user flag: the first-visit welcome redirect has its own spec
+  await page.addInitScript(() => window.localStorage.setItem("daily.onboarded", "1"));
   await page.goto(path);
   await expect(page.locator("html[data-msw-ready='true']")).toBeAttached({
     timeout: 30_000,
@@ -34,20 +36,13 @@ test("the shell: Today home, four primary destinations, no check entries", async
   }
 });
 
-test("the guide reopens from the labeled header button (M16.1: no cryptic ?)", async ({ page }) => {
+test("the guide lives on the welcome page; the labeled header entry links there", async ({
+  page,
+}) => {
   await openMockApp(page);
-  const guide = page.getByRole("region", { name: "Welcome to daily" });
-  await expect(guide).toBeVisible(); // first visit: the guide is open
-  await guide.getByRole("button", { name: "Got it — take me to daily" }).click();
-  await expect(guide).toHaveCount(0);
-
-  const guideBtn = page.getByRole("button", { name: "Open the guide" });
-  await expect(guideBtn).toHaveText("Guide");
-  await guideBtn.click();
-  await expect(page.getByRole("region", { name: "Welcome to daily" })).toBeVisible();
-  // the guide's copy keeps the honest boundaries without check-era language
-  // (.first(): the tracked-section note phrases the same boundary)
-  await expect(page.getByText(/not in real time/).first()).toBeVisible();
+  const guideLink = page.getByRole("link", { name: "Open the guide" });
+  await expect(guideLink).toHaveText("Guide");
+  await expect(guideLink).toHaveAttribute("href", "/welcome");
 });
 
 test("the tracked briefing renders without horizontal overflow", async ({ page }) => {

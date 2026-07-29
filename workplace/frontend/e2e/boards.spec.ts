@@ -2,6 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 // Open a page and wait for the mock worker before interacting.
 async function openMockApp(page: Page, path = "/") {
+  // returning-user flag: the first-visit welcome redirect has its own spec
+  await page.addInitScript(() => window.localStorage.setItem("daily.onboarded", "1"));
   await page.goto(path);
   await expect(page.locator("html[data-msw-ready='true']")).toBeAttached({
     timeout: 30_000,
