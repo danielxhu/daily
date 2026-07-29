@@ -308,6 +308,9 @@ class TrackedItemCard(Schema):
     board_id: str | None
     # the source that produced this item (Sources page filters on it)
     subscription_id: str | None = None
+    # how the content was obtained — the surface renders a podcast, a video, a PDF
+    # and an OCR'd image note differently
+    extraction_method: ExtractionMethod | None = None
     # M15.1: the source's module at discovery time (board → module → source → item)
     module_id: str | None = None
     url: str | None

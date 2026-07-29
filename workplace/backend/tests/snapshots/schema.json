@@ -1597,6 +1597,29 @@
           ],
           "default": null
         },
+        "extraction_method": {
+          "anyOf": [
+            {
+              "enum": [
+                "static_html",
+                "structured_html",
+                "rendered_html",
+                "pdf_text",
+                "caption",
+                "whisper",
+                "pasted_text",
+                "frame_ocr",
+                "feed_summary"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extraction Method"
+        },
         "failure_kind": {
           "anyOf": [
             {

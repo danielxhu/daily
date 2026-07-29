@@ -170,6 +170,7 @@ export interface TrackedItemCard {
   id: string;
   board_id: string | null;
   subscription_id?: string | null;
+  extraction_method?: ExtractionMethod | null;
   module_id?: string | null;
   url: string | null;
   title: string | null;

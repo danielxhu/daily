@@ -167,11 +167,8 @@ export function TodayView({
     <div className="space-y-8">
       <header
         aria-label={t("today.head.aria")}
-        className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-line pb-4"
+        className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-1"
       >
-        <p className="text-sm font-medium text-ink">
-          {new Date().toLocaleDateString(intlLocale, { dateStyle: "full" })}
-        </p>
         <p className="tnum text-xs text-faint">
           {lastPolled
             ? t("today.head.lastPoll", {
