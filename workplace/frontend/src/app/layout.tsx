@@ -18,13 +18,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* set the theme before first paint, else the stored choice flashes */}
+        {/* set the theme and sheet opacity before first paint, else the stored
+            choices flash */}
         <script
           dangerouslySetInnerHTML={{
             __html:
               "try{var t=localStorage.getItem('daily.theme');" +
               "if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';" +
-              "document.documentElement.dataset.theme=t}catch(e){}",
+              "document.documentElement.dataset.theme=t;" +
+              "var a=parseFloat(localStorage.getItem('daily.sheetAlpha'));" +
+              "if(a>=0.55&&a<=1)document.documentElement.style.setProperty('--sheet-a',String(a))}catch(e){}",
           }}
         />
       </head>

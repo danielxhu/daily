@@ -50,6 +50,8 @@
   --ink-press: 0 0 0;
   --wash: 23 24 27;
   --lift: 0 6px 20px rgb(23 24 27 / 0.08);
+  /* how opaque the reading sheet is over the light field; set in Settings */
+  --sheet-a: 0.94;
 }
 
 /* Dark theme: the same token names re-valued, so every surface follows without
@@ -136,6 +138,24 @@
   li.card:hover {
     border-color: rgb(var(--line-strong));
     box-shadow: var(--lift);
+  }
+  /* the reading sheet: a column of paper over the light field, spanning the
+     viewport so a short page never ends mid-screen. Edge-to-edge on phones,
+     where a hairline against the viewport edge reads as a mistake. */
+  .sheet {
+    position: fixed;
+    inset: 0;
+    max-width: 48rem;
+    margin-inline: auto;
+    z-index: 1;
+    pointer-events: none;
+    background: rgb(var(--surface) / var(--sheet-a));
+  }
+  @media (min-width: 640px) {
+    .sheet {
+      @apply border-x border-line;
+      box-shadow: var(--lift);
+    }
   }
   /* the anti-card-stack: one bordered surface, hairline-divided rows */
   .row-list {

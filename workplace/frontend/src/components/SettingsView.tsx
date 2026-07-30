@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 
 import { clearApiSlot, getApiSettings, saveApiSlot, type ApiSlotInput } from "@/lib/api";
 import { useLocale, useT } from "@/lib/i18n";
-import { WINDOW_DAY_OPTIONS, useTheme, useWindowDays } from "@/lib/prefs";
+import {
+  SHEET_ALPHA_OPTIONS,
+  WINDOW_DAY_OPTIONS,
+  useSheetAlpha,
+  useTheme,
+  useWindowDays,
+} from "@/lib/prefs";
 import type { ApiSlotView } from "@/types/contract";
 
 /** Model API credentials: two slots. "text" powers
@@ -90,6 +96,38 @@ function ThemeSetting() {
   );
 }
 
+/** How much of the light field shows through the reading sheet. */
+function BackdropSetting() {
+  const { sheetAlpha, setSheetAlpha } = useSheetAlpha();
+  const t = useT();
+  return (
+    <section aria-label={t("settings.backdrop.title")} className="space-y-4">
+      <div className="section-head">
+        <h2 className="section-title">{t("settings.backdrop.title")}</h2>
+        <span aria-hidden="true" className="section-rule" />
+      </div>
+      <p className="max-w-[60ch] text-sm text-muted">{t("settings.backdrop.desc")}</p>
+      <div className="flex flex-wrap gap-2">
+        {SHEET_ALPHA_OPTIONS.map((alpha) => (
+          <button
+            key={alpha}
+            type="button"
+            onClick={() => setSheetAlpha(alpha)}
+            aria-pressed={sheetAlpha === alpha}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              sheetAlpha === alpha
+                ? "border-accent bg-panel font-medium text-ink"
+                : "border-line text-muted hover:bg-panel/60 hover:text-ink"
+            }`}
+          >
+            {t(`settings.backdrop.${alpha}`)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /** How far back Today looks when listing what the sources published. */
 function WindowSetting() {
   const { windowDays, setWindowDays } = useWindowDays();
@@ -164,6 +202,7 @@ export function SettingsView({
     <div className="space-y-10">
       <LanguageSetting />
       <ThemeSetting />
+      <BackdropSetting />
       <WindowSetting />
       {error ? (
         <p className="text-sm text-warn-fg">{error}</p>

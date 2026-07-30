@@ -71,6 +71,27 @@ describe("SettingsView (model API credentials, 2026-07-23)", () => {
     await screen.findByText("Text model (required)");
   });
 
+  it("sets how much of the page backdrop shows through the reading sheet", async () => {
+    window.localStorage.clear();
+    document.documentElement.style.removeProperty("--sheet-a");
+    const getFn = vi.fn(async () => ({ slots: [ENV_TEXT, EMPTY_VISION] }));
+    render(
+      <LocaleProvider>
+        <SettingsView getFn={getFn} />
+      </LocaleProvider>,
+    );
+    const faint = screen.getByRole("button", { name: "Faint" });
+    expect(faint).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Strong" }));
+    expect(document.documentElement.style.getPropertyValue("--sheet-a")).toBe("0.7");
+    expect(window.localStorage.getItem("daily.sheetAlpha")).toBe("0.7");
+
+    fireEvent.click(screen.getByRole("button", { name: "Off the page" }));
+    expect(document.documentElement.style.getPropertyValue("--sheet-a")).toBe("1");
+    await screen.findByText("Text model (required)");
+  });
+
   it("saves a custom text endpoint and shows the masked key", async () => {
     let slots: ApiSlotView[] = [ENV_TEXT, EMPTY_VISION];
     const getFn = vi.fn(async () => ({ slots })) as unknown as typeof getApiSettings;
