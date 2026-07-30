@@ -522,38 +522,6 @@ function BoardDetail({
       </section>
 
       {/* Operator notes — human-authored */}
-      <section aria-label={t("boards.notes.aria")} className="space-y-2">
-        <h3 className="text-sm font-semibold">{t("boards.notes.heading")}</h3>
-        {userNotes.length === 0 && (
-          <p className="text-sm text-muted">{t("boards.notes.none")}</p>
-        )}
-        <ul className="space-y-2">
-          {userNotes.map((note) => (
-            <li key={note.id} className="rounded border border-line p-3">
-              <span className="rounded bg-panel px-2 py-0.5 text-xs text-muted">
-                {t("boards.notes.note")}
-              </span>
-              <p className="mt-1 text-sm">{note.content}</p>
-            </li>
-          ))}
-        </ul>
-        <form onSubmit={addNote} className="flex gap-2" noValidate>
-          <input
-            type="text"
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            aria-label={t("boards.notes.add.aria")}
-            placeholder={t("boards.notes.add.placeholder")}
-            className="flex-1 rounded border border-line px-2 py-1 text-sm"
-          />
-          <button
-            type="submit"
-            className="btn-primary"
-          >
-            {t("boards.notes.add")}
-          </button>
-        </form>
-      </section>
     </div>
   );
 }

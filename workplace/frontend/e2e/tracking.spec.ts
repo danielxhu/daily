@@ -18,11 +18,8 @@ async function openTracking(page: Page) {
   await expect(page.getByRole("heading", { name: "Sources", level: 1 })).toBeVisible();
 }
 
-test("manage subscriptions: honesty banner, health, add", async ({ page }) => {
+test("manage subscriptions: health, next step, add", async ({ page }) => {
   await openTracking(page);
-
-  // NFR-6 honesty disclosure
-  await expect(page.getByText(/not real-time push/)).toBeVisible();
 
   const list = page.getByRole("list", { name: "Your sources" });
   await expect(

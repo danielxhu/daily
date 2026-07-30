@@ -70,11 +70,7 @@ function setup(overrides: Partial<Parameters<typeof KnowledgeView>[0]> = {}) {
   }));
   const deleteFn = vi.fn(async () => undefined);
   const notesFn = vi.fn(async () => NOTES);
-  const renameFn = vi.fn(async (_b: string, _n: string, title: string) => ({
-    ...NOTES[0],
-    title,
-    title_zh: title,
-  }));
+  const boardsFn = vi.fn(async () => [{ id: "b1", name: "Finance", created_at: "2026-07-01" }]);
   render(
     <KnowledgeView
       listFn={listFn}
@@ -83,11 +79,11 @@ function setup(overrides: Partial<Parameters<typeof KnowledgeView>[0]> = {}) {
       continueFn={continueFn}
       deleteFn={deleteFn}
       notesFn={notesFn}
-      renameFn={renameFn}
+      boardsFn={boardsFn}
       {...overrides}
     />,
   );
-  return { listFn, getFn, createFn, continueFn, deleteFn, notesFn, renameFn };
+  return { listFn, getFn, createFn, continueFn, deleteFn, notesFn, boardsFn };
 }
 
 describe("KnowledgeView (persisted chats, 2026-07-24)", () => {
@@ -181,10 +177,14 @@ describe("the note pile on Knowledge", () => {
     expect(screen.getAllByText("SEC 规则进入公开评议期。")).toHaveLength(2);
   });
 
-  it("bounds the ask to the notes the user picked, and back to all when cleared", async () => {
+  it("starts with every note picked, and clicking a card narrows the ask", async () => {
     const { createFn } = setup();
-    const pick = await screen.findByLabelText(/Private-credit repricing is not done/);
-    fireEvent.click(pick);
+    // all picked at rest = ask over the whole base
+    expect(await screen.findByText("Asking over every note")).toBeInTheDocument();
+
+    // clicking the older card unpicks it, leaving one
+    const older = screen.getByText("SEC 规则进入公开评议期。", { selector: "h3" });
+    fireEvent.click(older.closest("article")!);
     expect(screen.getByText("Asking over 1 picked note(s)")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Ask daily"), { target: { value: "利差怎么样?" } });
@@ -195,18 +195,15 @@ describe("the note pile on Knowledge", () => {
     expect(screen.getByText("Asking over every note")).toBeInTheDocument();
   });
 
-  it("renames a note in the language the user is reading", async () => {
-    const { renameFn } = setup();
+  it("links each open card to its own note page", async () => {
+    setup();
     const card = (
       await screen.findByText("Private-credit repricing is not done")
     ).closest("article")!;
     fireEvent.mouseEnter(card);
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
-    const field = screen.getByLabelText("Note title");
-    fireEvent.change(field, { target: { value: "重定价还有第二段" } });
-    fireEvent.keyDown(field, { key: "Enter" });
-    await waitFor(() =>
-      expect(renameFn).toHaveBeenCalledWith("b1", "n1", "重定价还有第二段", "en"),
+    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+      "href",
+      "/notes/b1/n1",
     );
   });
 });
@@ -224,7 +221,7 @@ describe("notes follow the language switch", () => {
           continueFn={vi.fn(async () => CHAT)}
           deleteFn={vi.fn(async () => undefined)}
           notesFn={vi.fn(async () => NOTES)}
-          renameFn={vi.fn(async () => NOTES[0])}
+          boardsFn={vi.fn(async () => [])}
         />
       </LocaleProvider>,
     );

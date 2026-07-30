@@ -545,17 +545,32 @@ export async function listKnowledgeNotes(opts: QueryOptions = {}): Promise<Knowl
   return getJson<KnowledgeNote[]>("/knowledge/notes", opts);
 }
 
-/** Retitle a note. `locale` says which language the title was typed in. */
-export async function renameKnowledgeNote(
+/** Edit a note's title and/or body. `locale` says which language it was typed in. */
+export async function updateKnowledgeNote(
   boardId: string,
   noteId: string,
-  title: string,
+  edit: { title?: string; content?: string },
   locale: "zh" | "en",
   opts: QueryOptions = {},
 ): Promise<KnowledgeNote> {
   return patchJson<KnowledgeNote>(
     `/boards/${boardId}/notes/${noteId}`,
-    { title, locale },
+    { ...edit, locale },
+    opts,
+  );
+}
+
+/** Render a saved note in the other UI language and store it. One LLM call, only
+ * when the user asks — after this the note follows the language switch. */
+export async function localizeKnowledgeNote(
+  boardId: string,
+  noteId: string,
+  locale: "zh" | "en",
+  opts: QueryOptions = {},
+): Promise<KnowledgeNote> {
+  return postJson<KnowledgeNote>(
+    `/boards/${boardId}/notes/${noteId}/localize?locale=${locale}`,
+    {},
     opts,
   );
 }

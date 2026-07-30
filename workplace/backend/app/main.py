@@ -50,10 +50,12 @@ from app.db.knowledge_store import (
     HumanNoteKind,
     create_note,
     delete_note,
+    get_note,
     list_notes,
     list_saved_notes,
-    rename_note,
     search_saved_notes,
+    set_note_locale,
+    update_note,
 )
 from app.db.run_trace import list_runs
 from app.db.subscription_store import (
@@ -71,7 +73,7 @@ from app.db.tracked_item_store import (
     search_tracked_items,
     tracked_item_card_by_id,
 )
-from app.discuss import DiscussError, discuss_tracked_item, draft_item_note
+from app.discuss import DiscussError, discuss_tracked_item, draft_item_note, translate_note
 from app.ingestion import progress as transcribe_progress
 from app.ingestion.ingest import IngestFn
 from app.knowledge.answer import answer_over_knowledge
@@ -144,13 +146,14 @@ class NoteCreateRequest(BaseModel):
     citations: list[str] = []
 
 
-class NoteRenameRequest(BaseModel):
-    """Rename a knowledge note. `locale` says which language the user typed in, so
-    the new title lands on that language's field. Request-only."""
+class NoteUpdateRequest(BaseModel):
+    """Edit a knowledge note's title and/or body. `locale` says which language the
+    user typed in, so the edit lands on that language's field. Request-only."""
 
     model_config = ConfigDict(extra="forbid")
 
-    title: str
+    title: str | None = None
+    content: str | None = None
     locale: Literal["zh", "en"] = "zh"
 
 
@@ -573,25 +576,60 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         "/boards/{board_id}/notes/{note_id}",
         response_model=KnowledgeNote,
         responses={
-            400: {"description": "Empty title."},
+            400: {"description": "Empty title or content."},
             404: {"description": "No such board, or note not in this board."},
         },
     )
-    def rename_board_note(
+    def update_board_note(
         board_id: str,
         note_id: str,
-        body: NoteRenameRequest,
+        body: NoteUpdateRequest,
         db: Annotated[sqlite3.Connection, Depends(get_db)],
     ) -> KnowledgeNote:
-        title = body.title.strip()
-        if not title:
-            raise HTTPException(status_code=400, detail="note 'title' must be non-empty")
-        renamed = rename_note(db, board_id, note_id, title, locale=body.locale)
-        if renamed is None:
+        title = body.title.strip() if body.title is not None else None
+        content = body.content.strip() if body.content is not None else None
+        if (title is not None and not title) or (content is not None and not content):
+            raise HTTPException(status_code=400, detail="a note's title and body must not be empty")
+        updated = update_note(
+            db, board_id, note_id, title=title, content=content, locale=body.locale
+        )
+        if updated is None:
             raise HTTPException(
                 status_code=404, detail=f"no such note in board {board_id}: {note_id}"
             )
-        return renamed
+        return updated
+
+    @app.post(
+        "/boards/{board_id}/notes/{note_id}/localize",
+        response_model=KnowledgeNote,
+        responses={
+            404: {"description": "No such board, or note not in this board."},
+            502: {"description": "Translation (LLM) failed."},
+        },
+    )
+    def localize_board_note(
+        board_id: str,
+        note_id: str,
+        locale: Literal["zh", "en"],
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+        llm: Annotated[LLMClient, Depends(get_llm)],
+    ) -> KnowledgeNote:
+        """Render a note the user already saved in the other UI language and store it,
+        so the note follows the language switch from then on. Explicit: a page open
+        never spends anything (NFR-7) — the user asks for this."""
+        note = get_note(db, board_id, note_id)
+        if note is None:
+            raise HTTPException(
+                status_code=404, detail=f"no such note in board {board_id}: {note_id}"
+            )
+        source_title = note.title or note.content.split("\n")[0][:60]
+        try:
+            title, content = translate_note(source_title, note.content, target=locale, llm=llm)
+        except DiscussError as exc:
+            raise HTTPException(status_code=502, detail=f"translation failed: {exc}") from exc
+        localized = set_note_locale(db, board_id, note_id, locale, title, content)
+        assert localized is not None  # existence checked above
+        return localized
 
     @app.delete(
         "/boards/{board_id}/notes/{note_id}",

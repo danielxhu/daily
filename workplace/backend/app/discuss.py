@@ -152,6 +152,33 @@ class NoteDraft:
     draft_en: str | None
 
 
+_NOTE_TRANSLATE_SYSTEM = (
+    "Translate a note from the user's personal knowledge base into {language}.\n"
+    "- Translate, do not summarize: every paragraph, figure, and hedge survives, "
+    "and the paragraph breaks stay where they are.\n"
+    "- Keep proper nouns, tickers, and organisation names as the source writes "
+    "them; do not add facts or explanations of your own.\n"
+    'Output JSON only: {{"title": "<the title>", "content": "<the note>"}}'
+)
+
+
+def translate_note(title: str, content: str, *, target: str, llm: LLMClient) -> tuple[str, str]:
+    """Render an existing note in the other UI language — one flash call, returning
+    (title, content). Raises DiscussError when the model gives nothing usable."""
+    system = _NOTE_TRANSLATE_SYSTEM.format(language="Chinese" if target == "zh" else "English")
+    user = f"Title: {title}\n\nNote:\n{content}"
+    try:
+        data = llm.complete_json(system=system, user=user, escalate=False)
+    except Exception as exc:
+        raise DiscussError(str(exc)) from exc
+    out_title = data.get("title")
+    out_content = data.get("content")
+    if not isinstance(out_content, str) or not out_content.strip():
+        raise DiscussError("model returned no usable translation")
+    kept = out_title.strip() if isinstance(out_title, str) and out_title.strip() else title
+    return kept, out_content.strip()
+
+
 def draft_item_note(
     card: TrackedItemCard,
     excerpt: str,

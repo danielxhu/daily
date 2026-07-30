@@ -350,21 +350,6 @@ export function TrackingView({
 
   return (
     <div className="space-y-6">
-      {/* honesty is brand, not alarm noise: a dignified panel, warn used for the
-          key phrases only (DESIGN.md Rev 4 §4) */}
-      <p
-        className="rounded-xl border border-line bg-panel p-4 text-xs leading-relaxed text-muted"
-        style={{ boxShadow: "inset 0 1px 0 rgb(255 255 255 / 0.04)" }}
-      >
-        {t("tracking.banner.p1")}
-        <strong className="font-semibold text-warn-fg">{t("tracking.notRealTime")}</strong>
-        {t("tracking.banner.p2")}
-        <strong className="font-semibold text-warn-fg">{t("tracking.banner.machineOn")}</strong>
-        {t("tracking.banner.p3")}
-        <strong className="font-semibold text-ink">{t("tracking.banner.checkPhrase")}</strong>
-        {t("tracking.banner.p4")}
-      </p>
-
       <div className="flex items-center gap-3">
         <button
           type="button"

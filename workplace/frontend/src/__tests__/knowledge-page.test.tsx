@@ -35,17 +35,15 @@ vi.mock("@/lib/api", () => ({
 
 import KnowledgePage from "@/app/knowledge/page";
 
-describe("Knowledge page (M12.4: boards browse + ask on one page)", () => {
-  it("shows the board-section browse and keeps the ask-daily conversation", async () => {
+describe("Knowledge page (ask + the saved notes)", () => {
+  it("is the ask and the note pile — the board admin browse is gone", async () => {
     render(<KnowledgePage />);
     expect(screen.getByRole("heading", { name: "Knowledge", level: 1 })).toBeInTheDocument();
 
-    // boards browse is promoted into the page (from the old footer-level Boards page)
-    const boards = screen.getByRole("region", { name: "Browse by board" });
-    expect(boards).toBeInTheDocument();
-    // the preset topic boards are offered, and the first one auto-opens its sections
-    expect(await screen.findByRole("button", { name: "政治" })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Notes" })).toBeInTheDocument();
+    // the board card grid and its per-board admin left the page; the notes carry
+    // their own board filter instead
+    expect(screen.queryByRole("region", { name: "Browse by board" })).toBeNull();
+    expect(await screen.findByRole("region", { name: "Your notes" })).toBeInTheDocument();
     // the verified-facts region left the surface with the check retirement (M16.1)
     expect(screen.queryByRole("region", { name: "Verified facts" })).toBeNull();
 

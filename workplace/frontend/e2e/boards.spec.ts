@@ -10,22 +10,21 @@ async function openMockApp(page: Page, path = "/") {
   });
 }
 
-// Boards browse lives inside the Knowledge page (M12.4). Reach it via the primary
-// nav and open the Finance board. We navigate client-side (rather than a direct
-// goto) so MSW is ready before BoardsView mounts and fetches the board list — a
-// direct load would race worker startup.
+// Board admin has its own page; the notes themselves live on Knowledge. Reach it
+// from the Knowledge page so MSW is ready before BoardsView mounts and fetches the
+// board list — a direct load would race worker startup.
 async function openFinanceBoard(page: Page) {
   await openMockApp(page);
   // exact: the first-run guide's "Ask Knowledge" link also contains "Knowledge"
   await page.getByRole("link", { name: "Knowledge", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Knowledge", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: /Manage boards/ }).click();
+  await expect(page.getByRole("heading", { name: "Boards", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Finance", exact: true }).click();
 }
 
 test("open a board: notes render, no check-era or distill surface", async ({ page }) => {
   await openFinanceBoard(page);
 
-  await expect(page.getByRole("region", { name: "Notes", exact: true })).toBeVisible();
   // engine removal (2026-07-13): no AI summary region, no verified-facts region
   await expect(page.getByRole("region", { name: "AI summary" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Verified facts" })).toHaveCount(0);

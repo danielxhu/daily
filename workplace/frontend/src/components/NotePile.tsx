@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import Link from "next/link";
 
 import { useLocale, useT } from "@/lib/i18n";
 import type { KnowledgeNote } from "@/types/contract";
@@ -41,12 +42,10 @@ export function NotePile({
   notes: newestFirst,
   picked,
   onPick,
-  onRename,
 }: {
   notes: KnowledgeNote[];
   picked: Set<string>;
   onPick: (id: string) => void;
-  onRename: (note: KnowledgeNote, title: string) => Promise<void>;
 }) {
   const { locale } = useLocale();
   const t = useT();
@@ -59,8 +58,6 @@ export function NotePile({
   const restOpen = notes.length - 1;
   const [open, setOpen] = useState(restOpen);
   const [cursorY, setCursorY] = useState<number | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draftTitle, setDraftTitle] = useState("");
 
   useEffect(() => setOpen(notes.length - 1), [notes.length]);
 
@@ -69,10 +66,10 @@ export function NotePile({
     if (!host) return;
     host.querySelectorAll<HTMLElement>(".pcard").forEach((card, i) => {
       const box = card.getBoundingClientRect();
-      const y = open === i || editing ? 0 : peekOffset(box.top + box.height / 2, cursorY);
+      const y = open === i ? 0 : peekOffset(box.top + box.height / 2, cursorY);
       card.style.setProperty("--peek", `${y.toFixed(2)}px`);
     });
-  }, [cursorY, open, editing, notes.length]);
+  }, [cursorY, open, notes.length]);
 
   const onMove = (event: React.PointerEvent) => {
     const y = event.clientY;
@@ -81,17 +78,6 @@ export function NotePile({
       raf.current = 0;
       setCursorY(y);
     });
-  };
-
-  const startRename = (note: KnowledgeNote) => {
-    setEditing(note.id);
-    setDraftTitle(noteText(note, locale).title);
-  };
-
-  const commitRename = async (note: KnowledgeNote) => {
-    const title = draftTitle.trim();
-    setEditing(null);
-    if (title && title !== noteText(note, locale).title) await onRename(note, title);
   };
 
   return (
@@ -124,42 +110,28 @@ export function NotePile({
             tabIndex={0}
             onMouseEnter={() => setOpen(i)}
             onFocus={() => setOpen(i)}
+            onClick={() => onPick(note.id)}
           >
             <header className="spine">
               <input
                 type="checkbox"
                 checked={picked.has(note.id)}
                 onChange={() => onPick(note.id)}
-                onClick={(e) => e.stopPropagation()}
                 aria-label={t("knowledge.notes.pick", { title })}
-                className="shrink-0 accent-accent"
+                className="pointer-events-none shrink-0 accent-accent"
+                tabIndex={-1}
               />
-              {editing === note.id ? (
-                <input
-                  autoFocus
-                  value={draftTitle}
-                  onChange={(e) => setDraftTitle(e.target.value)}
-                  onBlur={() => void commitRename(note)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void commitRename(note);
-                    if (e.key === "Escape") setEditing(null);
-                  }}
-                  aria-label={t("knowledge.notes.rename.aria")}
-                  className="input h-8 flex-1 py-1 text-[15px]"
-                />
-              ) : (
-                <h3 className="serif min-w-0 flex-1 truncate text-[18px] tracking-[-0.013em]">
-                  {title}
-                </h3>
-              )}
-              {isOpen && editing !== note.id && (
-                <button
-                  type="button"
-                  onClick={() => startRename(note)}
+              <h3 className="serif min-w-0 flex-1 truncate text-[18px] tracking-[-0.013em]">
+                {title}
+              </h3>
+              {isOpen && (
+                <Link
+                  href={`/notes/${note.board_id}/${note.id}`}
+                  onClick={(e) => e.stopPropagation()}
                   className="shrink-0 rounded border border-dashed border-line-strong px-1.5 text-[11px] text-faint transition-colors hover:border-accent hover:text-accent"
                 >
-                  {t("knowledge.notes.rename")}
-                </button>
+                  {t("knowledge.notes.open")}
+                </Link>
               )}
               <span className="mono shrink-0 text-[10.5px] text-faint">
                 {note.created_at.slice(5, 10)}

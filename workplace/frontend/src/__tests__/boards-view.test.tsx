@@ -90,7 +90,7 @@ const openFinance = async () => {
   fireEvent.click(screen.getByRole("button", { name: "Finance" }));
   // wait for the detail to finish loading (the regions replace "Loading board…")
   await waitFor(() =>
-    expect(screen.getByRole("region", { name: "Notes" })).toBeInTheDocument(),
+    expect(screen.getByRole("region", { name: "Modules and sources" })).toBeInTheDocument(),
   );
 };
 
@@ -98,21 +98,11 @@ const openFinance = async () => {
 const openManage = () => fireEvent.click(screen.getByRole("button", { name: "Manage" }));
 
 describe("BoardsView", () => {
-  it("adds a free-text user note", async () => {
-    const { createNoteFn } = setup();
+  it("no longer carries the notes list — the notes live on Knowledge", async () => {
+    setup();
     await openFinance();
-    const notes = screen.getByRole("region", { name: "Notes" });
-    fireEvent.change(within(notes).getByLabelText("New note"), {
-      target: { value: "Q3 guidance call on the 14th" },
-    });
-    fireEvent.click(within(notes).getByRole("button", { name: "Add" }));
-    await waitFor(() =>
-      expect(createNoteFn).toHaveBeenCalledWith("b_finance", {
-        kind: "user_note",
-        content: "Q3 guidance call on the 14th",
-      }),
-    );
-    expect(await screen.findByText("Q3 guidance call on the 14th")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Notes" })).toBeNull();
+    expect(screen.queryByLabelText("New note")).toBeNull();
   });
 
   it("deletes a board after a two-step confirm that says what goes and stays (M14.2)", async () => {

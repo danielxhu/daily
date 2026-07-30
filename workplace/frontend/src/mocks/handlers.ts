@@ -398,12 +398,38 @@ export const handlers = [
   http.get("*/knowledge/notes", () => HttpResponse.json(knowledgeNotes)),
 
   http.patch("*/boards/:boardId/notes/:noteId", async ({ params, request }) => {
-    const body = (await request.json()) as { title: string; locale?: string };
+    const body = (await request.json()) as {
+      title?: string;
+      content?: string;
+      locale?: string;
+    };
     const note = knowledgeNotes.find((n) => n.id === params.noteId);
     if (!note) return new HttpResponse(null, { status: 404 });
-    note.title = body.title;
-    if (body.locale === "en") note.title_en = body.title;
-    else note.title_zh = body.title;
+    const en = body.locale === "en";
+    if (body.title != null) {
+      note.title = body.title;
+      if (en) note.title_en = body.title;
+      else note.title_zh = body.title;
+    }
+    if (body.content != null) {
+      note.content = body.content;
+      if (en) note.content_en = body.content;
+      else note.content_zh = body.content;
+    }
+    return HttpResponse.json(note);
+  }),
+
+  http.post("*/boards/:boardId/notes/:noteId/localize", ({ params, request }) => {
+    const locale = new URL(request.url).searchParams.get("locale");
+    const note = knowledgeNotes.find((n) => n.id === params.noteId);
+    if (!note) return new HttpResponse(null, { status: 404 });
+    if (locale === "en") {
+      note.title_en = "Comment period on the SEC rule";
+      note.content_en = "The rule entered a public comment period.";
+    } else {
+      note.title_zh = "SEC 规则进入评议期";
+      note.content_zh = "规则进入公开评议期。";
+    }
     return HttpResponse.json(note);
   }),
 

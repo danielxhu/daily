@@ -85,10 +85,9 @@ describe("TrackingView", () => {
     expect(screen.getByText("Loading your sources…")).toBeInTheDocument();
   });
 
-  it("shows the NFR-6 honesty disclosure", async () => {
+  it("does not repeat the polling disclosure — the welcome page states it", async () => {
     setup();
-    expect(screen.getByText(/not real-time push/)).toBeInTheDocument();
-    expect(screen.getByText(/only while this machine is on/)).toBeInTheDocument();
+    expect(screen.queryByText(/not real-time push/)).not.toBeInTheDocument();
     await screen.findByRole("list", { name: "Your sources" }); // let the load settle
   });
 

@@ -4,15 +4,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { NotePile } from "@/components/NotePile";
+import { BoardTabs } from "@/components/BoardTabs";
 import {
   ApiError,
+  queryBoards,
   continueKnowledgeChat,
   createKnowledgeChat,
   deleteKnowledgeChat,
   getKnowledgeChat,
   listKnowledgeChats,
   listKnowledgeNotes,
-  renameKnowledgeNote,
 } from "@/lib/api";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
 import type { KnowledgeChat, KnowledgeChatSummary, KnowledgeNote } from "@/types/contract";
@@ -25,7 +26,7 @@ interface KnowledgeViewProps {
   continueFn?: typeof continueKnowledgeChat;
   deleteFn?: typeof deleteKnowledgeChat;
   notesFn?: typeof listKnowledgeNotes;
-  renameFn?: typeof renameKnowledgeNote;
+  boardsFn?: typeof queryBoards;
 }
 
 /** Knowledge — "ask daily what it knows", as persisted conversations.
@@ -40,7 +41,7 @@ export function KnowledgeView({
   continueFn = continueKnowledgeChat,
   deleteFn = deleteKnowledgeChat,
   notesFn = listKnowledgeNotes,
-  renameFn = renameKnowledgeNote,
+  boardsFn = queryBoards,
 }: KnowledgeViewProps) {
   const [question, setQuestion] = useState("");
   const [chats, setChats] = useState<KnowledgeChatSummary[]>([]);
@@ -49,7 +50,10 @@ export function KnowledgeView({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [notes, setNotes] = useState<KnowledgeNote[]>([]);
-  // which notes bound the ask; empty = the whole knowledge base
+  const [boards, setBoards] = useState<{ id: string; name: string }[]>([]);
+  const [boardTab, setBoardTab] = useState<string | null>(null);
+  // which notes ground the ask. Every note starts picked: the default is "ask over
+  // everything", and unticking narrows it.
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const t = useT();
   const intlLocale = useIntlLocale();
@@ -68,12 +72,22 @@ export function KnowledgeView({
   useEffect(() => {
     let alive = true;
     notesFn()
-      .then((n) => alive && setNotes(n))
+      .then((n) => {
+        if (!alive) return;
+        setNotes(n);
+        setPicked(new Set(n.map((note) => note.id)));
+      })
       .catch(() => alive && setNotes([]));
+    boardsFn()
+      .then((b) => alive && setBoards(b.map((board) => ({ id: board.id, name: board.name }))))
+      .catch(() => alive && setBoards([]));
     return () => {
       alive = false;
     };
-  }, [notesFn]);
+  }, [notesFn, boardsFn]);
+
+  const shown = boardTab ? notes.filter((n) => n.board_id === boardTab) : notes;
+  const allPicked = notes.length > 0 && picked.size === notes.length;
 
   const togglePick = (id: string) =>
     setPicked((prev) => {
@@ -82,15 +96,6 @@ export function KnowledgeView({
       else next.add(id);
       return next;
     });
-
-  async function rename(note: KnowledgeNote, title: string) {
-    try {
-      const updated = await renameFn(note.board_id, note.id, title, locale === "en" ? "en" : "zh");
-      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("knowledge.errReach"));
-    }
-  }
 
   async function refreshList() {
     try {
@@ -107,7 +112,9 @@ export function KnowledgeView({
     setSending(true);
     setError(null);
     try {
-      const scope = [...picked];
+      // all picked = the whole knowledge base, tracked items included; a subset is
+      // exactly those notes
+      const scope = allPicked ? [] : [...picked];
       const chat = active ? await continueFn(active.id, q, scope) : await createFn(q, scope);
       setActive(chat);
       setQuestion("");
@@ -206,13 +213,17 @@ export function KnowledgeView({
       )}
 
       <div className="flex flex-wrap items-baseline gap-2 text-xs">
-        <span className={picked.size > 0 ? "text-accent" : "text-faint"}>
-          {picked.size > 0
-            ? t("knowledge.scope.picked", { count: picked.size })
-            : t("knowledge.scope.all")}
+        <span className={allPicked ? "text-faint" : "text-accent"}>
+          {allPicked
+            ? t("knowledge.scope.all")
+            : t("knowledge.scope.picked", { count: picked.size })}
         </span>
-        {picked.size > 0 && (
-          <button type="button" onClick={() => setPicked(new Set())} className="btn-ghost text-xs">
+        {!allPicked && (
+          <button
+            type="button"
+            onClick={() => setPicked(new Set(notes.map((n) => n.id)))}
+            className="btn-ghost text-xs"
+          >
             {t("knowledge.scope.clear")}
           </button>
         )}
@@ -256,13 +267,29 @@ export function KnowledgeView({
             <span className="mono tnum text-[11px] text-faint">{notes.length}</span>
           )}
           <span aria-hidden="true" className="section-rule" />
+          <Link href="/boards" className="text-xs text-faint transition-colors hover:text-muted">
+            {t("knowledge.notes.manage")}
+          </Link>
         </div>
+        {boards.length > 0 && (
+          <BoardTabs
+            aria={t("knowledge.notes.board.aria")}
+            options={[
+              { id: null, label: t("today.tabs.all") },
+              ...boards.map((b) => ({ id: b.id, label: b.name })),
+            ]}
+            value={boardTab}
+            onChange={setBoardTab}
+          />
+        )}
         {notes.length === 0 ? (
           <p className="text-sm text-muted">{t("knowledge.notes.empty")}</p>
+        ) : shown.length === 0 ? (
+          <p className="text-sm text-muted">{t("knowledge.notes.boardEmpty")}</p>
         ) : (
           <>
             <p className="text-xs text-faint">{t("knowledge.notes.hint")}</p>
-            <NotePile notes={notes} picked={picked} onPick={togglePick} onRename={rename} />
+            <NotePile notes={shown} picked={picked} onPick={togglePick} />
           </>
         )}
       </section>

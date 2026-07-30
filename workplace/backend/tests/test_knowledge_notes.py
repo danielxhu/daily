@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from app.db.board_store import create_board
 from app.db.engine import init_db
 from app.db.knowledge_store import create_note, list_notes
-from app.main import create_app, get_db
+from app.main import create_app, get_db, get_llm
 
 
 def _db_override(db_path: str) -> Callable[[], Iterator[sqlite3.Connection]]:
@@ -122,7 +122,7 @@ def test_note_carries_a_title_and_both_languages(tmp_path: Path) -> None:
     assert plain["title"] is None and plain["content_zh"] is None
 
 
-def test_rename_writes_the_language_the_user_typed_in(tmp_path: Path) -> None:
+def test_edit_writes_the_language_the_user_typed_in(tmp_path: Path) -> None:
     client, board_id = _client_with_board(tmp_path)
     note_id = client.post(
         f"/boards/{board_id}/notes",
@@ -136,12 +136,14 @@ def test_rename_writes_the_language_the_user_typed_in(tmp_path: Path) -> None:
     ).json()["id"]
 
     renamed = client.patch(
-        f"/boards/{board_id}/notes/{note_id}", json={"title": "A sharper title", "locale": "en"}
+        f"/boards/{board_id}/notes/{note_id}",
+        json={"title": "A sharper title", "content": "A fuller body.", "locale": "en"},
     )
     assert renamed.status_code == 200
     body = renamed.json()
     assert body["title"] == "A sharper title"
     assert body["title_en"] == "A sharper title"
+    assert body["content_en"] == "A fuller body."
     assert body["title_zh"] == "旧标题"  # the other language is left alone
 
     assert (
@@ -151,3 +153,33 @@ def test_rename_writes_the_language_the_user_typed_in(tmp_path: Path) -> None:
     # a note can only be renamed through its own board
     other = client.post("/boards", json={"name": "Other"}).json()["id"]
     assert client.patch(f"/boards/{other}/notes/{note_id}", json={"title": "x"}).status_code == 404
+
+
+def test_localize_stores_the_other_language_on_request(tmp_path: Path) -> None:
+    """A note saved before the bilingual copies existed only follows the language
+    switch once the user asks for it — one call, stored, never on a page open."""
+    from app.clients.mock import MockLLMClient
+
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    board = create_board(conn, "Finance")
+    note = create_note(conn, board.id, "user_note", "利差在二季度全线走阔。")
+    conn.close()
+
+    llm = MockLLMClient(
+        [{"title": "Spreads widened in Q2", "content": "Spreads widened through the quarter."}]
+    )
+    app = create_app()
+    app.dependency_overrides[get_db] = _db_override(db)
+    app.dependency_overrides[get_llm] = lambda: llm
+    client = TestClient(app)
+
+    res = client.post(f"/boards/{board.id}/notes/{note.id}/localize", params={"locale": "en"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["content_en"] == "Spreads widened through the quarter."
+    assert body["title_en"] == "Spreads widened in Q2"
+    # the authored text and the other language are untouched
+    assert body["content"] == "利差在二季度全线走阔。"
+    assert body["content_zh"] is None
+    assert len(llm.calls) == 1

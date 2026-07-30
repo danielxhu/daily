@@ -188,17 +188,56 @@ def _keyword_search(
     return [note for _, _, note in scored[:limit]]
 
 
-def rename_note(
-    conn: sqlite3.Connection, board_id: str, note_id: str, title: str, *, locale: str = "zh"
+def get_note(conn: sqlite3.Connection, board_id: str, note_id: str) -> KnowledgeNote | None:
+    row = conn.execute(
+        "SELECT id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, created_at "
+        "FROM knowledge_notes WHERE id = ? AND board_id = ?",
+        (note_id, board_id),
+    ).fetchone()
+    return _row_to_note(row) if row else None
+
+
+def set_note_locale(
+    conn: sqlite3.Connection, board_id: str, note_id: str, locale: str, title: str, content: str
 ) -> KnowledgeNote | None:
-    """Retitle a note. The path's board_id is authoritative, as in `delete_note`.
-    The user typed this title in one language, so it lands on that language's field
-    and on the fallback; the other language keeps whatever it had.
-    Returns the updated note, or None when it is not in this board."""
-    column = "title_en" if locale == "en" else "title_zh"
+    """Store a translated copy of a note. Only the target language's columns move —
+    the authored text and the other language are untouched."""
     cur = conn.execute(
-        f"UPDATE knowledge_notes SET title = ?, {column} = ? WHERE id = ? AND board_id = ?",
-        (title, title, note_id, board_id),
+        f"UPDATE knowledge_notes SET title_{locale} = ?, content_{locale} = ? "
+        "WHERE id = ? AND board_id = ?",
+        (title, content, note_id, board_id),
+    )
+    conn.commit()
+    return get_note(conn, board_id, note_id) if cur.rowcount else None
+
+
+def update_note(
+    conn: sqlite3.Connection,
+    board_id: str,
+    note_id: str,
+    *,
+    title: str | None = None,
+    content: str | None = None,
+    locale: str = "zh",
+) -> KnowledgeNote | None:
+    """Edit a note's title and/or body. The path's board_id is authoritative, as in
+    `delete_note`. The user typed in one language, so each edit lands on that
+    language's field and on the fallback; the other language keeps what it had.
+    Returns the updated note, or None when it is not in this board."""
+    sets: list[str] = []
+    values: list[str] = []
+    if title is not None:
+        sets += ["title = ?", f"title_{'en' if locale == 'en' else 'zh'} = ?"]
+        values += [title, title]
+    if content is not None:
+        sets += ["content = ?", f"content_{'en' if locale == 'en' else 'zh'} = ?"]
+        values += [content, content]
+    if not sets:
+        return get_note(conn, board_id, note_id)
+    cur = conn.execute(
+        f"UPDATE knowledge_notes SET {', '.join(sets)} WHERE id = ? AND board_id = ?",
+        (*values, note_id, board_id),
     )
     conn.commit()
     if cur.rowcount == 0:

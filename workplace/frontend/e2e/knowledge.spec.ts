@@ -37,24 +37,22 @@ test("an ask becomes a persisted chat: answer renders, history lists it", async 
 });
 
 // M16.7: the knowledge map — board cards with counts — and the layered search.
-test("the knowledge map: board cards carry counts; search stays two-layered", async ({
-  page,
-}) => {
+test("the notes carry a board filter, and the check surface stays retired", async ({ page }) => {
   await openMockApp(page);
   await page.getByRole("link", { name: "Knowledge", exact: true }).click();
 
-  // board cards: name + code-computed counts (sources / recent items / notes)
-  const econCard = page.getByRole("button", { name: "经济" });
-  await expect(econCard).toBeVisible();
-  await expect(econCard.getByText(/sources \d+ · items \d+ \(30d\) · notes \d+/)).toBeVisible();
+  // the board card grid left the page; the notes have their own segmented filter
+  const filter = page.getByRole("group", { name: "Board filter" });
+  await expect(filter.getByRole("button", { name: "All" })).toBeVisible();
+  await filter.getByRole("button", { name: "Finance" }).click();
+  await expect(page.getByRole("region", { name: "Your notes" })).toBeVisible();
 
-  // …and the check surface stays retired on this page too
   await expect(page.locator("body")).not.toContainText(/credibility|verdict|\/100|deep check/i);
 });
 
 // The saved notes are a pile of cards on Knowledge: the newest is open, hovering
-// another opens it, and ticking cards bounds the next ask to them.
-test("the note pile: read by hover, rename in place, bound the ask to picked notes", async ({
+// another opens it, and every note starts picked — clicking one leaves it out.
+test("the note pile: read by hover, click to leave a note out of the ask", async ({
   page,
 }) => {
   await openMockApp(page, "/knowledge");
@@ -71,19 +69,33 @@ test("the note pile: read by hover, rename in place, bound the ask to picked not
   await older.hover();
   await expect(older).toHaveAttribute("data-open", "1");
 
-  // rename lands on the card the pointer is reading
-  const front = pile.locator(".pcard").last();
-  await front.hover();
-  await front.getByRole("button", { name: "Rename" }).click();
-  const field = pile.getByLabel("Note title");
-  await field.fill("Repricing has a second leg");
-  await field.press("Enter");
-  await expect(pile.getByText("Repricing has a second leg")).toBeVisible();
-
-  // picking a card narrows the ask; the scope line says so, and clearing restores it
+  // every note starts picked; clicking a card leaves it out, and one click restores
   await expect(page.getByText("Asking over every note")).toBeVisible();
-  await pile.getByRole("checkbox").first().check();
+  await expect(pile.getByRole("checkbox").first()).toBeChecked();
+  await older.click();
   await expect(page.getByText("Asking over 1 picked note(s)")).toBeVisible();
   await page.getByRole("button", { name: "Use all notes" }).click();
   await expect(page.getByText("Asking over every note")).toBeVisible();
+});
+
+// A note saved before the bilingual copies existed only follows the language switch
+// once the user asks for the other language on the note's own page.
+test("open a note: edit its body, then have it written in the other language", async ({
+  page,
+}) => {
+  await openMockApp(page, "/knowledge");
+  const pile = page.getByRole("region", { name: "Your notes" });
+  const older = pile.locator(".pcard").first();
+  await older.hover();
+  await older.getByRole("link", { name: "Open" }).click();
+
+  const body = page.getByLabel("Note", { exact: true });
+  await expect(body).toBeVisible();
+  await body.fill("SEC 规则进入公开评议期,截止日期需回原文确认。补一句:关注最终稿。");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved.")).toBeVisible();
+
+  // the note has no English copy yet, so the switch is offered explicitly
+  await page.getByRole("button", { name: /Write this note in Chinese too/ }).click();
+  await expect(page.getByText("This note now follows the language switch.")).toBeVisible();
 });

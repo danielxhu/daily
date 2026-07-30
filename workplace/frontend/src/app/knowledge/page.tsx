@@ -1,13 +1,11 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
-import { BoardsView } from "@/components/BoardsView";
 import { KnowledgeView } from "@/components/KnowledgeView";
 
 /** Knowledge (zh: 知识库) — the operator's knowledge base (M12.4). Two surfaces
- * on one page, ask first (the question box used to be buried under
- * the board admin): the "ask daily" conversation, then browse by topic board
- * (each board = its module chips, tracked items, and notes). */
+ * on one page: the "ask daily" conversation, then the saved notes as a pile of
+ * cards, filtered by topic board. */
 export default function KnowledgePage() {
   const t = useT();
   return (
@@ -27,15 +25,6 @@ export default function KnowledgePage() {
             <span aria-hidden="true" className="section-rule" />
           </div>
           <KnowledgeView />
-        </section>
-        <section aria-labelledby="knowledge-boards" className="space-y-5">
-          <div className="section-head">
-            <h2 id="knowledge-boards" className="section-title">
-              {t("knowledge.section.boards")}
-            </h2>
-            <span aria-hidden="true" className="section-rule" />
-          </div>
-          <BoardsView />
         </section>
       </div>
     </div>
