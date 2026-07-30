@@ -338,8 +338,8 @@ function TimelineRow({ item, undated = false }: { item: TrackedItemCard; undated
     : null;
   const tags = item.enrichment?.tags ?? [];
   return (
-    <li className="grid grid-cols-[3rem_1fr] gap-x-4 py-5 first:pt-1 sm:grid-cols-[3.5rem_1fr] sm:gap-x-6">
-      <span className="mono tnum pt-1 text-right text-[11px] leading-none text-faint">
+    <li className="ev">
+      <span className="mono tnum ev-time">
         {undated
           ? "—"
           : when.toLocaleTimeString(intlLocale, {
@@ -348,7 +348,8 @@ function TimelineRow({ item, undated = false }: { item: TrackedItemCard; undated
               hour12: false,
             })}
       </span>
-      <div className="min-w-0">
+      <span aria-hidden="true" className="ev-dot" />
+      <div className="item-card min-w-0">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-faint">
           {(item.source_name || item.domain) && (
             // the user-named source reads as a name; only the bare domain is mono
@@ -449,7 +450,7 @@ export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
           <p className="mt-2 max-w-[65ch] text-[11px] leading-relaxed text-faint">
             {t("today.undated.note")}
           </p>
-          <ul className="mt-1 divide-y divide-line">
+          <ul className="tl mt-2">
             {undated.map((item) => (
               <TimelineRow key={item.id} item={item} undated />
             ))}
@@ -462,7 +463,7 @@ export function TrackedTimeline({ items }: { items: TrackedItemCard[] }) {
             <span>{group.day}</span>
             <span aria-hidden="true" className="h-px flex-1 self-center bg-line" />
           </h3>
-          <ul className="divide-y divide-line">
+          <ul className="tl">
             {group.items.map((item) => (
               <TimelineRow key={item.id} item={item} />
             ))}

@@ -50,6 +50,7 @@
   --ink-press: 0 0 0;
   --wash: 23 24 27;
   --lift: 0 6px 20px rgb(23 24 27 / 0.08);
+  --lift-hi: 0 20px 44px rgb(23 24 27 / 0.16);
   /* how opaque the reading sheet is over the light field; set in Settings */
   --sheet-a: 0.94;
 }
@@ -85,6 +86,8 @@
   --ink-press: 255 255 255;
   --wash: 255 255 255;
   --lift: 0 8px 28px rgb(0 0 0 / 0.55);
+  --lift-hi: 0 22px 52px rgb(0 0 0 / 0.72);
+  --sheet-a: 0.93;
 }
 
 @layer base {
@@ -145,17 +148,104 @@
   .sheet {
     position: fixed;
     inset: 0;
-    max-width: 48rem;
+    max-width: var(--sheet-w, 48rem);
     margin-inline: auto;
     z-index: 1;
     pointer-events: none;
     background: rgb(var(--surface) / var(--sheet-a));
+  }
+  /* the card surfaces put their own paper under the type, so the column only
+     needs enough veil to bound the field's extremes — 0.55 is the measured floor
+     where body text still clears 4.5:1 against them */
+  .sheet-veil {
+    --sheet-a: 0.55;
+    --sheet-w: 64rem;
   }
   @media (min-width: 640px) {
     .sheet {
       @apply border-x border-line;
       box-shadow: var(--lift);
     }
+  }
+  /* Today's timeline: a rail carries the clock, each item is a card beside it.
+     The rail stops being a rail below sm, where the margin has no room. */
+  .tl {
+    @apply relative;
+  }
+  .ev {
+    @apply relative mb-3 last:mb-0;
+  }
+  .ev-time {
+    /* muted, not faint: the rail sits on the field, outside any card */
+    @apply text-[11px] leading-none text-muted;
+  }
+  .ev-dot {
+    @apply hidden rounded-full border border-line-strong bg-surface transition;
+  }
+  .item-card {
+    @apply rounded-xl border border-line p-4 sm:p-5;
+    background: rgb(var(--card) / 0.93);
+    backdrop-filter: blur(6px);
+    box-shadow: var(--lift);
+    transition:
+      transform 0.3s cubic-bezier(0.22, 0.9, 0.28, 1),
+      box-shadow 0.3s,
+      border-color 0.3s;
+  }
+  .item-card:hover {
+    border-color: rgb(var(--line-strong));
+    box-shadow: var(--lift-hi);
+    transform: translateY(-2px);
+  }
+  @media (min-width: 640px) {
+    .tl::before {
+      content: "";
+      @apply absolute bottom-2 top-2 w-px bg-line;
+      left: 4.15rem;
+    }
+    .ev-time {
+      @apply absolute left-0 top-[1.35rem] w-12 text-right;
+    }
+    .ev-dot {
+      @apply absolute top-[1.4rem] block h-[7px] w-[7px];
+      left: calc(4.15rem - 3px);
+    }
+    .ev > .item-card {
+      margin-left: 5.75rem;
+    }
+    .ev:hover .ev-dot {
+      border-color: rgb(var(--accent));
+      background: rgb(var(--accent));
+      transform: scale(1.25);
+    }
+  }
+  /* segmented control: the pill slides to the active option with a slight
+     overshoot; only the pill moves, so switching never reflows */
+  .seg {
+    @apply relative inline-flex rounded-full border border-line p-1;
+    background: rgb(var(--card) / 0.72);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--lift);
+  }
+  .seg-pill {
+    @apply pointer-events-none absolute bottom-1 top-1 left-0 rounded-full;
+    width: var(--seg-w, 0);
+    transform: translateX(var(--seg-x, 0));
+    background: rgb(var(--accent) / 0.13);
+    border: 1px solid rgb(var(--accent) / 0.42);
+    box-shadow:
+      0 0 0 3px rgb(var(--accent) / 0.07),
+      0 2px 12px rgb(var(--accent) / 0.2);
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.26, 0.48, 1),
+      width 0.22s cubic-bezier(0.34, 1.26, 0.48, 1);
+  }
+  .seg > button {
+    @apply relative z-[1] rounded-full px-4 py-1.5 text-[13px] text-muted transition-colors
+      hover:text-ink;
+  }
+  .seg > button[aria-pressed="true"] {
+    @apply font-medium text-ink;
   }
   /* the anti-card-stack: one bordered surface, hairline-divided rows */
   .row-list {

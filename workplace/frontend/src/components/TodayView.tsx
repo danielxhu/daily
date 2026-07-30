@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 
 import { Reveal } from "@/components/Reveal";
@@ -172,7 +172,9 @@ export function TodayView({
         <p className="text-sm font-medium text-ink">
           {new Date().toLocaleDateString(intlLocale, { dateStyle: "full" })}
         </p>
-        <p className="tnum text-xs text-faint">
+        {/* muted, not faint: this line sits on the veiled field, where faint
+            falls below 4.5:1 */}
+        <p className="tnum text-xs text-muted">
           {lastPolled
             ? t("today.head.lastPoll", {
                 time: new Date(lastPolled).toLocaleString(intlLocale),
@@ -201,25 +203,15 @@ export function TodayView({
           ) : (
             <>
               {(grouping?.boards.length ?? 0) > 0 && (
-                <div
-                  role="group"
-                  aria-label={t("today.tabs.aria")}
-                  className="flex flex-wrap gap-1.5"
-                >
-                  <BoardTab
-                    label={t("today.tabs.all")}
-                    active={boardTab === null}
-                    onClick={() => setBoardTab(null)}
-                  />
-                  {(grouping?.boards ?? []).map((board) => (
-                    <BoardTab
-                      key={board.id}
-                      label={board.name}
-                      active={boardTab === board.id}
-                      onClick={() => setBoardTab(board.id)}
-                    />
-                  ))}
-                </div>
+                <BoardTabs
+                  aria={t("today.tabs.aria")}
+                  options={[
+                    { id: null, label: t("today.tabs.all") },
+                    ...(grouping?.boards ?? []).map((b) => ({ id: b.id, label: b.name })),
+                  ]}
+                  value={boardTab}
+                  onChange={setBoardTab}
+                />
               )}
               {filtered.length === 0 ? (
                 <p className="text-sm text-muted">{t("today.tabs.empty")}</p>
@@ -240,27 +232,43 @@ export function TodayView({
   );
 }
 
-/** One board-filter pill (AIHOT-style tabs). */
-function BoardTab({
-  label,
-  active,
-  onClick,
+/** The board filter: a segmented control whose pill slides to the active option.
+ * The pill is measured from the button's own box so labels of any width fit. */
+function BoardTabs({
+  aria,
+  options,
+  value,
+  onChange,
 }: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
+  aria: string;
+  options: { id: string | null; label: string }[];
+  value: string | null;
+  onChange: (id: string | null) => void;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState({ x: 0, w: 0 });
+  useLayoutEffect(() => {
+    const active = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (active) setPill({ x: active.offsetLeft - 4, w: active.offsetWidth });
+  }, [value, options.length]);
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`rounded-lg border px-2.5 py-1 text-xs transition-colors ${
-        active ? "border-accent bg-panel text-ink" : "border-line text-muted hover:border-muted"
-      }`}
-    >
-      {label}
-    </button>
+    <div ref={ref} role="group" aria-label={aria} className="seg">
+      <span
+        aria-hidden="true"
+        className="seg-pill"
+        style={{ "--seg-x": `${pill.x}px`, "--seg-w": `${pill.w}px` } as CSSProperties}
+      />
+      {options.map((o) => (
+        <button
+          key={o.id ?? "all"}
+          type="button"
+          aria-pressed={value === o.id}
+          onClick={() => onChange(o.id)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -341,27 +349,29 @@ function SourceStatus({ subs }: { subs: Subscription[] }) {
           {t("today.sources.manage")}
         </Link>
       </div>
-      {subs.length === 0 ? (
-        <p className="text-sm text-muted">
-          {t("today.sources.none").split("{addLink}")[0]}
-          <Link href="/tracking" className="text-accent hover:text-accent-strong">
-            {t("today.sources.addLinkText")}
-          </Link>
-          {t("today.sources.none").split("{addLink}")[1]}
-        </p>
-      ) : (
-        <p className="text-sm text-muted">
-          {subs.length === 1
-            ? t("today.sources.watching", { count: subs.length })
-            : t("today.sources.watching_plural", { count: subs.length })}
-          {unhealthy > 0 ? (
-            <span className="tnum text-warn-fg">{t("today.sources.needLook", { unhealthy })}</span>
-          ) : (
-            <span className="text-ok-fg">{t("today.sources.allHealthy")}</span>
-          )}
-          .
-        </p>
-      )}
+      <div className="item-card">
+        {subs.length === 0 ? (
+          <p className="text-sm text-muted">
+            {t("today.sources.none").split("{addLink}")[0]}
+            <Link href="/tracking" className="text-accent hover:text-accent-strong">
+              {t("today.sources.addLinkText")}
+            </Link>
+            {t("today.sources.none").split("{addLink}")[1]}
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            {subs.length === 1
+              ? t("today.sources.watching", { count: subs.length })
+              : t("today.sources.watching_plural", { count: subs.length })}
+            {unhealthy > 0 ? (
+              <span className="tnum text-warn-fg">{t("today.sources.needLook", { unhealthy })}</span>
+            ) : (
+              <span className="text-ok-fg">{t("today.sources.allHealthy")}</span>
+            )}
+            .
+          </p>
+        )}
+      </div>
     </section>
   );
 }

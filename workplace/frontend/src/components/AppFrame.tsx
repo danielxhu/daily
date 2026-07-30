@@ -21,13 +21,16 @@ const PlasmaField = dynamic(() => import("@/components/PlasmaField").then((m) =>
  * composition with its own scroll and nav, so it renders bare — wrapping it in the
  * app container would also put that container over its content. */
 export function AppFrame({ children }: { children: ReactNode }) {
-  const bare = usePathname() === "/welcome";
+  const path = usePathname();
   const theme = useAppliedTheme();
-  if (bare) return <main>{children}</main>;
+  if (path === "/welcome") return <main>{children}</main>;
+  // Today puts its content on cards, so the field is the page behind them; the
+  // reading surfaces keep the sheet
+  const onCards = path === "/";
   return (
     <>
       <PlasmaField theme={theme} />
-      <div aria-hidden="true" className="sheet" />
+      <div aria-hidden="true" className={onCards ? "sheet sheet-veil" : "sheet"} />
       <header className="sticky top-0 z-20 border-b border-line bg-surface/80 backdrop-blur">
         {/* flex-wrap + compact paddings: the labeled Guide entry (M16.1) made
             the control cluster wider — the 375px header must never overlap */}
@@ -39,7 +42,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <Shell>
+      <Shell wide={onCards}>
         <main className="animate-fade-in">{children}</main>
         {/* M16.1: the app-wide credibility disclaimer left with the check
             retirement — the tracked-note honesty line lives on the surfaces */}
