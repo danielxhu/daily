@@ -152,11 +152,11 @@ def test_lazy_client_bounds_timeout_and_disables_sdk_retries(
 # --- the text slot accepts any OpenAI-compatible provider -----------------------
 
 
-def _anthropic_credential() -> ApiCredential:
+def _third_party_credential() -> ApiCredential:
     return ApiCredential(
         slot="text",
-        base_url="https://api.anthropic.com/v1",
-        model="claude-sonnet-5",
+        base_url="https://api.vendor.example/v1",
+        model="vendor-model-1",
         api_key="user-key",
     )
 
@@ -164,15 +164,17 @@ def _anthropic_credential() -> ApiCredential:
 def _bad_request() -> BadRequestError:
     return BadRequestError(
         "unknown parameter: response_format",
-        response=httpx.Response(400, request=httpx.Request("POST", "https://api.anthropic.com")),
+        response=httpx.Response(400, request=httpx.Request("POST", "https://api.vendor.example")),
         body=None,
     )
 
 
 def test_custom_endpoint_never_receives_the_deepseek_thinking_knob() -> None:
-    create = _FakeCreate({"claude-sonnet-5": json.dumps({"ok": True})})
+    create = _FakeCreate({"vendor-model-1": json.dumps({"ok": True})})
     client = DeepSeekClient(
-        settings=_settings(), openai_client=_fake_openai(create), credential=_anthropic_credential()
+        settings=_settings(),
+        openai_client=_fake_openai(create),
+        credential=_third_party_credential(),
     )
     assert client.complete_json(system="s", user="u") == {"ok": True}
     call = create.calls[0]
@@ -190,7 +192,9 @@ def test_custom_endpoint_rejecting_json_mode_degrades_and_remembers() -> None:
         return _resp(json.dumps({"ok": True}))
 
     client = DeepSeekClient(
-        settings=_settings(), openai_client=_fake_openai(picky), credential=_anthropic_credential()
+        settings=_settings(),
+        openai_client=_fake_openai(picky),
+        credential=_third_party_credential(),
     )
     # first call: tries JSON mode, gets the 400, drops it, succeeds
     assert client.complete_json(system="s", user="u") == {"ok": True}

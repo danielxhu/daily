@@ -78,11 +78,9 @@ test("the note pile: read by hover, click to leave a note out of the ask", async
   await expect(page.getByText("Asking over every note")).toBeVisible();
 });
 
-// A note saved before the bilingual copies existed only follows the language switch
-// once the user asks for the other language on the note's own page.
-test("open a note: edit its body, then have it written in the other language", async ({
-  page,
-}) => {
+// Editing happens on the note's own page; every note is drafted in both languages,
+// so an edit lands on the language being read.
+test("open a note and edit its body", async ({ page }) => {
   await openMockApp(page, "/knowledge");
   const pile = page.getByRole("region", { name: "Your notes" });
   const older = pile.locator(".pcard").first();
@@ -94,8 +92,4 @@ test("open a note: edit its body, then have it written in the other language", a
   await body.fill("SEC 规则进入公开评议期,截止日期需回原文确认。补一句:关注最终稿。");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Saved.")).toBeVisible();
-
-  // the note has no English copy yet, so the switch is offered explicitly
-  await page.getByRole("button", { name: /Write this note in Chinese too/ }).click();
-  await expect(page.getByText("This note now follows the language switch.")).toBeVisible();
 });

@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { noteText } from "@/components/NotePile";
-import {
-  ApiError,
-  listKnowledgeNotes,
-  localizeKnowledgeNote,
-  updateKnowledgeNote,
-} from "@/lib/api";
+import { ApiError, listKnowledgeNotes, updateKnowledgeNote } from "@/lib/api";
 import { useLocale, useT } from "@/lib/i18n";
 import type { KnowledgeNote } from "@/types/contract";
 
@@ -19,19 +14,16 @@ interface NoteDetailViewProps {
   // injectable so tests never hit the network
   notesFn?: typeof listKnowledgeNotes;
   saveFn?: typeof updateKnowledgeNote;
-  localizeFn?: typeof localizeKnowledgeNote;
 }
 
 /** One saved note, open for editing: the title and the body, in the language being
- * read. A note written before the bilingual copies existed can be rendered into the
- * other language here — one explicit call, stored, after which it follows the
- * language switch. */
+ * read. Every note is drafted in both languages, so an edit lands on the language
+ * being read and the other one keeps what it had. */
 export function NoteDetailView({
   boardId,
   noteId,
   notesFn = listKnowledgeNotes,
   saveFn = updateKnowledgeNote,
-  localizeFn = localizeKnowledgeNote,
 }: NoteDetailViewProps) {
   const { locale } = useLocale();
   const t = useT();
@@ -39,7 +31,7 @@ export function NoteDetailView({
   const [note, setNote] = useState<KnowledgeNote | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [busy, setBusy] = useState<"save" | "localize" | null>(null);
+  const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,12 +63,9 @@ export function NoteDetailView({
     setBody(shown.body);
   }, [note, lang]);
 
-  const hasBoth =
-    note !== null && Boolean(note.content_zh) && Boolean(note.content_en);
-
   const save = async () => {
     if (note === null) return;
-    setBusy("save");
+    setSaving(true);
     setError(null);
     try {
       setNote(await saveFn(boardId, note.id, { title, content: body }, lang));
@@ -84,23 +73,10 @@ export function NoteDetailView({
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("note.errLoad"));
     } finally {
-      setBusy(null);
+      setSaving(false);
     }
   };
 
-  const localize = async () => {
-    if (note === null) return;
-    setBusy("localize");
-    setError(null);
-    try {
-      setNote(await localizeFn(boardId, note.id, lang === "en" ? "zh" : "en"));
-      setStatus(t("note.localized"));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("note.errLoad"));
-    } finally {
-      setBusy(null);
-    }
-  };
 
   if (error !== null && note === null) {
     return (
@@ -110,8 +86,6 @@ export function NoteDetailView({
     );
   }
   if (note === null) return <p className="text-sm text-muted">{t("knowledge.loading")}</p>;
-
-  const otherLanguage = t(lang === "en" ? "note.language.zh" : "note.language.en");
 
   return (
     <div className="space-y-5">
@@ -140,20 +114,9 @@ export function NoteDetailView({
         />
       </label>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={save} disabled={busy !== null} className="btn-primary">
-          {busy === "save" ? t("note.saving") : t("note.save")}
-        </button>
-        {hasBoth ? (
-          <span className="text-xs text-faint">{t("note.hasBoth")}</span>
-        ) : (
-          <button type="button" onClick={localize} disabled={busy !== null} className="btn-ghost text-xs">
-            {busy === "localize"
-              ? t("note.localizing")
-              : t("note.localize", { language: otherLanguage })}
-          </button>
-        )}
-      </div>
+      <button type="button" onClick={save} disabled={saving} className="btn-primary">
+        {saving ? t("note.saving") : t("note.save")}
+      </button>
 
       {status && (
         <p role="status" className="text-xs text-ok-fg">
