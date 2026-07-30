@@ -20,10 +20,12 @@ message keys stay in the tree frozen + fenced as DORMANT).
   Knowledge.
 - **Digest** (`/digest`) — the grouped read surface with per-group stats
   (items / sources / latest / tier spread), 7/30/90-day window.
-- **Knowledge** (`/knowledge`) — the board-card map (counts per board), module
-  drill-down, layered search (tracked items / your notes / distilled AI
-  summaries as display-only), and the on-demand AI answer grounded in your own
-  notes only.
+- **Knowledge** (`/knowledge`) — the ask, answered from your own sources and
+  notes, then the saved notes as a pile of cards filtered by board: hovering one
+  opens it, clicking one leaves it out of the next ask, and each opens on its own
+  page (`/notes/[boardId]/[noteId]`) for editing.
+- **Boards** (`/boards`) — the modules inside each board and which source belongs
+  to which. The notes themselves live on Knowledge.
 - **Sources** (`/tracking`) — subscriptions, health, typed failures, starter pack.
 
 Bilingual (en/zh) via `src/lib/messages.ts` — the locale toggle switches
