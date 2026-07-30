@@ -25,7 +25,7 @@ async function openFinanceBoard(page: Page) {
 test("open a board: notes render, no check-era or distill surface", async ({ page }) => {
   await openFinanceBoard(page);
 
-  await expect(page.getByRole("region", { name: "Notes" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Notes", exact: true })).toBeVisible();
   // engine removal (2026-07-13): no AI summary region, no verified-facts region
   await expect(page.getByRole("region", { name: "AI summary" })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Verified facts" })).toHaveCount(0);

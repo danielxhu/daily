@@ -28,7 +28,12 @@ def _row_to_note(row: sqlite3.Row) -> KnowledgeNote:
         id=row["id"],
         board_id=row["board_id"],
         kind=row["kind"],
+        title=row["title"],
         content=row["content"],
+        title_zh=row["title_zh"],
+        title_en=row["title_en"],
+        content_zh=row["content_zh"],
+        content_en=row["content_en"],
         citations=json.loads(row["citations_json"]),
         is_synthesized=bool(row["is_synthesized"]),
         regenerable=bool(row["regenerable"]),
@@ -41,13 +46,19 @@ def persist_note(conn: sqlite3.Connection, note: KnowledgeNote) -> None:
     notes and by the M6.4 distiller for `ai_distilled` notes."""
     conn.execute(
         "INSERT INTO knowledge_notes "
-        "(id, board_id, kind, content, citations_json, is_synthesized, regenerable, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "(id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             note.id,
             note.board_id,
             note.kind,
+            note.title,
             note.content,
+            note.title_zh,
+            note.title_en,
+            note.content_zh,
+            note.content_en,
             json.dumps(note.citations),
             int(note.is_synthesized),
             int(note.regenerable),
@@ -63,6 +74,9 @@ def create_note(
     kind: HumanNoteKind,
     content: str,
     *,
+    title: str | None = None,
+    titles: dict[str, str] | None = None,
+    contents: dict[str, str] | None = None,
     citations: list[str] | None = None,
 ) -> KnowledgeNote:
     """Create a human knowledge note (`pinned_fact` / `user_note`). User-authored, so
@@ -71,7 +85,12 @@ def create_note(
         id=uuid.uuid4().hex,
         board_id=board_id,
         kind=kind,
+        title=title,
         content=content,
+        title_zh=(titles or {}).get("zh"),
+        title_en=(titles or {}).get("en"),
+        content_zh=(contents or {}).get("zh"),
+        content_en=(contents or {}).get("en"),
         citations=citations or [],
         is_synthesized=False,
         regenerable=False,
@@ -83,7 +102,8 @@ def create_note(
 
 def list_notes(conn: sqlite3.Connection, board_id: str) -> list[KnowledgeNote]:
     rows = conn.execute(
-        "SELECT id, board_id, kind, content, citations_json, is_synthesized, regenerable, "
+        "SELECT id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, "
         "created_at FROM knowledge_notes WHERE board_id = ? ORDER BY created_at",
         (board_id,),
     ).fetchall()
@@ -97,7 +117,8 @@ def list_saved_notes(conn: sqlite3.Connection) -> list[KnowledgeNote]:
     `search_saved_notes`: `ai_distilled` (display-only cache) and `pinned_fact`
     (dormant fact layer) never ground an answer."""
     rows = conn.execute(
-        "SELECT id, board_id, kind, content, citations_json, is_synthesized, regenerable, "
+        "SELECT id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, "
         "created_at FROM knowledge_notes WHERE kind IN ('saved_check', 'user_note') "
         "ORDER BY created_at DESC"
     ).fetchall()
@@ -150,7 +171,8 @@ def _keyword_search(
         return []
     placeholders = ", ".join("?" for _ in kinds)
     rows = conn.execute(
-        "SELECT id, board_id, kind, content, citations_json, is_synthesized, regenerable, "
+        "SELECT id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, "
         f"created_at FROM knowledge_notes WHERE kind IN ({placeholders})",
         kinds,
     ).fetchall()
@@ -164,6 +186,30 @@ def _keyword_search(
     scored.sort(key=lambda item: item[1], reverse=True)
     scored.sort(key=lambda item: -item[0])
     return [note for _, _, note in scored[:limit]]
+
+
+def rename_note(
+    conn: sqlite3.Connection, board_id: str, note_id: str, title: str, *, locale: str = "zh"
+) -> KnowledgeNote | None:
+    """Retitle a note. The path's board_id is authoritative, as in `delete_note`.
+    The user typed this title in one language, so it lands on that language's field
+    and on the fallback; the other language keeps whatever it had.
+    Returns the updated note, or None when it is not in this board."""
+    column = "title_en" if locale == "en" else "title_zh"
+    cur = conn.execute(
+        f"UPDATE knowledge_notes SET title = ?, {column} = ? WHERE id = ? AND board_id = ?",
+        (title, title, note_id, board_id),
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return None
+    row = conn.execute(
+        "SELECT id, board_id, kind, title, content, title_zh, title_en, content_zh, "
+        "content_en, citations_json, is_synthesized, regenerable, created_at "
+        "FROM knowledge_notes WHERE id = ?",
+        (note_id,),
+    ).fetchone()
+    return _row_to_note(row)
 
 
 def delete_note(conn: sqlite3.Connection, board_id: str, note_id: str) -> bool:

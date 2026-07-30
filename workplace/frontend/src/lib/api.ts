@@ -85,10 +85,23 @@ async function getJson<T>(path: string, opts: QueryOptions): Promise<T> {
 
 
 async function postJson<T>(path: string, body: unknown, opts: QueryOptions): Promise<T> {
+  return sendJson<T>("POST", path, body, opts);
+}
+
+async function patchJson<T>(path: string, body: unknown, opts: QueryOptions): Promise<T> {
+  return sendJson<T>("PATCH", path, body, opts);
+}
+
+async function sendJson<T>(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+  opts: QueryOptions,
+): Promise<T> {
   const fetchFn = opts.fetchFn ?? fetch;
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}${path}`, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
     signal: opts.signal,
@@ -527,21 +540,48 @@ export async function getKnowledgeChat(
   return getJson<KnowledgeChat>(`/knowledge/chats/${id}`, opts);
 }
 
-/** First ask = a new chat (titled after the question, answered in one call). */
+/** Every note the user saved, all boards, newest first. */
+export async function listKnowledgeNotes(opts: QueryOptions = {}): Promise<KnowledgeNote[]> {
+  return getJson<KnowledgeNote[]>("/knowledge/notes", opts);
+}
+
+/** Retitle a note. `locale` says which language the title was typed in. */
+export async function renameKnowledgeNote(
+  boardId: string,
+  noteId: string,
+  title: string,
+  locale: "zh" | "en",
+  opts: QueryOptions = {},
+): Promise<KnowledgeNote> {
+  return patchJson<KnowledgeNote>(
+    `/boards/${boardId}/notes/${noteId}`,
+    { title, locale },
+    opts,
+  );
+}
+
+/** First ask = a new chat (titled after the question, answered in one call).
+ * `noteIds` narrows the grounding to those notes; empty = the whole base. */
 export async function createKnowledgeChat(
   q: string,
+  noteIds: string[] = [],
   opts: QueryOptions = {},
 ): Promise<KnowledgeChat> {
-  return postJson<KnowledgeChat>("/knowledge/chats", { q }, opts);
+  return postJson<KnowledgeChat>("/knowledge/chats", { q, note_ids: noteIds }, opts);
 }
 
 /** Follow-up ask inside an existing chat — the answer sees the earlier turns. */
 export async function continueKnowledgeChat(
   id: string,
   q: string,
+  noteIds: string[] = [],
   opts: QueryOptions = {},
 ): Promise<KnowledgeChat> {
-  return postJson<KnowledgeChat>(`/knowledge/chats/${id}/messages`, { q }, opts);
+  return postJson<KnowledgeChat>(
+    `/knowledge/chats/${id}/messages`,
+    { q, note_ids: noteIds },
+    opts,
+  );
 }
 
 /** Delete one conversation — never the notes/items it talked about. */

@@ -1,5 +1,6 @@
 import {
   buildMockBoardNotes,
+  buildMockKnowledgeNotes,
   buildMockBoards,
   buildMockDigest,
   buildMockModules,
@@ -26,6 +27,8 @@ interface MockChat {
   based_on?: number;
 }
 const mockChats = new Map<string, MockChat>();
+// the Knowledge page's notes; renaming mutates them so the UI reflects the save
+const knowledgeNotes = buildMockKnowledgeNotes();
 
 function mockApiSlots(): ApiSlotView[] {
   return [
@@ -392,6 +395,18 @@ export const handlers = [
   }),
   // M16.2: the on-demand AI answer over the user's saved notes
   // knowledge chats (2026-07-24): stateful per page load
+  http.get("*/knowledge/notes", () => HttpResponse.json(knowledgeNotes)),
+
+  http.patch("*/boards/:boardId/notes/:noteId", async ({ params, request }) => {
+    const body = (await request.json()) as { title: string; locale?: string };
+    const note = knowledgeNotes.find((n) => n.id === params.noteId);
+    if (!note) return new HttpResponse(null, { status: 404 });
+    note.title = body.title;
+    if (body.locale === "en") note.title_en = body.title;
+    else note.title_zh = body.title;
+    return HttpResponse.json(note);
+  }),
+
   http.get("*/knowledge/chats", () =>
     HttpResponse.json(
       [...mockChats.values()]

@@ -11,6 +11,8 @@ instead of merely reciting the source. Flash-only, READ-ONLY
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from app.clients.base import LLMClient
 from app.schemas.models import DiscussMessage, TrackedItemCard
 
@@ -122,10 +124,32 @@ _NOTE_DRAFT_SYSTEM = (
     "full note obeying the latest instruction (assistant turns are your "
     "earlier drafts).\n"
     "- No concrete buy/sell or investment instructions.\n"
+    "- Also give the note a title: a specific claim or question in at most 14 "
+    "words, so a stack of titles alone tells the user what each note is about. "
+    '"Notes on X" and other empty labels are useless.\n'
     "- Write the note in {language}, unless the user's instructions ask for "
-    "another language. "
-    'Output JSON only: {{"draft": "<the full note text>"}}'
+    "another language. Give the title and the note in BOTH Chinese and English — "
+    "the same note, not a summary of itself — because the reader switches the "
+    "interface language.\n"
+    'Output JSON only: {{"title": "<the title in {language}>", '
+    '"draft": "<the full note in {language}>", "title_zh": "<title, Chinese>", '
+    '"title_en": "<title, English>", "draft_zh": "<the full note, Chinese>", '
+    '"draft_en": "<the full note, English>"}}'
 )
+
+
+@dataclass(frozen=True)
+class NoteDraft:
+    """One drafting round's output: the note in the requested language plus a copy
+    of title and body in each UI language. Every localized field is optional — the
+    model may omit one, and `draft` / `title` stay the fallback."""
+
+    draft: str
+    title: str | None
+    title_zh: str | None
+    title_en: str | None
+    draft_zh: str | None
+    draft_en: str | None
 
 
 def draft_item_note(
@@ -136,7 +160,7 @@ def draft_item_note(
     discussion: list[DiscussMessage] | None = None,
     locale: str = "zh",
     llm: LLMClient,
-) -> str:
+) -> NoteDraft:
     """Draft (or revise) the knowledge note for a tracked item — one flash call,
     grounded in the item's persisted material. `messages` empty = initial draft;
     otherwise the revision chat (earlier drafts as assistant turns, the user's
@@ -160,4 +184,16 @@ def draft_item_note(
     draft = data.get("draft")
     if not isinstance(draft, str) or not draft.strip():
         raise DiscussError("model returned no usable draft")
-    return draft.strip()
+
+    def text(key: str) -> str | None:
+        value = data.get(key)
+        return value.strip() if isinstance(value, str) and value.strip() else None
+
+    return NoteDraft(
+        draft=draft.strip(),
+        title=text("title"),
+        title_zh=text("title_zh"),
+        title_en=text("title_en"),
+        draft_zh=text("draft_zh"),
+        draft_en=text("draft_en"),
+    )

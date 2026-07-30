@@ -247,6 +247,87 @@
   .seg > button[aria-pressed="true"] {
     @apply font-medium text-ink;
   }
+  /* the note pile: overlapping cards in normal flow. No transform in the layout,
+     so every card is the same width; each card's upward shadow falls on the one
+     behind it, and the lit top edge is what reads as the edge of a sheet.
+     Opening a card is a height change — the flow moves the rest. */
+  /* the pile reserves the height of "one card open" up front, so hovering across
+     it never reflows the page under the pointer */
+  .pile {
+    @apply relative;
+    min-height: calc(
+      (var(--pile-n) - 1) * (var(--strip) - var(--lap)) + var(--open) + var(--lap) + var(--gap)
+    );
+  }
+  .pcard {
+    @apply relative overflow-hidden rounded-[18px] border border-line;
+    height: var(--strip);
+    background: rgb(var(--card));
+    transform: translateY(var(--peek, 0));
+    box-shadow:
+      0 -10px 22px -8px rgb(var(--wash) / 0.16),
+      0 1px 2px rgb(var(--wash) / 0.05),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+    transition:
+      height 0.4s cubic-bezier(0.19, 0.91, 0.24, 1),
+      transform 0.18s cubic-bezier(0.2, 0.9, 0.26, 1),
+      margin 0.4s cubic-bezier(0.19, 0.91, 0.24, 1),
+      box-shadow 0.3s,
+      border-color 0.3s;
+  }
+  :root[data-theme="dark"] .pcard {
+    box-shadow:
+      0 -10px 24px -8px rgb(0 0 0 / 0.75),
+      0 1px 2px rgb(0 0 0 / 0.5),
+      inset 0 1px 0 rgb(255 255 255 / 0.07);
+  }
+  .pcard + .pcard {
+    margin-top: calc(0px - var(--lap));
+  }
+  .pcard[data-open="1"] {
+    @apply z-[5] border-line-strong;
+    height: var(--open);
+    box-shadow:
+      0 -4px 12px -6px rgb(var(--wash) / 0.1),
+      0 26px 56px -18px rgb(var(--wash) / 0.3),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
+  }
+  :root[data-theme="dark"] .pcard[data-open="1"] {
+    box-shadow:
+      0 -4px 14px -6px rgb(0 0 0 / 0.6),
+      0 28px 60px -18px rgb(0 0 0 / 0.9),
+      inset 0 1px 0 rgb(255 255 255 / 0.07);
+  }
+  /* the card after an open one stops overlapping, so the read has a clean bottom */
+  .pcard[data-open="1"] + .pcard {
+    margin-top: var(--gap);
+  }
+  .pcard:focus-visible {
+    @apply z-[6] border-accent outline-none;
+  }
+  .pcard > .spine {
+    @apply flex items-center gap-3 px-5;
+    height: var(--strip);
+  }
+  .pcard > .nbody {
+    @apply flex flex-col px-5 pb-4 opacity-0 transition-opacity duration-200;
+    height: calc(var(--open) - var(--strip));
+  }
+  .pcard[data-open="1"] > .nbody {
+    @apply opacity-100 delay-100;
+  }
+  .pcard > .nbody > hr {
+    @apply mb-3 border-0 border-t border-line;
+  }
+  .pcard .ntext {
+    @apply overflow-hidden;
+  }
+  .pcard .ntext p {
+    @apply mb-2 text-[13.5px] leading-relaxed text-muted;
+  }
+  .pcard .nfrom {
+    @apply mt-auto border-t border-line pt-3 text-[11px] text-faint;
+  }
   /* the anti-card-stack: one bordered surface, hairline-divided rows */
   .row-list {
     @apply divide-y divide-line overflow-hidden rounded-md border border-line bg-card;

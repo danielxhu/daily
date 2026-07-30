@@ -241,7 +241,14 @@ class KnowledgeNote(Schema):
     id: str
     board_id: str
     kind: Literal["pinned_fact", "user_note", "ai_distilled", "saved_check"]
+    title: str | None = None  # drafted with the note, renamable; None for older notes
     content: str  # user text, or LLM-distilled theme-level synthesis
+    # the same note in each UI language, so it follows the language switch. Both
+    # sides are optional; `title`/`content` are the authored text and the fallback.
+    title_zh: str | None = None
+    title_en: str | None = None
+    content_zh: str | None = None
+    content_en: str | None = None
     citations: list[str] = []  # claim_ids; REQUIRED (non-empty) when ai_distilled
     is_synthesized: bool = False  # True for ai_distilled → UI labels + separates it
     regenerable: bool = True  # ai_distilled is a cache, never the source of truth
@@ -436,10 +443,18 @@ class ItemNoteDraftRequest(Schema):
 
 
 class ItemNoteDraftReply(Schema):
-    """`POST /tracked-items/{id}/note-draft` reply: the current draft note text,
-    grounded in the item's stored excerpt + enrichment. Never auto-saved."""
+    """`POST /tracked-items/{id}/note-draft` reply: the current draft note text
+    and its title, grounded in the item's stored excerpt + enrichment. Never
+    auto-saved."""
 
     draft: str
+    title: str | None = None
+    # the same title and note in each UI language, so the saved note follows the
+    # language switch; any of them may be absent
+    title_zh: str | None = None
+    title_en: str | None = None
+    draft_zh: str | None = None
+    draft_en: str | None = None
 
 
 class KnowledgeSearchResult(Schema):
@@ -455,9 +470,11 @@ class KnowledgeSearchResult(Schema):
 class KnowledgeAnswerRequest(Schema):
     """`POST /knowledge/answer` body (M16.2): the question to answer on demand.
     Also the body of the chat asks (`POST /knowledge/chats` and
-    `POST /knowledge/chats/{id}/messages`)."""
+    `POST /knowledge/chats/{id}/messages`). `note_ids` narrows the grounding to
+    the notes the user picked; empty means the whole knowledge base."""
 
     q: str
+    note_ids: list[str] = []
 
 
 class KnowledgeChat(Schema):

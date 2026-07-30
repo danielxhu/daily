@@ -24,9 +24,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const path = usePathname();
   const theme = useAppliedTheme();
   if (path === "/welcome") return <main>{children}</main>;
-  // Today puts its content on cards, so the field is the page behind them; the
-  // reading surfaces keep the sheet
-  const onCards = path === "/";
+  // the card surfaces put their content on cards, so the field is the page behind
+  // them; the reading surfaces keep the sheet
+  const onCards = path === "/" || path === "/knowledge";
   return (
     <>
       <PlasmaField theme={theme} />

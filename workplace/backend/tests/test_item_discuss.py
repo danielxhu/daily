@@ -270,14 +270,26 @@ def test_discuss_is_read_only(tmp_path: Path) -> None:
 class _DraftLLM:
     """Returns a canned draft and records every prompt."""
 
-    def __init__(self, draft: str = "要点:规则进入评议期;关注生效时间表。") -> None:
+    def __init__(
+        self,
+        draft: str = "要点:规则进入评议期;关注生效时间表。",
+        title: str | None = "市场结构规则进入评议期",
+    ) -> None:
         self.draft = draft
+        self.title = title
         self.calls: list[tuple[str, str]] = []
 
     def complete_json(self, *, system: str, user: str, escalate: bool = False) -> dict[str, object]:
         assert escalate is False  # flash-only
         self.calls.append((system, user))
-        return {"draft": self.draft}
+        return {
+            "draft": self.draft,
+            "title": self.title,
+            "title_zh": self.title,
+            "title_en": "Market-structure rules enter comment period",
+            "draft_zh": self.draft,
+            "draft_en": "The comment period opened.",
+        }
 
 
 def test_note_draft_initial_then_revision_carries_the_chat(tmp_path: Path) -> None:
@@ -298,7 +310,17 @@ def test_note_draft_initial_then_revision_carries_the_chat(tmp_path: Path) -> No
         f"/tracked-items/{sec}/note-draft", json={"messages": [], "locale": "zh"}
     )
     assert res.status_code == 200
-    assert res.json() == {"draft": "要点:规则进入评议期;关注生效时间表。"}
+    assert res.json() == {
+        "draft": "要点:规则进入评议期;关注生效时间表。",
+        "title": "市场结构规则进入评议期",
+        "title_zh": "市场结构规则进入评议期",
+        "title_en": "Market-structure rules enter comment period",
+        "draft_zh": "要点:规则进入评议期;关注生效时间表。",
+        "draft_en": "The comment period opened.",
+    }
+    # a title, and both languages, so the saved note follows the language switch
+    assert "give the note a title" in llm.calls[0][0]
+    assert "BOTH Chinese and English" in llm.calls[0][0]
     system, user = llm.calls[0]
     assert "drafting a note" in system and "in Chinese" in system
     assert "No concrete buy/sell" in system

@@ -454,3 +454,47 @@ def test_answer_endpoint_rejects_empty_question(tmp_path: Path) -> None:
     db = str(tmp_path / "daily.db")
     init_db(db).close()
     assert _client(db).post("/knowledge/answer", json={"q": "  "}).status_code == 400
+
+
+def test_answer_endpoint_bounded_by_the_notes_the_user_picked(tmp_path: Path) -> None:
+    """`note_ids` on the ask means: answer from these notes and nothing else — no
+    other notes, no tracked items. Empty (the default) is the whole base."""
+    from datetime import UTC, datetime
+
+    from app.db.tracked_item_store import upsert_discovered
+    from app.tracking.feed import FeedItem
+
+    db = str(tmp_path / "daily.db")
+    conn = init_db(db)
+    picked = create_note(conn, BOARD, "user_note", "PICKED note: spreads widened in Q2")
+    create_note(conn, BOARD, "user_note", "OTHER note: also about spreads in Q2")
+    upsert_discovered(
+        conn,
+        subscription_id="sub1",
+        board_id=BOARD,
+        item=FeedItem(
+            guid=None,
+            url="https://example.com/spreads",
+            title="TRACKED item about spreads",
+            summary=None,
+            published=None,
+        ),
+        now=datetime(2026, 7, 8, tzinfo=UTC),
+    )
+    conn.commit()
+    conn.close()
+
+    llm = MockLLMClient([{"answer": "From the note you chose: spreads widened."}])
+    res = _client(db, llm).post("/knowledge/answer", json={"q": "spreads", "note_ids": [picked.id]})
+    assert res.status_code == 200
+    assert res.json()["based_on"] == 1
+    prompt = llm.calls[0]["user"]
+    assert "PICKED note" in prompt
+    assert "OTHER note" not in prompt
+    assert "TRACKED item" not in prompt
+
+    # a stale selection is a typed 400, not a silent whole-corpus answer
+    stale = _client(db, MockLLMClient([{"answer": "x"}])).post(
+        "/knowledge/answer", json={"q": "spreads", "note_ids": ["gone"]}
+    )
+    assert stale.status_code == 400

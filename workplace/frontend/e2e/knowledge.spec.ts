@@ -51,3 +51,39 @@ test("the knowledge map: board cards carry counts; search stays two-layered", as
   // …and the check surface stays retired on this page too
   await expect(page.locator("body")).not.toContainText(/credibility|verdict|\/100|deep check/i);
 });
+
+// The saved notes are a pile of cards on Knowledge: the newest is open, hovering
+// another opens it, and ticking cards bounds the next ask to them.
+test("the note pile: read by hover, rename in place, bound the ask to picked notes", async ({
+  page,
+}) => {
+  await openMockApp(page, "/knowledge");
+  const pile = page.getByRole("region", { name: "Your notes" });
+  await expect(pile).toBeVisible();
+
+  // the newest note is the front of the pile, so its body is readable at rest
+  await expect(
+    pile.getByText("Spreads widened through Q2, but the two houses disagree on why."),
+  ).toBeVisible();
+
+  // hovering the older card opens it in place
+  const older = pile.locator(".pcard").first();
+  await older.hover();
+  await expect(older).toHaveAttribute("data-open", "1");
+
+  // rename lands on the card the pointer is reading
+  const front = pile.locator(".pcard").last();
+  await front.hover();
+  await front.getByRole("button", { name: "Rename" }).click();
+  const field = pile.getByLabel("Note title");
+  await field.fill("Repricing has a second leg");
+  await field.press("Enter");
+  await expect(pile.getByText("Repricing has a second leg")).toBeVisible();
+
+  // picking a card narrows the ask; the scope line says so, and clearing restores it
+  await expect(page.getByText("Asking over every note")).toBeVisible();
+  await pile.getByRole("checkbox").first().check();
+  await expect(page.getByText("Asking over 1 picked note(s)")).toBeVisible();
+  await page.getByRole("button", { name: "Use all notes" }).click();
+  await expect(page.getByText("Asking over every note")).toBeVisible();
+});

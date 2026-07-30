@@ -5,6 +5,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // each page runs the app's WebGL field, so the suite is GPU-bound: at the
+  // default worker count the parallel contexts wedge a renderer and an unrelated
+  // page.evaluate never returns. Two workers is stable and no slower overall.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: [
@@ -17,6 +21,12 @@ export default defineConfig({
     // it bit both reviewers repeatedly). Note build:mock still replaces .next,
     // so a dev server sharing this checkout needs a restart after an e2e run.
     baseURL: "http://localhost:3100",
+    // the light field behind the app is a WebGL loop; asking Chromium for reduced
+    // motion makes it paint one frame and stop, which keeps 50+ parallel pages off
+    // the GPU and makes full-page screenshots deterministic. It also exercises the
+    // reduced-motion path every run — the hero and the reveals are visible
+    // without motion.
+    launchOptions: { args: ["--force-prefers-reduced-motion"] },
     trace: "on",
     screenshot: "on",
   },

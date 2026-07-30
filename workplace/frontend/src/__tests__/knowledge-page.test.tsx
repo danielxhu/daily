@@ -18,6 +18,8 @@ vi.mock("@/lib/api", () => ({
   answerKnowledge: async () => ({ answer: null, based_on: 0 }),
   // knowledge chats (2026-07-24)
   listKnowledgeChats: async () => [],
+  listKnowledgeNotes: async () => [],
+  renameKnowledgeNote: async () => ({}),
   getKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),
   createKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),
   continueKnowledgeChat: async () => ({ id: "c", title: "t", messages: [], created_at: "", updated_at: "" }),

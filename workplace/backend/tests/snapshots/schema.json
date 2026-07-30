@@ -384,11 +384,71 @@
     },
     "ItemNoteDraftReply": {
       "additionalProperties": false,
-      "description": "`POST /tracked-items/{id}/note-draft` reply: the current draft note text,\ngrounded in the item's stored excerpt + enrichment. Never auto-saved.",
+      "description": "`POST /tracked-items/{id}/note-draft` reply: the current draft note text\nand its title, grounded in the item's stored excerpt + enrichment. Never\nauto-saved.",
       "properties": {
         "draft": {
           "title": "Draft",
           "type": "string"
+        },
+        "draft_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Draft En"
+        },
+        "draft_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Draft Zh"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "title_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title En"
+        },
+        "title_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Zh"
         }
       },
       "required": [
@@ -495,8 +555,16 @@
     },
     "KnowledgeAnswerRequest": {
       "additionalProperties": false,
-      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.\nAlso the body of the chat asks (`POST /knowledge/chats` and\n`POST /knowledge/chats/{id}/messages`).",
+      "description": "`POST /knowledge/answer` body (M16.2): the question to answer on demand.\nAlso the body of the chat asks (`POST /knowledge/chats` and\n`POST /knowledge/chats/{id}/messages`). `note_ids` narrows the grounding to\nthe notes the user picked; empty means the whole knowledge base.",
       "properties": {
+        "note_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Note Ids",
+          "type": "array"
+        },
         "q": {
           "title": "Q",
           "type": "string"
@@ -642,6 +710,30 @@
           "title": "Content",
           "type": "string"
         },
+        "content_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content En"
+        },
+        "content_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Zh"
+        },
         "created_at": {
           "format": "date-time",
           "title": "Created At",
@@ -670,6 +762,42 @@
           "default": true,
           "title": "Regenerable",
           "type": "boolean"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "title_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title En"
+        },
+        "title_zh": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title Zh"
         }
       },
       "required": [

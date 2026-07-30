@@ -94,3 +94,60 @@ def test_unknown_board_and_note_are_404(tmp_path: Path) -> None:
     client, board_id = _client_with_board(tmp_path)
     assert client.get("/boards/nope/notes").status_code == 404
     assert client.delete(f"/boards/{board_id}/notes/nope").status_code == 404
+
+
+def test_note_carries_a_title_and_both_languages(tmp_path: Path) -> None:
+    client, board_id = _client_with_board(tmp_path)
+    created = client.post(
+        f"/boards/{board_id}/notes",
+        json={
+            "kind": "user_note",
+            "title": "私募信贷的重定价还没走完",
+            "content": "利差在二季度全线走阔。",
+            "title_zh": "私募信贷的重定价还没走完",
+            "title_en": "Private-credit repricing is not done",
+            "content_zh": "利差在二季度全线走阔。",
+            "content_en": "Spreads widened through the second quarter.",
+        },
+    )
+    assert created.status_code == 201
+    note = created.json()
+    assert note["title"] == "私募信贷的重定价还没走完"
+    assert note["title_en"] == "Private-credit repricing is not done"
+    assert note["content_en"] == "Spreads widened through the second quarter."
+    # a note saved without them still reads: the authored text is the fallback
+    plain = client.post(
+        f"/boards/{board_id}/notes", json={"kind": "user_note", "content": "plain"}
+    ).json()
+    assert plain["title"] is None and plain["content_zh"] is None
+
+
+def test_rename_writes_the_language_the_user_typed_in(tmp_path: Path) -> None:
+    client, board_id = _client_with_board(tmp_path)
+    note_id = client.post(
+        f"/boards/{board_id}/notes",
+        json={
+            "kind": "user_note",
+            "title": "旧标题",
+            "content": "body",
+            "title_zh": "旧标题",
+            "title_en": "Old title",
+        },
+    ).json()["id"]
+
+    renamed = client.patch(
+        f"/boards/{board_id}/notes/{note_id}", json={"title": "A sharper title", "locale": "en"}
+    )
+    assert renamed.status_code == 200
+    body = renamed.json()
+    assert body["title"] == "A sharper title"
+    assert body["title_en"] == "A sharper title"
+    assert body["title_zh"] == "旧标题"  # the other language is left alone
+
+    assert (
+        client.patch(f"/boards/{board_id}/notes/{note_id}", json={"title": "   "}).status_code
+        == 400
+    )
+    # a note can only be renamed through its own board
+    other = client.post("/boards", json={"name": "Other"}).json()["id"]
+    assert client.patch(f"/boards/{other}/notes/{note_id}", json={"title": "x"}).status_code == 404

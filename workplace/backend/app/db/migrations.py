@@ -95,6 +95,21 @@ MIGRATIONS: dict[str, list[Migration]] = {
                 ")",
             ),
         ),
+        # Notes carry a title, drafted with the note and renamable, and a copy of
+        # both in the other UI language so a note follows the language switch.
+        # All nullable: `title`/`content` stay the authored text and the fallback,
+        # so notes saved before this keep reading correctly.
+        Migration(
+            5,
+            "note_title_and_locales",
+            (
+                "ALTER TABLE knowledge_notes ADD COLUMN title TEXT",
+                "ALTER TABLE knowledge_notes ADD COLUMN title_zh TEXT",
+                "ALTER TABLE knowledge_notes ADD COLUMN title_en TEXT",
+                "ALTER TABLE knowledge_notes ADD COLUMN content_zh TEXT",
+                "ALTER TABLE knowledge_notes ADD COLUMN content_en TEXT",
+            ),
+        ),
     ],
     "reputation": [
         # M5.7 — human source-reputation overrides (FR-12 / FR-17). A persistent

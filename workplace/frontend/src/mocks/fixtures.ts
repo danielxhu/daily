@@ -45,6 +45,38 @@ export function buildMockBoardNotes(boardId: string): KnowledgeNote[] {
   ];
 }
 
+/** The Knowledge page's own note pile: one note with both languages and a title,
+ * one older note with neither, so the fallbacks are exercised. */
+export function buildMockKnowledgeNotes(): KnowledgeNote[] {
+  return [
+    {
+      id: "n_kb_1",
+      board_id: "b_finance",
+      kind: "user_note",
+      title: "私募信贷的重定价还没走完",
+      content: "利差在二季度全线走阔,但两家机构给的原因不同。",
+      title_zh: "私募信贷的重定价还没走完",
+      title_en: "Private-credit repricing is not done",
+      content_zh: "利差在二季度全线走阔,但两家机构给的原因不同。",
+      content_en: "Spreads widened through Q2, but the two houses disagree on why.",
+      citations: [],
+      is_synthesized: false,
+      regenerable: false,
+      created_at: "2026-07-30T02:00:00+00:00",
+    },
+    {
+      id: "n_kb_2",
+      board_id: "b_finance",
+      kind: "user_note",
+      content: "SEC 规则进入公开评议期,截止日期需回原文确认。",
+      citations: [],
+      is_synthesized: false,
+      regenerable: false,
+      created_at: "2026-07-29T02:00:00+00:00",
+    },
+  ];
+}
+
 export function buildMockSubscriptions(): Subscription[] {
   return [
     {

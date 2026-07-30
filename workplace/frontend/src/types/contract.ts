@@ -123,7 +123,12 @@ export interface KnowledgeNote {
   id: string;
   board_id: string;
   kind: "pinned_fact" | "user_note" | "ai_distilled" | "saved_check";
+  title?: string | null;
   content: string;
+  title_zh?: string | null;
+  title_en?: string | null;
+  content_zh?: string | null;
+  content_en?: string | null;
   citations?: string[];
   is_synthesized?: boolean;
   regenerable?: boolean;
@@ -214,6 +219,11 @@ export interface ItemNoteDraftRequest {
 
 export interface ItemNoteDraftReply {
   draft: string;
+  title?: string | null;
+  title_zh?: string | null;
+  title_en?: string | null;
+  draft_zh?: string | null;
+  draft_en?: string | null;
 }
 
 export interface KnowledgeAnswer {
@@ -223,6 +233,7 @@ export interface KnowledgeAnswer {
 
 export interface KnowledgeAnswerRequest {
   q: string;
+  note_ids?: string[];
 }
 
 export interface KnowledgeChat {

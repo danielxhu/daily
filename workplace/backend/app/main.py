@@ -52,6 +52,7 @@ from app.db.knowledge_store import (
     delete_note,
     list_notes,
     list_saved_notes,
+    rename_note,
     search_saved_notes,
 )
 from app.db.run_trace import list_runs
@@ -133,8 +134,24 @@ class NoteCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: HumanNoteKind
+    title: str | None = None
     content: str
+    # the same title/note in each UI language, as produced by the drafter
+    title_zh: str | None = None
+    title_en: str | None = None
+    content_zh: str | None = None
+    content_en: str | None = None
     citations: list[str] = []
+
+
+class NoteRenameRequest(BaseModel):
+    """Rename a knowledge note. `locale` says which language the user typed in, so
+    the new title lands on that language's field. Request-only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    locale: Literal["zh", "en"] = "zh"
 
 
 class SubscriptionCreateRequest(BaseModel):
@@ -538,7 +555,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"no such board: {board_id}")
         if not body.content.strip():
             raise HTTPException(status_code=400, detail="note 'content' must be non-empty")
-        return create_note(db, board_id, body.kind, body.content, citations=body.citations)
+        title = body.title.strip() if body.title else None
+        titles = {k: v for k, v in (("zh", body.title_zh), ("en", body.title_en)) if v}
+        contents = {k: v for k, v in (("zh", body.content_zh), ("en", body.content_en)) if v}
+        return create_note(
+            db,
+            board_id,
+            body.kind,
+            body.content,
+            title=title or None,
+            titles=titles,
+            contents=contents,
+            citations=body.citations,
+        )
+
+    @app.patch(
+        "/boards/{board_id}/notes/{note_id}",
+        response_model=KnowledgeNote,
+        responses={
+            400: {"description": "Empty title."},
+            404: {"description": "No such board, or note not in this board."},
+        },
+    )
+    def rename_board_note(
+        board_id: str,
+        note_id: str,
+        body: NoteRenameRequest,
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> KnowledgeNote:
+        title = body.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="note 'title' must be non-empty")
+        renamed = rename_note(db, board_id, note_id, title, locale=body.locale)
+        if renamed is None:
+            raise HTTPException(
+                status_code=404, detail=f"no such note in board {board_id}: {note_id}"
+            )
+        return renamed
 
     @app.delete(
         "/boards/{board_id}/notes/{note_id}",
@@ -900,7 +953,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "run fetch-&-summarize (refresh) first",
             )
         try:
-            draft = draft_item_note(
+            drafted = draft_item_note(
                 card,
                 excerpt,
                 body.messages,
@@ -910,7 +963,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         except DiscussError as exc:
             raise HTTPException(status_code=502, detail=f"note drafting failed: {exc}") from exc
-        return ItemNoteDraftReply(draft=draft)
+        return ItemNoteDraftReply(
+            draft=drafted.draft,
+            title=drafted.title,
+            title_zh=drafted.title_zh,
+            title_en=drafted.title_en,
+            draft_zh=drafted.draft_zh,
+            draft_en=drafted.draft_en,
+        )
 
     # --- daily digest (FR-13): read-only JSON / RSS over the tracked-items channel ---
 
@@ -1026,7 +1086,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         q = body.q.strip()
         if not q:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
-        result = _answer_grounded(db, llm, q, history=None)
+        result = _answer_grounded(db, llm, q, history=None, note_ids=body.note_ids)
         if result is None:
             return KnowledgeAnswer(answer=None, based_on=0)
         answer, grounded = result
@@ -1038,9 +1098,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         q: str,
         *,
         history: list[DiscussMessage] | None,
+        note_ids: list[str] | None = None,
     ) -> tuple[str, int] | None:
         """Whole-corpus grounded answer (方案0) shared by the one-shot ask and
-        the chats. None = empty knowledge base (no LLM call); an LLM failure
+        the chats. `note_ids` narrows the grounding to the notes the user picked —
+        those notes only, no tracked items, so the answer is bounded by what they
+        chose. None = empty knowledge base (no LLM call); an LLM failure
         raises the typed 502 — the user explicitly asked."""
         saved_hits = search_saved_notes(db, q)
         item_hits = search_tracked_items(db, q)
@@ -1048,6 +1111,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         saved_hits, item_hits = _merge_semantic_hits(db, q, saved_hits, item_hits)
         notes = list_saved_notes(db)
         items = list_all_cards(db)
+        if note_ids:
+            chosen = set(note_ids)
+            notes = [n for n in notes if n.id in chosen]
+            items = []
+            if not notes:
+                raise HTTPException(
+                    status_code=400, detail="none of the chosen notes exist any more"
+                )
         if not notes and not items:
             return None
         hit_ids = {n.id for n in saved_hits} | {i.id for i in item_hits}
@@ -1055,6 +1126,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if result is None:
             raise HTTPException(status_code=502, detail="answer synthesis failed — try again")
         return result
+
+    @app.get("/knowledge/notes", response_model=list[KnowledgeNote])
+    def knowledge_notes(
+        db: Annotated[sqlite3.Connection, Depends(get_db)],
+    ) -> list[KnowledgeNote]:
+        """Every note the user saved, all boards, newest first — the Knowledge
+        page's own list, and the pool an ask can be narrowed to."""
+        return list_saved_notes(db)
 
     # --- knowledge chats: persisted Q&A conversations -------------------------
 
@@ -1095,7 +1174,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         q = body.q.strip()
         if not q:
             raise HTTPException(status_code=400, detail="question 'q' must be non-empty")
-        result = _answer_grounded(db, llm, q, history=None)
+        result = _answer_grounded(db, llm, q, history=None, note_ids=body.note_ids)
         if result is None:
             raise HTTPException(
                 status_code=400,
@@ -1133,8 +1212,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         chat = get_chat(db, chat_id)
         if chat is None:
             raise HTTPException(status_code=404, detail=f"no such chat: {chat_id}")
-        # earlier turns give the follow-up its context
-        result = _answer_grounded(db, llm, q, history=chat.messages)
+        # earlier turns give the follow-up its context; the client resends the
+        # note selection so a narrowed conversation stays narrowed
+        result = _answer_grounded(db, llm, q, history=chat.messages, note_ids=body.note_ids)
         if result is None:
             raise HTTPException(
                 status_code=400,
