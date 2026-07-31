@@ -25,6 +25,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "hero.github": "GitHub",
     "hero.s2.kicker": "HOW IT WORKS",
     "hero.s2.title": "Three steps from sources to knowledge.",
+    "hero.s2.key.label": "Before you start:",
+    "hero.s2.key.body":
+      "daily needs a model API key to write summaries, draft notes, and answer questions. Paste one into Settings (or backend/.env) on first run — everything else is local and free. Without a key the app still tracks and stores, but AI text shows a placeholder.",
     "hero.s2.s1.title": "Add your sources",
     "hero.s2.s1.body": "Paste a URL — a feed, homepage, podcast, or channel. daily works out what it is.",
     "hero.s2.s2.title": "Read in context",
@@ -560,6 +563,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "hero.github": "GitHub",
     "hero.s2.kicker": "怎么用",
     "hero.s2.title": "三步,从信源到知识。",
+    "hero.s2.key.label": "开始之前:",
+    "hero.s2.key.body":
+      "daily 需要一个模型 API key 才能写摘要、起草笔记、回答提问。首次运行时在「设置」里填一个(或写进 backend/.env)——其余全部本地免费。没有 key 也能追踪和存档,但 AI 文本会显示占位。",
     "hero.s2.s1.title": "添加你的来源",
     "hero.s2.s1.body": "贴一个网址 —— feed、主页、播客、频道都行,daily 自己识别类型。",
     "hero.s2.s2.title": "在上下文里阅读",

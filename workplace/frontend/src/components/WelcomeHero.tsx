@@ -312,7 +312,12 @@ export function WelcomeHero() {
               <h2 className="serif mt-4 max-w-md text-[clamp(1.9rem,4vw,2.6rem)] font-semibold leading-[1.2] text-ink">
                 {t("hero.s2.title")}
               </h2>
-              <div className="mt-10 gap-16 md:grid md:grid-cols-[minmax(0,380px)_1fr]">
+              {/* the one prerequisite: nothing summarizes until a model key exists */}
+              <p className="mt-5 max-w-xl rounded-lg border border-line bg-panel px-4 py-3 text-[13.5px] leading-[1.7] text-muted">
+                <span className="font-semibold text-ink">{t("hero.s2.key.label")}</span>{" "}
+                {t("hero.s2.key.body")}
+              </p>
+              <div className="mt-8 gap-16 md:grid md:grid-cols-[minmax(0,380px)_1fr]">
                 <ol className="m-0 list-none p-0">
                   {steps.map((item, i) => (
                     <li
@@ -393,38 +398,42 @@ export function WelcomeHero() {
           </section>
 
           {/* ---- movement 3 · honest boundaries ---- */}
-          <section ref={limitsRef} aria-label={t("hero.s3.kicker")} className="py-24 md:py-32">
+          {/* the boundaries are a compact footnote to the guide, not a third act:
+              they must be read, but they should not outweigh what daily does */}
+          <section ref={limitsRef} aria-label={t("hero.s3.kicker")} className="py-14 md:py-20">
             <p className="mono text-xs tracking-[0.22em] text-faint">{t("hero.s3.kicker")}</p>
-            <h2 className="serif mt-4 max-w-2xl text-[clamp(1.9rem,4vw,2.6rem)] font-semibold leading-[1.2] text-ink">
+            <h2 className="serif mt-3 max-w-2xl text-[clamp(1.4rem,2.6vw,1.75rem)] font-semibold leading-[1.25] text-ink">
               {t("hero.s3.title")}
             </h2>
-            <p className="mt-5 max-w-xl text-[15px] leading-[1.8] text-muted">{t("hero.s3.lead")}</p>
-            <ul className="mt-14 m-0 list-none p-0">
+            <p className="mt-3 max-w-xl text-[13.5px] leading-[1.7] text-muted">
+              {t("hero.s3.lead")}
+            </p>
+            <ul className="m-0 mt-8 list-none p-0">
               {limits.map((item, i) => (
                 <li
                   key={item.title}
                   data-lim
-                  className="grid items-baseline gap-x-6 gap-y-1 border-t border-line py-7 md:grid-cols-[56px_300px_1fr]"
+                  className="grid items-baseline gap-x-5 gap-y-0.5 border-t border-line py-3.5 md:grid-cols-[40px_240px_1fr]"
                 >
-                  <span className="mono text-xs text-accent">0{i + 1}</span>
-                  <span className="serif text-[21px] font-semibold text-ink">{item.title}</span>
-                  <span className="text-sm leading-[1.8] text-muted">{item.body}</span>
+                  <span className="mono text-[11px] text-accent">0{i + 1}</span>
+                  <span className="text-[14px] font-semibold text-ink">{item.title}</span>
+                  <span className="text-[13px] leading-[1.7] text-muted">{item.body}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-24 text-center">
-              <p className="serif text-[clamp(1.5rem,3vw,2rem)] font-semibold text-ink">
+            <div className="mt-14 text-center">
+              <p className="serif text-[clamp(1.25rem,2.4vw,1.6rem)] font-semibold text-ink">
                 {t("hero.final")}
               </p>
               <button
                 type="button"
                 onClick={enter}
-                className="btn-primary mt-8 px-7 py-3.5 text-[15px]"
+                className="btn-primary mt-6 px-7 py-3.5 text-[15px]"
               >
                 {t("hero.cta")}
               </button>
             </div>
-            <div className="mono mt-20 flex flex-wrap justify-between gap-2 border-t border-line pt-5 text-[11px] tracking-[0.14em] text-faint">
+            <div className="mono mt-14 flex flex-wrap justify-between gap-2 border-t border-line pt-5 text-[11px] tracking-[0.14em] text-faint">
               <span>{t("hero.foot.left")}</span>
               <span>{t("hero.foot.right")}</span>
             </div>
