@@ -36,10 +36,18 @@ ANOMALY_MIN_FAILURES = 3
 # not a log", §6.6) — the subscription-level analogue of FR-2's source next_action.
 SUBSCRIPTION_NEXT_ACTION: dict[SubscriptionFailureKind, str] = {
     "gone": "Source looks gone (404/410). Replace or remove this subscription.",
-    "rate_limited": "Rate-limited (403/429). daily will back off and retry — no action needed.",
+    # a 429 clears on its own; a 403 that keeps coming back is a block, and the
+    # only thing that gets past it is the headless fallback — saying "no action
+    # needed" for both left the user waiting on a retry that could never work
+    "rate_limited": (
+        "Blocked or rate-limited (403/429). daily backs off and retries. If it keeps "
+        "failing, this site answers only a real browser: set ENABLE_HTML_RENDER=true "
+        "in backend/.env, or paste items manually."
+    ),
     "parse_or_render_unfit": (
-        "Fetched, but no usable content — this source may need a different fetch "
-        "method; paste items manually if it persists."
+        "Fetched, but no usable content. Sites that build their list in the browser "
+        "need the headless fallback: set ENABLE_HTML_RENDER=true in backend/.env, or "
+        "paste items manually."
     ),
     "network": "Network or timeout error. daily will retry on the next poll.",
     "system_anomaly": (

@@ -418,9 +418,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.failure.gone":
       "This source looks gone (404/410). Replace or remove this source.",
     "tracking.failure.rate_limited":
-      "Rate-limited (403/429). daily will back off and retry — no action needed.",
+      "Blocked or rate-limited (403/429). daily backs off and retries. If it keeps failing, this site answers only a real browser: set ENABLE_HTML_RENDER=true in backend/.env (needs `npx playwright install chromium`), or paste items manually.",
     "tracking.failure.parse_or_render_unfit":
-      "Reached it, but found no usable content — this source may need a different method; paste items manually if it persists.",
+      "Reached it, but found no usable content. Sites that build their list in the browser need the headless fallback: set ENABLE_HTML_RENDER=true in backend/.env, or paste items manually.",
     "tracking.failure.network":
       "Network or timeout error. daily will try again next time it checks.",
     "tracking.failure.system_anomaly":
@@ -938,9 +938,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracking.group.none": "未分组",
     "tracking.failure.gone": "此来源似乎已消失（404/410）。请替换或移除此来源。",
     "tracking.failure.rate_limited":
-      "请求频率限制（403/429）。daily 会退避重试——无需操作。",
+      "被拦截或频率限制（403/429）。daily 会退避重试。若持续失败，说明该站只对真实浏览器开放：在 backend/.env 里设 ENABLE_HTML_RENDER=true（需先 `npx playwright install chromium`），或手动粘贴内容。",
     "tracking.failure.parse_or_render_unfit":
-      "已访问，但未找到可用内容——此来源可能需要不同的方式；如持续出现，请手动粘贴内容。",
+      "已访问，但未找到可用内容。列表在浏览器里才生成的站点需要 headless 兜底：在 backend/.env 里设 ENABLE_HTML_RENDER=true，或手动粘贴内容。",
     "tracking.failure.network": "网络或超时错误。daily 下次检查时会重试。",
     "tracking.failure.system_anomaly":
       "多个来源同时失败——可能是系统侧问题（网络或依赖项），而非这些来源本身。",
