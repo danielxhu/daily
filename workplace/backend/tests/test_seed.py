@@ -25,11 +25,13 @@ def test_adopt_seeds_the_whole_pack_once(tmp_path: Path) -> None:
     created = adopt_source_pack(conn)
     pack = default_source_pack()
     assert len(created) == len(pack)
-    # each subscription keeps its pack entry's mode + preset topic board
+    # each subscription keeps its pack entry's mode, preset topic board, and label
+    # — without the label the seeded list would read as a column of bare URLs
     by_url = {s.input_url: s for s in created}
     for entry in pack:
         sub = by_url[entry.url]
         assert sub.mode == entry.mode and sub.board_id == entry.board_id
+        assert sub.name == entry.label
     assert len(list_subscriptions(conn)) == len(pack)
 
     # second adopt: no-op — never a duplicate pile of subscriptions

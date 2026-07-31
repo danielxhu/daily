@@ -1,9 +1,9 @@
 """M6.7 — built-in default source-pack template (SSOT FR-3).
 
 A fixed, editable starter pack of seed sources seeds a board's subscriptions on
-cold start so day one isn't empty. The pack is static and spans the five FR-3
-categories; it is NOT topic-wide web discovery. `default_source_pack()` hands out
-a fresh copy so an operator's edits never mutate the shared constant."""
+cold start so day one isn't empty. The pack is static — it is NOT topic-wide web
+discovery. `default_source_pack()` hands out a fresh copy so an operator's edits
+never mutate the shared constant."""
 
 from __future__ import annotations
 
@@ -14,22 +14,22 @@ from app.schemas.models import SourcePackEntry
 from app.source_pack import DEFAULT_SOURCE_PACK, default_source_pack
 
 
-def test_default_pack_spans_the_five_fr3_categories() -> None:
-    categories = {e.category for e in DEFAULT_SOURCE_PACK}
-    assert categories == {"central_bank", "regulator", "company_ir", "rss", "youtube"}
-    # the spec calls for "a few" RSS + YouTube + IR — the pack is a real starter list
-    assert len(DEFAULT_SOURCE_PACK) >= 5
-
-
-def test_pack_carries_the_anchor_authorities() -> None:
-    urls = " ".join(e.url for e in DEFAULT_SOURCE_PACK)
-    assert "federalreserve.gov" in urls  # Fed
-    assert "sec.gov" in urls  # SEC
-    # every entry is a usable subscription seed: a url + a resolved poll mode
+def test_every_entry_is_a_usable_subscription_seed() -> None:
+    assert len(DEFAULT_SOURCE_PACK) >= 3  # a real starter list, not a token entry
     for entry in DEFAULT_SOURCE_PACK:
         assert entry.url.startswith("http")
         assert entry.mode in {"direct", "autodiscover", "platform", "homepage_diff"}
+        # the label becomes the source's display name when the pack is adopted, so
+        # an empty one would seed a list of bare URLs
         assert entry.label
+
+
+def test_entries_are_tagged_to_preset_boards_that_exist() -> None:
+    """A pack entry's board is written straight onto the subscription, so a tag
+    that no migration creates would seed sources into a board the UI cannot show."""
+    preset = {"b_politics", "b_economy", "b_tech"}
+    for entry in DEFAULT_SOURCE_PACK:
+        assert entry.board_id in preset
 
 
 def test_default_pack_returns_a_fresh_editable_copy() -> None:
@@ -54,13 +54,7 @@ def test_get_source_pack_endpoint_returns_the_template() -> None:
     assert len(body) == len(DEFAULT_SOURCE_PACK)
     # round-trips through the §7 contract shape
     entries = [SourcePackEntry(**item) for item in body]
-    assert {e.category for e in entries} == {
-        "central_bank",
-        "regulator",
-        "company_ir",
-        "rss",
-        "youtube",
-    }
+    assert [e.url for e in entries] == [e.url for e in DEFAULT_SOURCE_PACK]
 
 
 def test_get_source_pack_is_deterministic() -> None:

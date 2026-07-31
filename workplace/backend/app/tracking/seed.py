@@ -49,6 +49,7 @@ def adopt_source_pack(conn: sqlite3.Connection) -> list[Subscription]:
             input_url=entry.url,
             mode=entry.mode,
             board_id=entry.board_id,
+            name=entry.label,
         )
         for entry in default_source_pack()
     ]
