@@ -1,16 +1,23 @@
-# Publishes the frontend's mock-data demo to GitHub Pages.
+# Publishes daily to GitHub Pages as a read-only snapshot with real content.
 #
-# GitHub Pages only serves static files, so this is the Next.js app exported
-# with NEXT_PUBLIC_API_MOCK=1: every API call is answered in the browser by the
-# MSW fixtures (src/mocks). There is no backend, no real polling, and no LLM —
-# run the app locally for that.
+# GitHub Pages only serves static files, so this job runs the real backend
+# pipeline here — adopt the source pack plus workplace/site/sources.txt, poll
+# every source, fetch articles and write AI summaries — then freezes every read
+# endpoint to JSON (backend app/static_site.py) and exports the frontend in
+# static-data mode on top of it. The SQLite database is kept between runs in the
+# Actions cache, so items accumulate and each run only fetches what is new.
 #
-# One-time setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
-name: Deploy demo to GitHub Pages
+# One-time setup:
+#   Settings → Pages → Build and deployment → Source: GitHub Actions
+#   Settings → Secrets and variables → Actions → New repository secret:
+#     DEEPSEEK_API_KEY (optional — without it items appear with placeholder summaries)
+name: Deploy daily to GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 */6 * * *" # every 6 hours
   workflow_dispatch:
 
 permissions:
@@ -20,26 +27,65 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false # never drop a run midway: it owns the cached database
+
+env:
+  SITE_DATA: ${{ github.workspace }}/site-data
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: workplace/frontend
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: workplace/backend/pyproject.toml
+      - name: Install backend
+        run: pip install -e workplace/backend
+
+      - name: Restore database
+        uses: actions/cache/restore@v4
+        with:
+          path: site-data
+          key: daily-db-${{ github.run_id }}
+          restore-keys: daily-db-
+
+      - name: Poll sources, summarize, export snapshot
+        working-directory: workplace/backend
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DATA_DIR: ${{ env.SITE_DATA }}
+          SQLITE_PATH: ${{ env.SITE_DATA }}/daily.db
+        run: |
+          mkdir -p "$SITE_DATA"
+          python -m app.static_site \
+            --out ../frontend/public/data \
+            --sources ../site/sources.txt \
+            --minutes 20
+
+      - name: Save database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: site-data
+          key: daily-db-${{ github.run_id }}
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: workplace/frontend/package-lock.json
-      - run: npm ci
       - name: Static export under /<repo>
-        run: npm run build:pages
+        working-directory: workplace/frontend
         env:
           PAGES_BASE_PATH: /${{ github.event.repository.name }}
+        run: |
+          npm ci
+          npm run build:pages
       - uses: actions/upload-pages-artifact@v3
         with:
           path: workplace/frontend/out

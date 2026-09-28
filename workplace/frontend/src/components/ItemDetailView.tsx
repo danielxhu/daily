@@ -13,6 +13,7 @@ import {
   getTrackedItem,
   refreshTrackedItem,
 } from "@/lib/api";
+import { STATIC_DATA } from "@/lib/static-data";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
 import type { DiscussMessage, ItemProgress, TrackedItemDetail } from "@/types/contract";
 
@@ -114,8 +115,10 @@ export function ItemDetailView({
   // quietly (busy tracker, backend restarting) instead of giving up after one
   // shot, which read as "automatic did nothing". The button stays as the manual
   // retry after a real, non-transient failure.
+  // A read-only snapshot (GitHub Pages) has no backend to fetch with.
   useEffect(() => {
     if (
+      !STATIC_DATA &&
       detail !== null &&
       !autoStarted.current &&
       detail.item.url &&
