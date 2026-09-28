@@ -183,6 +183,9 @@ class Settings(BaseSettings):
     # --- Coverage toggles (best-effort, degradable) ---
     enable_pdf_text: bool = True  # text-layer PDF extraction (M1B.3)
     enable_html_render: bool = False  # Playwright render fallback (M1B.2)
+    # Scrapling StealthyFetcher tier: anti-bot / Cloudflare / headless-detecting
+    # pages. Needs `pip install -e ".[stealth]" && scrapling install`.
+    enable_stealth_fetch: bool = False
     # In-process hourly poll scheduler (FR-3 / §6.4): OFF by default so tests and a
     # plain `uvicorn app.main:app` never spawn a background scheduler. The local dev
     # runtime (`scripts/dev.sh`) opts in by setting ENABLE_TRACKING_SCHEDULER=true so

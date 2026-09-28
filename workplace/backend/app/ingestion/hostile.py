@@ -2,9 +2,9 @@
 
 Classifies a fetched response into a typed `SourceFailureKind` —
 `paywall` / `login_required` / `anti_bot` / `fetch_blocked` — so the user gets the
-right next step ("paste the text + a source label/domain"). The fetch policy no
-longer forbids a workaround; this classifier is the hook a future bypass tier
-(cookies, proxy, archive, stealth fetcher) would branch on.
+right next step ("paste the text + a source label/domain"). A hostile response
+goes to the Scrapling stealth tier when it is enabled (`stealth.py`), which runs
+this same classifier over its own HTML — a wall that survives stays typed.
 
 Pure heuristics over status code + body markers — code, not an LLM (NFR-7). The
 markers are deliberately specific so a normal article that merely says

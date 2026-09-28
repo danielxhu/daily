@@ -70,6 +70,7 @@ Optional extras, all off by default:
 |---|---|---|
 | `pip install -e ".[ml]"` | Real audio transcription (faster-whisper; Metal-accelerated on a Mac). Without it, podcast and caption-less YouTube items typed-skip. | Local only, ~2 GB |
 | `ENABLE_HTML_RENDER=true` | A headless-browser fallback for JavaScript-only pages. Needs `npx playwright install chromium`. | Local only, slower polls |
+| `pip install -e ".[stealth]" && scrapling install`, then `ENABLE_STEALTH_FETCH=true` | Scrapling's stealth browser as the last web-page tier: gets past Cloudflare challenges, anti-bot 403s, and headless detection. | Local only; up to ~60 s per blocked page |
 | `VL_*` | Reading images in a post. Any pluggable vision model, including a local one that needs no key. | Optional |
 
 ## Running
@@ -105,7 +106,7 @@ While the app runs, sources are re-checked on their own interval (hourly by defa
 
 Ingestion is best-effort. A source that cannot be fetched is typed-skipped with a reason and a next step, and the rest of the batch still completes.
 
-- **Web page** — static HTML, then a structured-extraction pass, then a headless render when enabled. Paywalls, anti-bot walls, and login walls typed-skip as `paywall` / `anti_bot` / `login_required` and ask you to paste the text; no bypass tier is built yet, and the fetch policy (`app/ingestion/fetch_policy.py`) no longer forbids one.
+- **Web page** — static HTML, then a structured-extraction pass, then a headless render when enabled, then Scrapling's stealth browser when `ENABLE_STEALTH_FETCH` is on. The stealth tier runs whenever the earlier ones hit an anti-bot wall, paywall, login wall, blocked request, or empty page, and its text is labeled `stealth_html`. A wall that survives it typed-skips as `paywall` / `anti_bot` / `login_required` and asks you to paste the text. Hard paywalls usually survive: the article simply is not in the page.
 - **Proxy** — the backend honours `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` from the shell that starts it, for page fetches, feeds, and yt-dlp alike.
 - **PDF** — text-layer extraction. Scanned, image-only PDFs are not OCR'd.
 - **Podcast** — an RSS `<enclosure>` or a direct audio URL, transcribed locally. Arbitrary Apple or Spotify episode *pages* are not promised.

@@ -5,9 +5,10 @@ M1A.4, render M1B.2, feed/poll Stage 7) builds its client from here, so fetch
 behaviour changes in one spot.
 
 daily is a personal, non-commercial tool, so there are no fetch red lines: the
-environment's proxy settings are honoured, and cookies/sessions, login, archive
-fallbacks, browser impersonation or Scrapling's fetchers (`scrapling[fetchers]`)
-may be added wherever they help a source read. What is still fixed here:
+environment's proxy settings are honoured, Scrapling's `StealthyFetcher` is the
+last HTML tier (`stealth.py`, `ENABLE_STEALTH_FETCH`), and cookies/sessions,
+login, or archive fallbacks may be added wherever they help a source read. What
+is still fixed here:
 
 - a navigation timeout always exists and render downloads are disabled;
 - when a fetch still fails, the caller produces a typed `SourceFailure` whose
@@ -17,12 +18,17 @@ may be added wherever they help a source read. What is still fixed here:
 from __future__ import annotations
 
 from urllib.parse import urlsplit
+from urllib.request import getproxies
 
 from app.schemas.models import SourceFailure, SourceFailureKind, SourceType
 
 # Default user agent; hosts that wall it get a browser UA via `fetch_headers`.
 FETCH_USER_AGENT = "daily/0.1 (+source tracker; contact via repo)"
 FETCH_TIMEOUT_MS = 15000
+
+# Scrapling's stealth fetcher may sit through a Cloudflare challenge before the
+# page loads, so it gets a longer budget than a plain fetch or render.
+STEALTH_TIMEOUT_MS = 60000
 
 # Listing pages often inject their article grid after `load`. Bounded wait: heavy
 # pages never fully idle, so a timeout still yields what rendered.
@@ -78,6 +84,25 @@ def playwright_context_kwargs() -> dict[str, object]:
     return {
         "accept_downloads": False,
     }
+
+
+def stealth_fetch_kwargs() -> dict[str, object]:
+    """`StealthyFetcher.fetch()` kwargs for the stealth tier: headless, solves
+    Cloudflare challenges, skips images/fonts/media, waits for the network to
+    settle. The environment's HTTPS/HTTP proxy is passed through explicitly so
+    the stealth browser takes the same route as httpx (`trust_env=True`)."""
+    kwargs: dict[str, object] = {
+        "headless": True,
+        "solve_cloudflare": True,
+        "network_idle": True,
+        "disable_resources": True,
+        "timeout": STEALTH_TIMEOUT_MS,
+    }
+    env = getproxies()
+    proxy = env.get("https") or env.get("http") or env.get("all")
+    if proxy:
+        kwargs["proxy"] = proxy
+    return kwargs
 
 
 # --- typed failure → next action (§6.6 / FR-2), deterministic kind→action map ---

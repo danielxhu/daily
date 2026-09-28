@@ -220,9 +220,9 @@ def test_scanned_pdf_is_typed_unsupported() -> None:
     assert result.failure.next_action
 
 
-def test_cloudflare_page_is_anti_bot_and_not_bypassed() -> None:
-    # A Cloudflare interstitial → anti_bot, and we fetch exactly once: no cookie /
-    # proxy / archive retry to bypass it (M1B.4 guardrail).
+def test_cloudflare_page_is_anti_bot_without_the_stealth_tier() -> None:
+    # A Cloudflare interstitial → anti_bot. With the stealth tier off (the
+    # default) the plain client fetches exactly once (see test_stealth.py).
     client = _FakeHtmlClient(fx.load_text("html/cloudflare_challenge.html"))
     req = SourceRequest(kind="url", url="https://news.example.com/blocked")
     result = ingest_one(req, http_client=cast(httpx.Client, client))
@@ -230,7 +230,7 @@ def test_cloudflare_page_is_anti_bot_and_not_bypassed() -> None:
     assert result.failure is not None
     assert result.failure.kind == "anti_bot"
     assert result.failure.next_action
-    assert client.calls == ["https://news.example.com/blocked"]  # single fetch, no bypass
+    assert client.calls == ["https://news.example.com/blocked"]  # single plain fetch
 
 
 def test_paywall_page_is_typed_paywall() -> None:
