@@ -2,11 +2,13 @@
 
 **A local-first tracker for the sources you choose.** Hand it a feed, homepage, podcast, or channel; it polls them on a schedule, turns new items into summarized, searchable knowledge that keeps its provenance, and says out loud when it could not read something.
 
-- **Honest by construction.** AI summaries only restate the source — they never score or rank it. Paywalls, logins, and anti-bot walls are never worked around: a failed fetch becomes a typed status with a next step, not a silent gap.
+- **Honest by construction.** AI summaries only restate the source — they never score or rank it. A failed fetch becomes a typed status with a next step, not a silent gap.
 - **676 tests, all offline.** 499 backend (the suite bans sockets), 119 component, 58 browser end-to-end against a mocked build. One command runs the whole matrix with zero network and zero API spend.
 - **Deterministic code wherever code will do.** Source tiering, duplicate detection, feed recovery, and search are plain Python and SQL. The model writes summaries, drafts notes, and answers questions — it never decides a status.
 
 Everything runs on your own machine: FastAPI, Next.js, SQLite, and a local Chroma index, no account and no cloud. The only paid dependency is the LLM API key you supply.
+
+daily is a personal, non-commercial project. It has no fetch red lines: proxies, cookies and logged-in sessions, archive fallbacks, browser impersonation, and stealth fetchers such as Scrapling's are all fair game wherever they help a source read. Respecting each site's terms and copyright is up to whoever runs it.
 
 Three primary pages carry it — **Today** (what your sources published, on a timeline), **Sources** (what is tracked and how healthy it is), **Knowledge** (your saved notes, and questions answered only from what daily has stored) — with detail pages behind them for a single item, a single note, and the run trace.
 
@@ -103,7 +105,8 @@ While the app runs, sources are re-checked on their own interval (hourly by defa
 
 Ingestion is best-effort. A source that cannot be fetched is typed-skipped with a reason and a next step, and the rest of the batch still completes.
 
-- **Web page** — static HTML, then a structured-extraction pass, then a headless render when enabled. **Paywalls, anti-bot walls, and login walls are never bypassed**: they typed-skip as `paywall` / `anti_bot` / `login_required` and ask you to paste the text.
+- **Web page** — static HTML, then a structured-extraction pass, then a headless render when enabled. Paywalls, anti-bot walls, and login walls typed-skip as `paywall` / `anti_bot` / `login_required` and ask you to paste the text; no bypass tier is built yet, and the fetch policy (`app/ingestion/fetch_policy.py`) no longer forbids one.
+- **Proxy** — the backend honours `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` from the shell that starts it, for page fetches, feeds, and yt-dlp alike.
 - **PDF** — text-layer extraction. Scanned, image-only PDFs are not OCR'd.
 - **Podcast** — an RSS `<enclosure>` or a direct audio URL, transcribed locally. Arbitrary Apple or Spotify episode *pages* are not promised.
 - **YouTube** — captions via `yt-dlp`, falling back to local transcription when there are none. No video is downloaded, so on-screen charts are not read.

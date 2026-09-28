@@ -162,16 +162,16 @@ def _ingest_webpage(
     req: SourceRequest, url: str, client: httpx.Client, render_client: RenderClient | None
 ) -> IngestionResult:
     # One fetch drives everything. First classify hostility (M1B.4): a
-    # paywall / login / anti-bot / blocked response is a typed skip — we NEVER
-    # bypass it (no cookies/proxy/archive, §2.2); the user pastes the text. A
+    # paywall / login / anti-bot / blocked response is a typed skip (no bypass
+    # tier is implemented yet); the user pastes the text. A
     # clean response then runs the FR-2 HTML tier chain: tier 1 static
     # main-content (M1A.4); tier 2 structured metadata (M1B.1, JSON-LD body =
     # success, a bare og/meta blurb = partial, which does NOT count); tier 3
     # headless render (M1B.2), reached only when static is empty AND structured is
     # not `ok` (so a partial blurb still falls through to render).
     # per-host UA override: WeChat articles wall the bot UA
-    # but serve the full server-rendered text to a plain browser UA — no
-    # cookies, no captcha solving; a wall that still appears stays typed
+    # but serve the full server-rendered text to a plain browser UA; a wall
+    # that still appears stays typed
     headers = fetch_headers(url)
     try:
         resp = client.get(url, headers=headers) if headers else client.get(url)
@@ -179,8 +179,8 @@ def _ingest_webpage(
         # transport failure (timeout / edge disconnect) — a headless browser can
         # reach a page a plain client can't (some sites drop non-browser clients
         # at the edge). Try the render tier before giving up; a render miss falls
-        # back to the transport error. This never bypasses a paywall/anti-bot: a
-        # SUCCESSFUL hostile response below is still typed-skipped, not rendered.
+        # back to the transport error. A SUCCESSFUL hostile response below is
+        # still typed-skipped, not rendered.
         rescued = _render_or_none(req, url, render_client)
         if rescued is not None:
             return rescued
@@ -191,16 +191,14 @@ def _ingest_webpage(
     hostile = classify_hostile(status_code=resp.status_code, body=resp.text)
     if hostile == "fetch_blocked":
         # A bare 4xx with no paywall/login/challenge marker often just means "not a
-        # browser": retry once in the plain headless browser (no cookies, no proxy,
-        # no stealth). A refusal there falls through to the typed failure below.
+        # browser": retry once in the plain headless browser. A refusal there
+        # falls through to the typed failure below.
         rescued = _render_or_none(req, url, render_client)
         if rescued is not None:
             return rescued
     if hostile is not None:
-        # paywall / login_required / anti_bot are never worked around (§2.2)
-        return _webpage_fail(
-            req, url, hostile, f"hostile source ({hostile}); not bypassed — paste the text."
-        )
+        # paywall / login_required / anti_bot: no bypass tier yet — typed skip
+        return _webpage_fail(req, url, hostile, f"hostile source ({hostile}) — paste the text.")
 
     html = resp.text
     text = extract_main_text(html)
@@ -273,7 +271,7 @@ def _looks_like_pdf(url: str) -> bool:
 
 
 def _ingest_pdf(req: SourceRequest, url: str, client: httpx.Client) -> IngestionResult:
-    # Public PDFs only (no paywall/login bypass, §2.2). Text layer → pdf_text;
+    # Directly fetchable PDFs. Text layer → pdf_text;
     # scanned/image-only (no text layer) → unsupported_file, never OCR'd (M1B.3).
     try:
         resp = client.get(url)

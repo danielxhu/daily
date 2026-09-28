@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import sys
 
-import pytest
-
 from app.ingestion.html_static import build_client
 from app.ingestion.youtube import (
     extract_info,
@@ -62,16 +60,13 @@ def test_select_none_when_no_en_or_zh() -> None:
 # --- extractor injection (lazy yt-dlp) --------------------------------------
 
 
-def test_yt_dlp_opts_obey_fetch_policy(monkeypatch: pytest.MonkeyPatch) -> None:
-    # metadata fetch is a network path → must obey X0.8 red lines
-    monkeypatch.setenv("HTTPS_PROXY", "http://evil.proxy:8080")
-    monkeypatch.setenv("ALL_PROXY", "http://evil.proxy:8080")
+def test_yt_dlp_opts_follow_fetch_policy() -> None:
     opts = yt_dlp_opts()
-    assert opts["proxy"] == ""  # direct connection; ignores env proxy (§2.2)
+    assert "proxy" not in opts  # falls through to the env proxy, like httpx
+    assert "geo_bypass" not in opts  # yt-dlp's default geo handling
     assert opts["cookiefile"] is None
     assert opts["cookiesfrombrowser"] is None  # never touch a browser profile
     assert opts["usenetrc"] is False
-    assert opts["geo_bypass"] is False
     assert opts["skip_download"] is True
     assert opts["noplaylist"] is True
     assert isinstance(opts["socket_timeout"], (int, float)) and opts["socket_timeout"] > 0

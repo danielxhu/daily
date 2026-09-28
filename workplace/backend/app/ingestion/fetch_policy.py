@@ -1,18 +1,17 @@
-"""Fetch policy guard (X0.8, SSOT §2.2 / FR-2 / §6.6).
+"""Fetch policy (X0.8, SSOT FR-2 / §6.6).
 
-The single place that encodes *how daily is allowed to fetch*. Every fetcher
-(static HTML M1A.4, render M1B.2, feed/poll Stage 7) builds its client from
-here, so the red lines hold **by construction**:
+The single place that encodes *how daily fetches*. Every fetcher (static HTML
+M1A.4, render M1B.2, feed/poll Stage 7) builds its client from here, so fetch
+behaviour changes in one spot.
 
-- no user cookies / no stored session, no proxy, no archive-site bypass, no
-  login-breaking — paywalled/login/anti-bot content is a typed skip, not a fight;
-- a navigation timeout always exists and downloads are disabled;
-- Scrapling is used **parser-only** (`pip install scrapling`); its `StealthyFetcher`
-  / Cloudflare-bypass / proxy-rotation extras (`scrapling[fetchers]`) are NEVER
-  installed — the guard holds because that code never enters the environment.
+daily is a personal, non-commercial tool, so there are no fetch red lines: the
+environment's proxy settings are honoured, and cookies/sessions, login, archive
+fallbacks, browser impersonation or Scrapling's fetchers (`scrapling[fetchers]`)
+may be added wherever they help a source read. What is still fixed here:
 
-On any fetch failure the caller produces a typed `SourceFailure` whose
-`next_action` comes from the deterministic `NEXT_ACTION` map (§6.6 / FR-2).
+- a navigation timeout always exists and render downloads are disabled;
+- when a fetch still fails, the caller produces a typed `SourceFailure` whose
+  `next_action` comes from the deterministic `NEXT_ACTION` map (§6.6 / FR-2).
 """
 
 from __future__ import annotations
@@ -21,13 +20,7 @@ from urllib.parse import urlsplit
 
 from app.schemas.models import SourceFailure, SourceFailureKind, SourceType
 
-# --- hard policy switches (all OFF; §2.2 red lines) ---
-ALLOW_COOKIES = False
-ALLOW_PROXY = False
-ALLOW_ARCHIVE_BYPASS = False
-ALLOW_LOGIN = False
-
-# An honest, static user agent — NOT fingerprint/stealth evasion (§2.2).
+# Default user agent; hosts that wall it get a browser UA via `fetch_headers`.
 FETCH_USER_AGENT = "daily/0.1 (+source tracker; contact via repo)"
 FETCH_TIMEOUT_MS = 15000
 
@@ -36,11 +29,8 @@ FETCH_TIMEOUT_MS = 15000
 RENDER_SETTLE_MS = 5000
 
 # Hosts that answer the bot UA with a verification wall but serve the SAME
-# server-rendered article to a plain browser UA — no cookies, no login, no
-# captcha solving (WeChat articles: measured 环境异常 wall vs
-# 3.3MB full text on one UA string). A static browser UA is the stance the
-# yt-dlp video path already takes; a wall that still appears stays a typed
-# failure, never bypassed (§2.2).
+# server-rendered article to a plain browser UA (WeChat articles: measured
+# 环境异常 wall vs 3.3MB full text on one UA string).
 _BROWSER_UA_HOSTS = (
     "mp.weixin.qq.com",
     # consulting-firm sites that serve their pages to a browser UA but wall the
@@ -68,29 +58,25 @@ def fetch_headers(url: str) -> dict[str, str] | None:
 
 
 def httpx_client_kwargs() -> dict[str, object]:
-    """Shared `httpx` client config: redirects on, honest UA, timeout, and
-    explicitly no cookies / no proxy.
+    """Shared `httpx` client config: redirects on, default UA, timeout.
 
-    `trust_env=False` is load-bearing: httpx defaults to `trust_env=True`, which
-    would pick up `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` from the environment
-    and silently route through a proxy — violating the §2.2 no-proxy red line.
-    Turning it off also stops env-driven `.netrc`/SSL-cert pickup."""
+    `trust_env=True` lets `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
+    environment's SSL-cert settings) apply, so a proxy is configured the usual
+    way — in the shell that starts the backend."""
     return {
         "follow_redirects": True,
         "timeout": FETCH_TIMEOUT_MS / 1000,
         "headers": {"User-Agent": FETCH_USER_AGENT},
-        "trust_env": False,
-        # no `cookies=`, no `proxy=` — policy: never sent.
+        "trust_env": True,
     }
 
 
 def playwright_context_kwargs() -> dict[str, object]:
-    """Safe Playwright `new_context()` kwargs for the render fallback (M1B.2):
-    downloads disabled, no stored session/cookies, no proxy. The caller also sets
-    a default navigation timeout of `FETCH_TIMEOUT_MS`."""
+    """Playwright `new_context()` kwargs for the render fallback (M1B.2):
+    downloads disabled. The caller also sets a default navigation timeout of
+    `FETCH_TIMEOUT_MS`."""
     return {
         "accept_downloads": False,
-        # deliberately NO `storage_state` (no cookies/session) and NO `proxy`.
     }
 
 
@@ -124,8 +110,8 @@ def typed_skip(
     requested_url: str | None = None,
     source_type: SourceType | None = None,
 ) -> SourceFailure:
-    """Build the typed `SourceFailure` a fetcher returns instead of fighting a
-    blocked source — carries the user-facing next step (FR-2)."""
+    """Build the typed `SourceFailure` a fetcher returns when a source could not
+    be read — carries the user-facing next step (FR-2)."""
     return SourceFailure(
         requested_url=requested_url,
         type=source_type,

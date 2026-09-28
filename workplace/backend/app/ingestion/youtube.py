@@ -95,18 +95,15 @@ def parse_vtt(text: str) -> list[TranscriptSegment]:
 
 
 def yt_dlp_opts() -> dict[str, object]:
-    """`YoutubeDL` params bound to the X0.8 fetch policy (metadata fetch is a
-    network path too, so it must obey the same red lines as httpx).
+    """`YoutubeDL` params for the X0.8 fetch policy. No `proxy` key, so yt-dlp
+    falls through to env `HTTP(S)_PROXY`/`ALL_PROXY` — same as httpx
+    `trust_env=True` — and its default geo handling applies.
 
     Param names/semantics verified against yt-dlp's `YoutubeDL` source:
-    - `proxy=""` → yt-dlp maps an empty proxy to `__noproxy__` (direct connection)
-      and, because it is not None, **does NOT fall through to env `HTTP(S)_PROXY`/
-      `ALL_PROXY`** — the env-proxy equivalent of httpx `trust_env=False` (§2.2).
     - `cookiefile=None` / `cookiesfrombrowser=None` → never load a cookie jar or
       touch a browser profile (the keychain prompt this triggers
       is too invasive — bot-check failures stay typed & honest instead).
     - `usenetrc=False` → never read `~/.netrc` credentials.
-    - `geo_bypass=False` → no X-Forwarded-For geo-evasion (§2.2 no fingerprint evasion).
     - `skip_download=True` → metadata only, never download media here.
     - `noplaylist=True` → a single video, never expand playlists.
     """
@@ -114,11 +111,9 @@ def yt_dlp_opts() -> dict[str, object]:
         "skip_download": True,
         "quiet": True,
         "noplaylist": True,
-        "proxy": "",
         "cookiefile": None,
         "cookiesfrombrowser": None,
         "usenetrc": False,
-        "geo_bypass": False,
         "socket_timeout": FETCH_TIMEOUT_MS / 1000,
     }
 

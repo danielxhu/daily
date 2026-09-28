@@ -1,9 +1,8 @@
-"""X0.8 — fetch policy guard: the red lines hold by construction."""
+"""X0.8 — fetch policy: shared client config and typed failure → next action."""
 
 from __future__ import annotations
 
 import typing
-from pathlib import Path
 
 import httpx
 import pytest
@@ -11,39 +10,25 @@ import pytest
 from app.ingestion import fetch_policy as fp
 from app.schemas.models import SourceFailureKind
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
 
-
-def test_policy_switches_all_off() -> None:
-    assert fp.ALLOW_COOKIES is False
-    assert fp.ALLOW_PROXY is False
-    assert fp.ALLOW_ARCHIVE_BYPASS is False
-    assert fp.ALLOW_LOGIN is False
-
-
-def test_httpx_kwargs_carry_no_cookies_or_proxy_and_have_timeout() -> None:
+def test_httpx_kwargs_follow_redirects_honour_env_and_have_timeout() -> None:
     kw = fp.httpx_client_kwargs()
-    assert "cookies" not in kw and "proxy" not in kw and "proxies" not in kw
     assert kw["follow_redirects"] is True
-    assert kw["trust_env"] is False  # don't read HTTP(S)_PROXY/ALL_PROXY from env
+    assert kw["trust_env"] is True  # HTTP(S)_PROXY/ALL_PROXY from env apply
     assert isinstance(kw["timeout"], (int, float)) and kw["timeout"] > 0
     headers = kw["headers"]
     assert isinstance(headers, dict) and "User-Agent" in headers
 
 
-def test_httpx_client_ignores_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Even with a proxy set in the environment, the policy client must not adopt it.
-    monkeypatch.setenv("HTTPS_PROXY", "http://evil.proxy:8080")
-    monkeypatch.setenv("ALL_PROXY", "http://evil.proxy:8080")
+def test_httpx_client_adopts_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:8080")
     with httpx.Client(**fp.httpx_client_kwargs()) as client:  # type: ignore[arg-type]
-        assert client._trust_env is False
+        assert client._trust_env is True
 
 
-def test_playwright_context_kwargs_are_safe() -> None:
+def test_playwright_context_kwargs_disable_downloads() -> None:
     kw = fp.playwright_context_kwargs()
     assert kw["accept_downloads"] is False  # downloads disabled
-    assert "storage_state" not in kw  # no cookies/session
-    assert "proxy" not in kw  # no proxy
     assert fp.FETCH_TIMEOUT_MS > 0  # a navigation timeout exists
 
 
@@ -75,37 +60,8 @@ def test_typed_skip_builds_failure_with_next_action() -> None:
     assert f.requested_url == "https://paywall.example/x"
 
 
-# --- Scrapling parser-only: no stealth fetchers in the dependency manifest ---
-
-
-def test_no_scrapling_fetchers_or_stealth_in_manifest() -> None:
-    pyproject = (BACKEND_DIR / "pyproject.toml").read_text(encoding="utf-8")
-    assert "scrapling[fetchers]" not in pyproject
-    assert "StealthyFetcher" not in pyproject
-
-
-def test_no_stealth_fetcher_imported_or_instantiated_in_app_code() -> None:
-    # The policy module legitimately *names* StealthyFetcher in prose to forbid
-    # it, and parser-only `from scrapling import Selector` is ALLOWED (§10). So we
-    # only flag the actual fetcher/stealth APIs, not any scrapling import.
-    bad_patterns = (
-        "import StealthyFetcher",
-        "StealthyFetcher(",
-        "scrapling.fetchers",
-        "from scrapling.fetchers",
-        "scrapling install",
-    )
-    offenders = []
-    for p in (BACKEND_DIR / "app").rglob("*.py"):
-        text = p.read_text(encoding="utf-8")
-        if any(pat in text for pat in bad_patterns):
-            offenders.append(p.name)
-    assert offenders == []
-
-
 def test_fetch_headers_browser_ua_for_whitelisted_hosts() -> None:
-    # hosts that wall the bot UA but serve a browser UA — a static UA string,
-    # no cookies/captcha (same stance the yt-dlp video path already takes)
+    # hosts that wall the bot UA but serve a browser UA
     for url in (
         "https://mp.weixin.qq.com/s/abc123",
         "https://www.accenture.com/us-en/insights",
@@ -114,6 +70,6 @@ def test_fetch_headers_browser_ua_for_whitelisted_hosts() -> None:
     ):
         h = fp.fetch_headers(url)
         assert h is not None and "Mozilla/5.0" in h["User-Agent"] and "daily" not in h["User-Agent"]
-    # everything else keeps the honest default (client-level bot UA)
+    # everything else keeps the default (client-level bot UA)
     assert fp.fetch_headers("https://www.reuters.com/markets/x") is None
     assert fp.fetch_headers("https://weixin.qq.com/") is None  # host, not prefix-match

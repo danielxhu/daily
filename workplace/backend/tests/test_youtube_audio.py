@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from app.clients.base import TranscriptResult, TranscriptSegment
 from app.clients.mock import MockTranscriber
 from app.ingestion.html_static import build_client
@@ -22,14 +20,11 @@ _HAS_CAPTION: dict[str, Any] = {
 }
 
 
-def test_audio_opts_obey_fetch_policy_and_download_settings(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("HTTPS_PROXY", "http://evil.proxy:8080")
+def test_audio_opts_follow_fetch_policy_and_download_settings() -> None:
     opts = yt_dlp_audio_opts("/tmp/daily_dl")
-    # inherited red lines
-    assert opts["proxy"] == "" and opts["cookiefile"] is None
-    assert opts["usenetrc"] is False and opts["geo_bypass"] is False
+    # inherited from yt_dlp_opts()
+    assert "proxy" not in opts and opts["cookiefile"] is None
+    assert opts["usenetrc"] is False
     assert opts["noplaylist"] is True
     assert opts["cookiesfrombrowser"] is None
     assert isinstance(opts["socket_timeout"], (int, float)) and opts["socket_timeout"] > 0

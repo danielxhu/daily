@@ -85,8 +85,7 @@ def test_playwright_client_obeys_fetch_policy(monkeypatch: pytest.MonkeyPatch) -
     assert result.html == "<html><body><article>rendered body</article></body></html>"
     assert result.final_url == "https://spa.example/final"
     assert rec["launch"] == {"headless": True}
-    assert rec["context"] == playwright_context_kwargs()  # no cookies, downloads off, no proxy
+    assert rec["context"] == playwright_context_kwargs()
     assert rec["context"]["accept_downloads"] is False
-    assert "storage_state" not in rec["context"] and "proxy" not in rec["context"]
     assert rec["timeout"] == FETCH_TIMEOUT_MS  # navigation timeout set
     assert rec["closed"] is True  # browser always closed

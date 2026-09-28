@@ -5,11 +5,10 @@ Last resort for JS-only pages: when static (M1A.4) is empty AND structured
 Playwright and run the same main-content extraction over the rendered DOM
 (`extraction_method="rendered_html"`).
 
-Strictly bounded by the X0.8 fetch policy (§2.2): an **isolated context with NO
-user cookies/session**, **downloads disabled**, and a **navigation timeout**. We
-do NOT bypass paywalls/login/anti-bot — a render failure is a typed skip, never a
-workaround. Playwright is lazy-imported so importing this module (and the offline
-suite) never needs the browser; the `RenderClient` seam is mocked in tests, so a
+Built from the X0.8 fetch policy: a fresh context, **downloads disabled**, and a
+**navigation timeout**. A render failure is a typed skip. Playwright is
+lazy-imported so importing this module (and the offline suite) never needs the
+browser; the `RenderClient` seam is mocked in tests, so a
 browser is never launched (NFR-3).
 """
 
@@ -28,8 +27,8 @@ from app.ingestion.html_static import extract_main_text
 
 
 class PlaywrightRenderClient:
-    """Real `RenderClient`: headless Chromium, isolated + cookie-less context,
-    downloads off, timeout-bounded. Never exercised in tests."""
+    """Real `RenderClient`: headless Chromium, fresh context, downloads off,
+    timeout-bounded. Never exercised in tests."""
 
     def render(self, url: str) -> RenderResult:
         from playwright.sync_api import sync_playwright  # lazy: heavy + bundles a browser

@@ -11,8 +11,8 @@ Persistent (SQLite) on purpose: per-item attempt budgets live in memory and
 reset on restart — without a durable domain row, every restart re-hammers a
 domain that banned us an hour ago.
 
-This is NOT anti-bot evasion (§2.2 red line): the breaker only ever makes the
-client MORE polite — fewer requests, same honest identity. A manual per-item
+The breaker only ever makes the client MORE polite — fewer requests, same
+identity. A manual per-item
 refresh deliberately bypasses the check (one explicit human probe is fine);
 its outcome still updates the breaker for the background paths.
 """

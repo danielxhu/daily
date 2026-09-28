@@ -6,7 +6,7 @@ has no text layer; we deliberately do NOT OCR it — a multi-page filing would b
 FR-10's ≤2-frame vision budget — so it is a typed `unsupported_file` skip and the
 user pastes the text instead (§FR-2 / §6.6).
 
-We do NOT bypass paywalls or login (§2.2): only already-public PDFs. `pypdf` is
+Only directly fetchable PDFs are read. `pypdf` is
 imported lazily; tests feed raw fixture bytes (offline, NFR-3).
 """
 

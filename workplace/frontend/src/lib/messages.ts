@@ -62,7 +62,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
       "AI summaries repeat what the source itself says — no truth scores, no rankings, no hot lists. Open the original before you rely on it.",
     "hero.s3.l3.title": "Some content stays out of reach",
     "hero.s3.l3.body":
-      "Paywalls, logins, and hard anti-bot walls are never bypassed. A failed fetch is labeled honestly, with a next step.",
+      "When a paywall, login, or hard anti-bot wall stops a fetch, the failure is labeled honestly, with a next step.",
     "hero.s3.l4.title": "Your data stays on your machine",
     "hero.s3.l4.body":
       "Beyond calls to your own model API, everything lives locally. No account. No cloud.",
@@ -595,7 +595,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "hero.s3.l2.title": "转述,不是判断",
     "hero.s3.l2.body": "AI 综述只复述来源自己说了什么,不评真假、不打分、不排热榜。依赖之前,请打开原文。",
     "hero.s3.l3.title": "有些内容拿不到",
-    "hero.s3.l3.body": "付费墙、登录墙、反爬严格的站点,daily 不绕过 —— 抓取失败会诚实标注,并告诉你下一步。",
+    "hero.s3.l3.body": "遇到付费墙、登录墙或严格反爬拦下抓取时,daily 会诚实标注失败,并告诉你下一步。",
     "hero.s3.l4.title": "你的数据只在本地",
     "hero.s3.l4.body": "除了调用你自己的模型 API,一切都存在你的机器上。没有账号,没有云端。",
     "hero.final": "边界之内,尽力做到最好。",
