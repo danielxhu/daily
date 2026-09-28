@@ -124,7 +124,7 @@ describe("BoardsView", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Finance" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("button", { name: "政治" })).toBeInTheDocument(); // others stay
+    expect(screen.getByRole("button", { name: "Politics" })).toBeInTheDocument(); // others stay (preset names follow the UI language)
   });
 
   it("cancelling the delete confirm keeps the board (M14.2)", async () => {

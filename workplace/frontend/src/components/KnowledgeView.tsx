@@ -15,6 +15,7 @@ import {
   listKnowledgeChats,
   listKnowledgeNotes,
 } from "@/lib/api";
+import { boardName } from "@/lib/boards";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
 import type { KnowledgeChat, KnowledgeChatSummary, KnowledgeNote } from "@/types/contract";
 
@@ -276,7 +277,7 @@ export function KnowledgeView({
             aria={t("knowledge.notes.board.aria")}
             options={[
               { id: null, label: t("today.tabs.all") },
-              ...boards.map((b) => ({ id: b.id, label: b.name })),
+              ...boards.map((b) => ({ id: b.id, label: boardName(b, t) })),
             ]}
             value={boardTab}
             onChange={setBoardTab}
