@@ -32,8 +32,7 @@ def test_extract_empty_body_is_too_short() -> None:
 
 def test_build_client_uses_fetch_policy() -> None:
     with build_client() as client:
-        assert client._trust_env is False  # no env proxy (§2.2)
-        assert not client.cookies  # no cookies
+        assert client._trust_env is True  # env proxy honoured
         assert client.timeout.connect is not None  # a timeout exists
         assert client.follow_redirects is True
 

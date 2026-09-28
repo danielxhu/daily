@@ -42,7 +42,8 @@ SUBSCRIPTION_NEXT_ACTION: dict[SubscriptionFailureKind, str] = {
     "rate_limited": (
         "Blocked or rate-limited (403/429). daily backs off and retries. If it keeps "
         "failing, this site answers only a real browser: set ENABLE_HTML_RENDER=true "
-        "in backend/.env, or paste items manually."
+        "(or ENABLE_STEALTH_FETCH=true for anti-bot walls) in backend/.env, or paste "
+        "items manually."
     ),
     "parse_or_render_unfit": (
         "Fetched, but no usable content. Sites that build their list in the browser "

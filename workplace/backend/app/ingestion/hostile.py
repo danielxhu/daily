@@ -1,11 +1,10 @@
-"""Hostile-source classifier (M1B.4, SSOT §FR-2 / §2.2).
+"""Hostile-source classifier (M1B.4, SSOT §FR-2).
 
 Classifies a fetched response into a typed `SourceFailureKind` —
 `paywall` / `login_required` / `anti_bot` / `fetch_blocked` — so the user gets the
-right next step ("paste the text + a source label/domain"). We NEVER attempt a
-workaround: no cookies, no proxy, no archive-site bypass, no captcha / fingerprint
-/ stealth (§2.2). The honest answer to a hostile source is to ask the user to
-paste the text.
+right next step ("paste the text + a source label/domain"). A hostile response
+goes to the Scrapling stealth tier when it is enabled (`stealth.py`), which runs
+this same classifier over its own HTML — a wall that survives stays typed.
 
 Pure heuristics over status code + body markers — code, not an LLM (NFR-7). The
 markers are deliberately specific so a normal article that merely says

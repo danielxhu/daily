@@ -1,7 +1,7 @@
 """HTML static extraction (M1A.4, SSOT §FR-2 tier 1).
 
-The first real network fetcher: `httpx` (built from the X0.8 fetch policy — no
-cookies/proxy, `trust_env=False`, timeout) + `trafilatura` main-content extraction.
+The first real network fetcher: `httpx` (built from the X0.8 fetch policy —
+env proxy honoured, timeout) + `trafilatura` main-content extraction.
 On a clean article this yields `raw_text` with `extraction_method="static_html"`.
 When the static body is empty / too short, it returns an `empty` result — the
 caller then tries the Stage 1B structured/render fallbacks, or (at 1A) typed-skips
@@ -26,7 +26,7 @@ MIN_MAIN_TEXT_LEN = 200
 
 
 def build_client() -> httpx.Client:
-    """An httpx client bound to the X0.8 fetch policy (no cookies/proxy, timeout)."""
+    """An httpx client bound to the X0.8 fetch policy (env proxy, timeout)."""
     return httpx.Client(**httpx_client_kwargs())  # type: ignore[arg-type]
 
 

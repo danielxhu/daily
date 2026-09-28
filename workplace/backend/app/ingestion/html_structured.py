@@ -10,9 +10,7 @@ metadata before paying for a headless render (M1B.2 tier 3):
 
 These are standardized, stable fields (schema.org / Open Graph Protocol), so we
 read them with the stdlib HTML parser — there are no fragile CSS selectors here,
-so Scrapling's self-healing `Selector` isn't needed for this tier (it stays a
-parser-only option for brittle-DOM cases; its fetchers remain the §2.2 red line
-and uninstalled).
+so Scrapling's self-healing `Selector` isn't needed for this tier.
 """
 
 from __future__ import annotations

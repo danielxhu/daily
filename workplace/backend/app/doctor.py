@@ -8,8 +8,8 @@ Singapore datacenter IP (TUN-mode VPN), bilibili risk-controls datacenter exits
 disjoint failure worlds that read as "everything randomly fails".
 
 Operator-facing CLI, no UI surface. Probes use the SAME fetch policy as ingestion
-(honest UA, no cookies, no proxy pickup) so the report reflects what the app
-actually experiences. Read-only; sends four GETs total; never bypasses anything.
+(same UA, env proxy honoured) so the report reflects what the app actually
+experiences. Read-only; sends four GETs total.
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def advise(report: ProbeReport) -> list[str]:
         report.bilibili_error and "412" in report.bilibili_error
     ):
         advice.append(
-            "B 站正在风控此出口(HTTP 412/429)。这不是代码问题,也不该绕过:"
+            "B 站正在风控此出口(HTTP 412/429)。这不是代码问题:"
             "换回国内直连路由后自然恢复;风控通常数小时内衰减。"
         )
     if report.youtube_status is None and report.youtube_error:

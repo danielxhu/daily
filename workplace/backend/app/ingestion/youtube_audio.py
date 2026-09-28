@@ -36,8 +36,8 @@ def yt_dlp_audio_opts(out_dir: str) -> dict[str, object]:
             "outtmpl": "%(id)s.%(ext)s",
             "paths": {"home": out_dir},  # download into our controlled dir
             "overwrites": True,
-            # proxy=""/cookiefile=None/usenetrc=False/geo_bypass=False/noplaylist
-            # are inherited from yt_dlp_opts() — same red lines as M1A.7.
+            # cookiefile=None/usenetrc=False/noplaylist and the env proxy
+            # are inherited from yt_dlp_opts() — same policy as M1A.7.
         }
     )
     return opts

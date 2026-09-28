@@ -5,7 +5,7 @@ export type SourceType = "webpage" | "podcast" | "youtube" | "text" | "pdf";
 export type Origin = "user" | "fetched";
 export type CitationType = "primary" | "cited" | "republished";
 export type Tier = "T1" | "T1.5" | "T2";
-export type ExtractionMethod = "static_html" | "structured_html" | "rendered_html" | "pdf_text" | "caption" | "whisper" | "pasted_text" | "frame_ocr" | "feed_summary";
+export type ExtractionMethod = "static_html" | "structured_html" | "rendered_html" | "stealth_html" | "pdf_text" | "caption" | "whisper" | "pasted_text" | "frame_ocr" | "feed_summary";
 export type SourceFailureKind = "fetch_blocked" | "paywall" | "login_required" | "anti_bot" | "no_captions" | "transcribe_failed" | "js_render_failed" | "parse_empty" | "unsupported_file" | "timeout" | "transcription_deferred";
 export type SubscriptionFailureKind = "gone" | "rate_limited" | "parse_or_render_unfit" | "network" | "system_anomaly" | "items_unfetchable";
 

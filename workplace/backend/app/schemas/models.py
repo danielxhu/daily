@@ -51,6 +51,8 @@ ExtractionMethod = Literal[
     "static_html",
     "structured_html",
     "rendered_html",
+    # Scrapling's stealth browser, after plain fetch + render were blocked
+    "stealth_html",
     "pdf_text",
     "caption",
     "whisper",

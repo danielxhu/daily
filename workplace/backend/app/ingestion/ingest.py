@@ -12,7 +12,7 @@ Routing (Stage 1A; structured/render HTML fallbacks + PDF are Stage 1B):
 - YouTube URL             → captions, then audio fallback
 - Apple/Spotify page      → unsupported (paste text / use RSS)
 - direct audio / `declared_type="podcast"` → audio (direct URL or RSS enclosure)
-- everything else         → static HTML
+- everything else         → static HTML → structured → render → stealth
 
 Network deps are injectable so the offline suite never fetches or imports heavy
 libs (NFR-3): an `httpx` client, a `Transcriber`, the YouTube caption `extractor`
@@ -32,6 +32,7 @@ from uuid import uuid4
 import httpx
 
 from app.clients.base import RenderClient, Transcriber, VisionClient
+from app.core.config import get_settings
 from app.ingestion.fetch_policy import fetch_headers
 from app.ingestion.hostile import classify_hostile
 from app.ingestion.html_render import render_main_text
@@ -46,6 +47,7 @@ from app.ingestion.pdf import PdfParseError, build_pdf_source, extract_pdf_text,
 from app.ingestion.podcast import is_direct_audio_url, is_unsupported_podcast_page, resolve_audio
 from app.ingestion.result import failed_from, failed_result, ok_result
 from app.ingestion.router import is_video_platform, is_xiaohongshu_note, normalize_url
+from app.ingestion.stealth import stealth_main_text
 from app.ingestion.text_source import ingest_text
 from app.ingestion.xiaohongshu import fetch_note, read_note_images
 from app.ingestion.youtube_audio import ingest_youtube
@@ -90,6 +92,7 @@ def ingest_one(
     render_client: RenderClient | None = None,
     vision_client: VisionClient | None = None,
     allow_transcription: bool = True,
+    stealth_client: RenderClient | None = None,
 ) -> IngestionResult:
     """Ingest one source. Returns a typed `IngestionResult` (ok or failed).
 
@@ -97,7 +100,10 @@ def ingest_one(
     wants a fast answer — anything that would need local whisper (podcast audio, a
     caption-less video) returns the typed `transcription_deferred` skip instead of
     minutes of transcription. The fast caption path still runs. The poll runtime
-    re-queues deferred items so the NEXT check processes them normally."""
+    re-queues deferred items so the NEXT check processes them normally.
+
+    `stealth_client` is the Scrapling stealth tier; when None it comes from
+    `ENABLE_STEALTH_FETCH` (off → the tier is skipped)."""
     if req.kind == "text":
         return ok_result(req, ingest_text(req))
 
@@ -152,26 +158,31 @@ def ingest_one(
             return _ingest_podcast(req, url, client, transcriber)
         if _looks_like_pdf(url) or req.declared_type == "pdf":
             return _ingest_pdf(req, url, client)
-        return _ingest_webpage(req, url, client, render_client)
+        return _ingest_webpage(req, url, client, render_client, stealth_client)
     finally:
         if created_client:
             client.close()
 
 
 def _ingest_webpage(
-    req: SourceRequest, url: str, client: httpx.Client, render_client: RenderClient | None
+    req: SourceRequest,
+    url: str,
+    client: httpx.Client,
+    render_client: RenderClient | None,
+    stealth_client: RenderClient | None = None,
 ) -> IngestionResult:
     # One fetch drives everything. First classify hostility (M1B.4): a
-    # paywall / login / anti-bot / blocked response is a typed skip — we NEVER
-    # bypass it (no cookies/proxy/archive, §2.2); the user pastes the text. A
-    # clean response then runs the FR-2 HTML tier chain: tier 1 static
+    # paywall / login / anti-bot / blocked response goes to the stealth tier
+    # (Scrapling, when enabled) and otherwise typed-skips; the user pastes the
+    # text. A clean response then runs the FR-2 HTML tier chain: tier 1 static
     # main-content (M1A.4); tier 2 structured metadata (M1B.1, JSON-LD body =
     # success, a bare og/meta blurb = partial, which does NOT count); tier 3
     # headless render (M1B.2), reached only when static is empty AND structured is
-    # not `ok` (so a partial blurb still falls through to render).
+    # not `ok` (so a partial blurb still falls through to render); tier 4 the
+    # stealth browser, when render fails or comes back empty.
     # per-host UA override: WeChat articles wall the bot UA
-    # but serve the full server-rendered text to a plain browser UA — no
-    # cookies, no captcha solving; a wall that still appears stays typed
+    # but serve the full server-rendered text to a plain browser UA; a wall
+    # that still appears stays typed
     headers = fetch_headers(url)
     try:
         resp = client.get(url, headers=headers) if headers else client.get(url)
@@ -179,9 +190,10 @@ def _ingest_webpage(
         # transport failure (timeout / edge disconnect) — a headless browser can
         # reach a page a plain client can't (some sites drop non-browser clients
         # at the edge). Try the render tier before giving up; a render miss falls
-        # back to the transport error. This never bypasses a paywall/anti-bot: a
-        # SUCCESSFUL hostile response below is still typed-skipped, not rendered.
-        rescued = _render_or_none(req, url, render_client)
+        # back to the stealth tier, then to the transport error.
+        rescued = _render_or_none(req, url, render_client) or _stealth_or_none(
+            req, url, stealth_client
+        )
         if rescued is not None:
             return rescued
         if isinstance(exc, httpx.TimeoutException):
@@ -191,16 +203,18 @@ def _ingest_webpage(
     hostile = classify_hostile(status_code=resp.status_code, body=resp.text)
     if hostile == "fetch_blocked":
         # A bare 4xx with no paywall/login/challenge marker often just means "not a
-        # browser": retry once in the plain headless browser (no cookies, no proxy,
-        # no stealth). A refusal there falls through to the typed failure below.
+        # browser": retry once in the plain headless browser. A refusal there
+        # falls through to the typed failure below.
         rescued = _render_or_none(req, url, render_client)
         if rescued is not None:
             return rescued
     if hostile is not None:
-        # paywall / login_required / anti_bot are never worked around (§2.2)
-        return _webpage_fail(
-            req, url, hostile, f"hostile source ({hostile}); not bypassed — paste the text."
-        )
+        # paywall / login_required / anti_bot / a 4xx render couldn't fix: the
+        # stealth browser gets one try; a wall that survives it is a typed skip
+        rescued = _stealth_or_none(req, url, stealth_client)
+        if rescued is not None:
+            return rescued
+        return _webpage_fail(req, url, hostile, f"hostile source ({hostile}) — paste the text.")
 
     html = resp.text
     text = extract_main_text(html)
@@ -215,6 +229,9 @@ def _ingest_webpage(
     try:
         rendered = render_main_text(url, render_client=rc)
     except Exception as exc:  # render timeout / nav / launch error → typed-skip
+        rescued = _stealth_or_none(req, url, stealth_client)
+        if rescued is not None:
+            return rescued
         return failed_from(
             req,
             "js_render_failed",
@@ -224,6 +241,9 @@ def _ingest_webpage(
         )
     if rendered is not None:
         return ok_result(req, build_webpage_source(url, rendered, "rendered_html"))
+    rescued = _stealth_or_none(req, url, stealth_client)
+    if rescued is not None:
+        return rescued
 
     return failed_from(
         req,
@@ -250,6 +270,23 @@ def _render_or_none(
     return None
 
 
+def _stealth_or_none(
+    req: SourceRequest, url: str, stealth_client: RenderClient | None
+) -> IngestionResult | None:
+    """Stealth tier → ok_result, or None when the tier is off / fails / still
+    walled / empty, so the caller surfaces its own typed failure unchanged."""
+    sc = stealth_client if stealth_client is not None else _default_stealth_client()
+    if sc is None:
+        return None
+    try:
+        text = stealth_main_text(url, stealth_client=sc)
+    except Exception:
+        return None
+    if text is not None:
+        return ok_result(req, build_webpage_source(url, text, "stealth_html"))
+    return None
+
+
 def _webpage_fail(
     req: SourceRequest, url: str, kind: SourceFailureKind, reason: str
 ) -> IngestionResult:
@@ -260,6 +297,14 @@ def _default_render_client() -> RenderClient:
     from app.ingestion.html_render import PlaywrightRenderClient  # lazy: bundles a browser
 
     return PlaywrightRenderClient()
+
+
+def _default_stealth_client() -> RenderClient | None:
+    if not get_settings().enable_stealth_fetch:
+        return None
+    from app.ingestion.stealth import ScraplingStealthClient  # lazy: [stealth] extra
+
+    return ScraplingStealthClient()
 
 
 def _default_vision() -> VisionClient | None:
@@ -273,7 +318,7 @@ def _looks_like_pdf(url: str) -> bool:
 
 
 def _ingest_pdf(req: SourceRequest, url: str, client: httpx.Client) -> IngestionResult:
-    # Public PDFs only (no paywall/login bypass, §2.2). Text layer → pdf_text;
+    # Directly fetchable PDFs. Text layer → pdf_text;
     # scanned/image-only (no text layer) → unsupported_file, never OCR'd (M1B.3).
     try:
         resp = client.get(url)

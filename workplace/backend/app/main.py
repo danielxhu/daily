@@ -21,7 +21,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.clients.base import LLMClient
+from app.clients.base import LLMClient, RenderClient
 from app.clients.deepseek import get_llm_client
 from app.core.config import (
     DIGEST_WINDOW_DAYS,
@@ -241,15 +241,31 @@ def get_feed_fetch() -> Fetch:
 
 
 def _poll_render_fn(settings: Settings) -> RenderFn | None:
-    """The headless-render callable discovery uses to recover a JS-rendered
-    listing (browser-only sites). None unless the render fallback is enabled —
-    the offline suite and a plain `uvicorn` never spawn a browser."""
-    if not settings.enable_html_render:
-        return None
-    from app.ingestion.html_render import PlaywrightRenderClient
+    """The browser callable discovery uses to recover a JS-rendered or
+    browser-only listing: the headless render, then Scrapling's stealth browser
+    when the render raises. None unless one of them is enabled — the offline
+    suite and a plain `uvicorn` never spawn a browser."""
+    clients: list[RenderClient] = []
+    if settings.enable_html_render:
+        from app.ingestion.html_render import PlaywrightRenderClient
 
-    client = PlaywrightRenderClient()
-    return lambda url: client.render(url).html
+        clients.append(PlaywrightRenderClient())
+    if settings.enable_stealth_fetch:
+        from app.ingestion.stealth import ScraplingStealthClient
+
+        clients.append(ScraplingStealthClient())
+    if not clients:
+        return None
+
+    def render(url: str) -> str:
+        for client in clients[:-1]:
+            try:
+                return client.render(url).html
+            except Exception:
+                continue
+        return clients[-1].render(url).html
+
+    return render
 
 
 def get_db(request: Request) -> Iterator[sqlite3.Connection]:
@@ -280,6 +296,7 @@ def public_config(settings: Settings) -> dict[str, Any]:
         "features": {
             "pdf_text": settings.enable_pdf_text,
             "html_render": settings.enable_html_render,
+            "stealth_fetch": settings.enable_stealth_fetch,
         },
     }
 

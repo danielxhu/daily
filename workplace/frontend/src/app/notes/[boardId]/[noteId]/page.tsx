@@ -1,16 +1,17 @@
-"use client";
-
-import { useParams } from "next/navigation";
-
 import { NoteDetailView } from "@/components/NoteDetailView";
+import { STATIC_NOTE_PARAMS } from "@/lib/static-params";
 
-export default function NotePage() {
-  const params = useParams<{ boardId: string; noteId: string }>();
-  const boardId = typeof params?.boardId === "string" ? params.boardId : "";
-  const noteId = typeof params?.noteId === "string" ? params.noteId : "";
+export function generateStaticParams() {
+  return STATIC_NOTE_PARAMS;
+}
+
+export default function NotePage({ params }: { params: { boardId: string; noteId: string } }) {
   return (
     <section className="py-2">
-      <NoteDetailView boardId={boardId} noteId={noteId} />
+      <NoteDetailView
+        boardId={params.boardId}
+        noteId={params.noteId}
+      />
     </section>
   );
 }

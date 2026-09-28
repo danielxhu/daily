@@ -42,7 +42,7 @@ describe("welcome page (hero · guide · boundaries)", () => {
     // the boundaries movement keeps honesty first-class
     expect(screen.getByText("Polling, not real-time")).toBeInTheDocument();
     expect(screen.getByText("Restating, not judging")).toBeInTheDocument();
-    expect(screen.getByText(/never bypassed/)).toBeInTheDocument();
+    expect(screen.getByText(/labeled honestly/)).toBeInTheDocument();
     expect(screen.getByText(/No account\. No cloud\./)).toBeInTheDocument();
     // no check-era language anywhere
     expect(document.body.textContent).not.toMatch(/credibility|verdict|\/100|deep check/i);

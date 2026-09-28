@@ -1,0 +1,55 @@
+# Publishes the frontend's mock-data demo to GitHub Pages.
+#
+# GitHub Pages only serves static files, so this is the Next.js app exported
+# with NEXT_PUBLIC_API_MOCK=1: every API call is answered in the browser by the
+# MSW fixtures (src/mocks). There is no backend, no real polling, and no LLM —
+# run the app locally for that.
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workplace/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: workplace/frontend/package-lock.json
+      - run: npm ci
+      - name: Static export under /<repo>
+        run: npm run build:pages
+        env:
+          PAGES_BASE_PATH: /${{ github.event.repository.name }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: workplace/frontend/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
