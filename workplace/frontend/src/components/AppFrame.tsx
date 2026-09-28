@@ -9,7 +9,9 @@ import { FooterNav } from "@/components/FooterNav";
 import { HelpButton } from "@/components/HelpButton";
 import { Nav } from "@/components/Nav";
 import { Shell } from "@/components/Shell";
+import { useT } from "@/lib/i18n";
 import { useAppliedTheme } from "@/lib/prefs";
+import { STATIC_DATA } from "@/lib/static-data";
 
 // keeps WebGL out of the shared bundle: the welcome page has its own composition
 // and never mounts the field
@@ -23,6 +25,7 @@ const PlasmaField = dynamic(() => import("@/components/PlasmaField").then((m) =>
 export function AppFrame({ children }: { children: ReactNode }) {
   const path = usePathname();
   const theme = useAppliedTheme();
+  const t = useT();
   if (path === "/welcome") return <main>{children}</main>;
   // the card surfaces put their content on cards, so the field is the page behind
   // them; the reading surfaces keep the sheet
@@ -41,6 +44,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
             <HelpButton />
           </div>
         </div>
+        {STATIC_DATA && (
+          // the GitHub Pages build: say up front why nothing can be added or changed
+          <p className="mx-auto max-w-3xl px-4 pb-2 text-[11px] text-faint sm:px-6">
+            {t("static.banner")}
+          </p>
+        )}
       </header>
       <Shell wide={onCards}>
         <main className="animate-fade-in">{children}</main>
