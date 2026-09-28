@@ -1,0 +1,16 @@
+# Extra sources the GitHub Pages site tracks, on top of the built-in source pack.
+# One per line: `[board_id] url`. Boards: b_tech (科技), b_economy (经济),
+# b_politics (政治); omit the board to track a source without one.
+# Edit and push to main — the next scheduled run subscribes new lines.
+# Removing a line does not unsubscribe a source that was already added.
+
+b_tech https://hnrss.org/best
+b_tech https://simonwillison.net/atom/everything/
+b_tech https://www.theverge.com/rss/index.xml
+b_tech https://36kr.com/feed
+
+b_economy https://feeds.bbci.co.uk/news/business/rss.xml
+b_economy https://www.federalreserve.gov/feeds/press_all.xml
+
+b_politics https://feeds.bbci.co.uk/news/world/rss.xml
+b_politics https://feeds.npr.org/1004/rss.xml

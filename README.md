@@ -12,7 +12,9 @@ daily is a personal, non-commercial project. It has no fetch red lines: proxies,
 
 Three primary pages carry it — **Today** (what your sources published, on a timeline), **Sources** (what is tracked and how healthy it is), **Knowledge** (your saved notes, and questions answered only from what daily has stored) — with detail pages behind them for a single item, a single note, and the run trace.
 
-**Live demo:** https://danielxhu.github.io/daily/ — the frontend exported to GitHub Pages with mock data (every API call is answered in the browser; no backend, no real polling, no LLM). Rebuilt on each push to `main` by `.github/workflows/pages.yml`; `cd workplace/frontend && npm run build:pages` builds the same static site into `out/`.
+**On GitHub Pages:** https://danielxhu.github.io/daily/ — a read-only snapshot with real content. Every 6 hours (and on each push to `main`) `.github/workflows/pages.yml` runs the real pipeline on GitHub's servers: it tracks the built-in source pack plus `workplace/site/sources.txt`, polls them, fetches the articles, writes AI summaries, freezes every read endpoint to JSON (`backend/app/static_site.py`), and exports the frontend on top of that data. The database is kept between runs in the Actions cache, so items accumulate. Adding sources, notes, or questions still needs the local app.
+
+To set it up: Settings → Pages → Source: **GitHub Actions**; Settings → Secrets and variables → Actions → add `DEEPSEEK_API_KEY` for real summaries (without it items appear with placeholder summaries). Edit `workplace/site/sources.txt` to change what the site tracks.
 
 ---
 

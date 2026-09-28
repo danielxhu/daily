@@ -22,6 +22,8 @@ import type {
   TrackedItemDetail,
 } from "@/types/contract";
 
+import { STATIC_DATA, staticFetch } from "@/lib/static-data";
+
 /** Thrown on a non-2xx /verify response; carries the HTTP status + server detail. */
 export class ApiError extends Error {
   constructor(
@@ -33,8 +35,16 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const DEFAULT_BASE_URL = STATIC_DATA
+  ? "" // static-data paths are resolved by staticFetch, not a server
+  : (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000");
+
+/** The network in every build but the GitHub Pages one, whose reads come from
+ * frozen JSON files (see lib/static-data). Resolved per call so tests that stub
+ * the global `fetch` still see their stub. */
+function defaultFetch(): typeof fetch {
+  return STATIC_DATA ? staticFetch : fetch;
+}
 
 /** Mock builds only: wait for the MSW worker before any request, so a mount-time
  * fetch can't race the worker and hit a nonexistent backend. No-op elsewhere
@@ -63,7 +73,7 @@ interface QueryOptions {
 }
 
 async function getJson<T>(path: string, opts: QueryOptions): Promise<T> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}${path}`, {
     signal: opts.signal,
@@ -98,7 +108,7 @@ async function sendJson<T>(
   body: unknown,
   opts: QueryOptions,
 ): Promise<T> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}${path}`, {
     method,
@@ -213,7 +223,7 @@ export async function assignSubscriptionModule(
   moduleId: string | null,
   opts: QueryOptions = {},
 ): Promise<Subscription> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(
     `${opts.baseUrl ?? DEFAULT_BASE_URL}/subscriptions/${subscriptionId}/module`,
@@ -283,7 +293,7 @@ export async function adoptSourcePack(opts: QueryOptions = {}): Promise<AdoptRes
 }
 
 async function deleteRequest(path: string, opts: QueryOptions): Promise<void> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}${path}`, {
     method: "DELETE",
@@ -360,7 +370,7 @@ export async function saveApiSlot(
   input: ApiSlotInput,
   opts: QueryOptions = {},
 ): Promise<ApiSlotView> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/settings/api/${slot}`, {
     method: "PUT",
@@ -386,7 +396,7 @@ export async function clearApiSlot(
   slot: string,
   opts: QueryOptions = {},
 ): Promise<ApiSlotView> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/settings/api/${slot}`, {
     method: "DELETE",
@@ -411,7 +421,7 @@ export async function renameSubscription(
   name: string | null,
   opts: QueryOptions = {},
 ): Promise<Subscription> {
-  const fetchFn = opts.fetchFn ?? fetch;
+  const fetchFn = opts.fetchFn ?? defaultFetch();
   await waitForMock();
   const res = await fetchFn(`${opts.baseUrl ?? DEFAULT_BASE_URL}/subscriptions/${id}/name`, {
     method: "PUT",
