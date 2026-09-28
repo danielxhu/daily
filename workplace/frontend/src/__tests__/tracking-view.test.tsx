@@ -143,12 +143,12 @@ describe("TrackingView", () => {
     expect(within(list).getByText("No board")).toBeInTheDocument();
     // EMPTY boards render too — a board with no sources must
     // still be visible so it can be deleted from this page
-    expect(within(list).getByText("政治")).toBeInTheDocument();
-    // the add form offers the preset topic boards (政治/经济/科技)
+    expect(within(list).getByText("Politics")).toBeInTheDocument();
+    // the add form offers the preset topic boards (政治/经济/科技), named in the UI language
     const select = screen.getByLabelText("Board (optional)");
-    expect(within(select).getByRole("option", { name: "政治" })).toBeInTheDocument();
-    expect(within(select).getByRole("option", { name: "经济" })).toBeInTheDocument();
-    expect(within(select).getByRole("option", { name: "科技" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Politics" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Economy" })).toBeInTheDocument();
+    expect(within(select).getByRole("option", { name: "Tech" })).toBeInTheDocument();
     // choosing a board submits its id
     fireEvent.change(screen.getByLabelText("Source URL"), {
       target: { value: "https://politics.example/feed.xml" },

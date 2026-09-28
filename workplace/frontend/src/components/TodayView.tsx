@@ -15,6 +15,7 @@ import {
   queryModules,
   querySubscriptions,
 } from "@/lib/api";
+import { boardName } from "@/lib/boards";
 import { useIntlLocale, useT } from "@/lib/i18n";
 import { useWindowDays } from "@/lib/prefs";
 import type { DailyDigest, Subscription } from "@/types/contract";
@@ -208,7 +209,7 @@ export function TodayView({
                   aria={t("today.tabs.aria")}
                   options={[
                     { id: null, label: t("today.tabs.all") },
-                    ...(grouping?.boards ?? []).map((b) => ({ id: b.id, label: b.name })),
+                    ...(grouping?.boards ?? []).map((b) => ({ id: b.id, label: boardName(b, t) })),
                   ]}
                   value={boardTab}
                   onChange={setBoardTab}

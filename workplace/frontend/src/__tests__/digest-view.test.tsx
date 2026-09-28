@@ -110,7 +110,7 @@ describe("DigestView grouped read surface (M16.6)", () => {
       />,
     );
     // the board group carries its module sub-head + the stats line
-    const econ = await screen.findByRole("region", { name: "经济" });
+    const econ = await screen.findByRole("region", { name: "Economy" });
     expect(within(econ).getByRole("heading", { level: 4, name: "Rates" })).toBeInTheDocument();
     expect(within(econ).getByText(/items 1 · sources 1 · latest .+ · T1 ×1/)).toBeInTheDocument();
     // the board-less item lands honestly in the labeled bucket, never hidden

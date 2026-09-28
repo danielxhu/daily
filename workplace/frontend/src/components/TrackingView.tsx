@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import type { PollReport, PollSubReport } from "@/lib/api";
 import { trackedTitle } from "@/components/TrackedItems";
+import { boardName } from "@/lib/boards";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
 import type {
   Board,
@@ -232,6 +233,7 @@ export function TrackingView({
   const [checkResult, setCheckResult] = useState<string | null>(null);
   const [checkReport, setCheckReport] = useState<PollReport | null>(null);
   const t = useT();
+  const localizedBoards = boards.map((b) => ({ ...b, name: boardName(b, t) }));
 
   useEffect(() => {
     let active = true;
@@ -418,7 +420,7 @@ export function TrackingView({
               <option value="">{t("tracking.board.none")}</option>
               {boards.map((board) => (
                 <option key={board.id} value={board.id}>
-                  {board.name}
+                  {boardName(board, t)}
                 </option>
               ))}
             </select>
@@ -467,7 +469,7 @@ export function TrackingView({
       )}
       {subs && (subs.length > 0 || boards.length > 0) && (
         <ul className="row-list" aria-label={t("tracking.list.aria")}>
-          {groupByBoard(subs, boards, t("tracking.group.none")).map((group) => (
+          {groupByBoard(subs, localizedBoards, t("tracking.group.none")).map((group) => (
             <Fragment key={group.id ?? "none"}>
               {/* board group header — presentation row, not a source item. Every
                   board renders (even empty) so it can be deleted here;

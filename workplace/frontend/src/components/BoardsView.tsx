@@ -15,6 +15,7 @@ import {
   queryModules,
   querySubscriptions,
 } from "@/lib/api";
+import { boardName } from "@/lib/boards";
 import { useIntlLocale, useT } from "@/lib/i18n";
 import type {
   Board,
@@ -203,13 +204,13 @@ function BoardCard({
     <button
       type="button"
       aria-pressed={selected}
-      aria-label={board.name}
+      aria-label={boardName(board, t)}
       onClick={onSelect}
       className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
         selected ? "border-accent bg-panel" : "border-line hover:border-muted"
       }`}
     >
-      <span className="block text-sm font-medium text-ink">{board.name}</span>
+      <span className="block text-sm font-medium text-ink">{boardName(board, t)}</span>
       {counts && (
         <span className="mono tnum mt-1 block text-[11px] leading-relaxed text-faint">
           {t("boards.card.sources", { n: counts.sources })}
@@ -349,7 +350,7 @@ function BoardDetail({
   return (
     <div className="space-y-6 border-t border-line pt-6">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold">{board.name}</h2>
+        <h2 className="text-lg font-semibold">{boardName(board, t)}</h2>
         <button
           type="button"
           aria-pressed={managing}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { queryBoards, queryModules } from "@/lib/api";
+import { boardName } from "@/lib/boards";
 import { useIntlLocale, useLocale, useT } from "@/lib/i18n";
 import type { Board, KnowledgeModule, TrackedItemCard } from "@/types/contract";
 
@@ -258,6 +259,10 @@ export function TrackedItemsSection({
 }) {
   const t = useT();
   const groups = grouping && grouping.boards.length > 0 ? groupTracked(items, grouping) : null;
+  const groupLabel = (group: ItemGroup) =>
+    group.name === null
+      ? t("tracked.group.noBoard")
+      : boardName({ id: group.key, name: group.name }, t);
   return (
     <section aria-labelledby="tracked-items" className="space-y-4">
       <div className="section-head">
@@ -288,12 +293,12 @@ export function TrackedItemsSection({
               {groups.map((group) => (
                 <section
                   key={group.key}
-                  aria-label={group.name ?? t("tracked.group.noBoard")}
+                  aria-label={groupLabel(group)}
                   className="space-y-2.5"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                     <h3 className="text-[13px] font-semibold text-ink">
-                      {group.name ?? t("tracked.group.noBoard")}
+                      {groupLabel(group)}
                     </h3>
                     {stats && <GroupStats items={group.items} />}
                   </div>
