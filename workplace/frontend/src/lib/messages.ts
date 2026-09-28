@@ -4,6 +4,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "lang.aria": "Switch language",
 
     // Nav
+    "nav.github": "View the source on GitHub",
     "nav.today": "Today",
     "nav.sources": "Sources",
     "nav.knowledge": "Knowledge",
@@ -549,6 +550,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "lang.aria": "切换语言",
 
     // Nav
+    "nav.github": "在 GitHub 查看源码",
     "nav.today": "今日",
     "nav.sources": "来源",
     "nav.knowledge": "知识库",
