@@ -4,6 +4,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "lang.aria": "Switch language",
 
     // Nav
+    "nav.github": "View the source on GitHub",
     "nav.today": "Today",
     "nav.sources": "Sources",
     "nav.knowledge": "Knowledge",
@@ -115,6 +116,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracked.summary.pending": "AI summary pending",
     "tracked.original": "original ↗",
     "tracked.group.noBoard": "No board yet",
+    "static.banner": "Read-only snapshot, updated every 6 hours. Adding sources, notes, and questions needs daily running locally.",
+    "item.static.pending": "This snapshot refreshes every 6 hours — the summary arrives with a coming update.",
+    "item.static.readOnly": "This is a read-only snapshot. Discussing an item and saving notes need daily running locally.",
     "board.preset.b_politics": "Politics",
     "board.preset.b_economy": "Economy",
     "board.preset.b_tech": "Tech",
@@ -546,6 +550,7 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "lang.aria": "切换语言",
 
     // Nav
+    "nav.github": "在 GitHub 查看源码",
     "nav.today": "今日",
     "nav.sources": "来源",
     "nav.knowledge": "知识库",
@@ -649,6 +654,9 @@ export const MESSAGES: Record<"en" | "zh", Record<string, string>> = {
     "tracked.summary.pending": "AI 综述待生成",
     "tracked.original": "原文 ↗",
     "tracked.group.noBoard": "未归入板块",
+    "static.banner": "只读快照，每 6 小时更新一次。添加来源、笔记和提问需要在本地运行 daily。",
+    "item.static.pending": "这个快照每 6 小时更新一次——摘要会在之后的更新里出现。",
+    "item.static.readOnly": "这是只读快照。讨论条目、保存笔记需要在本地运行 daily。",
     "board.preset.b_politics": "政治",
     "board.preset.b_economy": "经济",
     "board.preset.b_tech": "科技",

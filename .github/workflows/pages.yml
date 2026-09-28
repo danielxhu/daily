@@ -83,6 +83,7 @@ jobs:
         working-directory: workplace/frontend
         env:
           PAGES_BASE_PATH: /${{ github.event.repository.name }}
+          NEXT_PUBLIC_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           npm ci
           npm run build:pages

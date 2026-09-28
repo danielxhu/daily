@@ -323,6 +323,8 @@ function ItemDetail({
               <p className="text-sm text-muted">{t("item.transcribe.queued")}</p>
             )}
           </div>
+        ) : STATIC_DATA ? (
+          !summary && <p className="max-w-[65ch] text-xs text-faint">{t("item.static.pending")}</p>
         ) : (
           item.url &&
           (!e || !item.content_available) && (
@@ -346,22 +348,30 @@ function ItemDetail({
       {/* the raw excerpt left the page — the (now fuller) AI
           briefing + the original link carry it; the stored text still grounds
           the discussion below */}
-      <ItemDiscussPanel
-        itemId={item.id}
-        contentAvailable={item.content_available === true}
-        discussFn={discussFn}
-        messages={discussion}
-        setMessages={setDiscussion}
-      />
+      {STATIC_DATA ? (
+        // no backend behind a read-only snapshot: discussing and saving notes
+        // need the local app
+        <p className="border-t border-line pt-5 text-xs text-faint">{t("item.static.readOnly")}</p>
+      ) : (
+        <>
+          <ItemDiscussPanel
+            itemId={item.id}
+            contentAvailable={item.content_available === true}
+            discussFn={discussFn}
+            messages={discussion}
+            setMessages={setDiscussion}
+          />
 
-      <ItemNote
-        itemId={item.id}
-        boardId={item.board_id}
-        contentAvailable={item.content_available === true}
-        createNoteFn={createNoteFn}
-        draftNoteFn={draftNoteFn}
-        discussion={discussion}
-      />
+          <ItemNote
+            itemId={item.id}
+            boardId={item.board_id}
+            contentAvailable={item.content_available === true}
+            createNoteFn={createNoteFn}
+            draftNoteFn={draftNoteFn}
+            discussion={discussion}
+          />
+        </>
+      )}
     </article>
   );
 }
