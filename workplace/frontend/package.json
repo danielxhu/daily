@@ -8,6 +8,7 @@
     "dev:mock": "NEXT_PUBLIC_API_MOCK=1 next dev",
     "build": "rm -rf .next tsconfig.tsbuildinfo && next build",
     "build:mock": "rm -rf .next tsconfig.tsbuildinfo && NEXT_PUBLIC_API_MOCK=1 next build",
+    "build:pages": "rm -rf .next out tsconfig.tsbuildinfo && NEXT_PUBLIC_API_MOCK=1 PAGES_BASE_PATH=${PAGES_BASE_PATH-/daily} next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

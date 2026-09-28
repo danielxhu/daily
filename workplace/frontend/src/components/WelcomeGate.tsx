@@ -14,7 +14,7 @@ export function WelcomeGate({
 }) {
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(ONBOARD_KEY) !== "1") navigate("/welcome");
+      if (window.localStorage.getItem(ONBOARD_KEY) !== "1") navigate(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/welcome`);
     } catch {
       // storage unavailable — never redirect-loop the user
     }

@@ -12,6 +12,8 @@ daily is a personal, non-commercial project. It has no fetch red lines: proxies,
 
 Three primary pages carry it — **Today** (what your sources published, on a timeline), **Sources** (what is tracked and how healthy it is), **Knowledge** (your saved notes, and questions answered only from what daily has stored) — with detail pages behind them for a single item, a single note, and the run trace.
 
+**Live demo:** https://danielxhu.github.io/daily/ — the frontend exported to GitHub Pages with mock data (every API call is answered in the browser; no backend, no real polling, no LLM). Rebuilt on each push to `main` by `.github/workflows/pages.yml`; `cd workplace/frontend && npm run build:pages` builds the same static site into `out/`.
+
 ---
 
 ## Requirements

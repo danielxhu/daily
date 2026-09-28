@@ -33,7 +33,11 @@ export function MockProvider({ children }: { children: ReactNode }) {
     if (mswStarting) return;
     mswStarting = true;
     void import("@/mocks/browser").then(({ worker }) =>
-      worker.start({ onUnhandledRequest: "bypass" }).then(() => {
+      worker.start({
+        onUnhandledRequest: "bypass",
+        // under a sub-path (GitHub Pages) the worker script lives there too
+        serviceWorker: { url: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/mockServiceWorker.js` },
+      }).then(() => {
         resolveMswReady(); // release gated fetches
         // signal readiness so E2E can wait before submitting
         document.documentElement.dataset.mswReady = "true";
