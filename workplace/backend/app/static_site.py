@@ -61,7 +61,12 @@ def read_sources_file(path: Path | None) -> list[tuple[str | None, str]]:
     return out
 
 
-def refresh(client: TestClient, sources: list[tuple[str | None, str]], minutes: float) -> None:
+def refresh(
+    client: TestClient,
+    sources: list[tuple[str | None, str]],
+    minutes: float,
+    max_summaries: int = 1_000_000,
+) -> None:
     from app.clients.deepseek import get_llm_client
     from app.db.engine import init_db
     from app.ingestion.ingest import ingest_one
@@ -86,6 +91,7 @@ def refresh(client: TestClient, sources: list[tuple[str | None, str]], minutes: 
 
     conn = init_db(get_settings().sqlite_path)
     deadline = time.monotonic() + minutes * 60
+    summarized = 0  # the backlog's LLM calls this run, bounded by max_summaries
     try:
         while time.monotonic() < deadline:
             counts = work_once(
@@ -96,7 +102,8 @@ def refresh(client: TestClient, sources: list[tuple[str | None, str]], minutes: 
                 semantic_index=get_semantic_index(),
             )
             print(f"worker: {counts}")
-            if not any(counts.values()):
+            summarized += counts["summarized"]
+            if not any(counts.values()) or summarized >= max_summaries:
                 break
     finally:
         conn.close()
@@ -168,12 +175,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True, help="directory for the JSON files")
     parser.add_argument("--sources", type=Path, help="extra sources file ([board_id] url)")
     parser.add_argument("--minutes", type=float, default=10.0, help="worker time budget")
+    parser.add_argument(
+        "--max-summaries",
+        type=int,
+        default=1_000_000,
+        help="stop the backlog worker after this many AI summaries (caps LLM cost per run)",
+    )
     parser.add_argument("--skip-refresh", action="store_true", help="export only")
     args = parser.parse_args(argv)
 
     client = TestClient(create_app(get_settings()))
     if not args.skip_refresh:
-        refresh(client, read_sources_file(args.sources), args.minutes)
+        refresh(client, read_sources_file(args.sources), args.minutes, args.max_summaries)
     args.out.mkdir(parents=True, exist_ok=True)
     export(client, args.out)
     return 0
