@@ -14,7 +14,7 @@ Three primary pages carry it — **Today** (what your sources published, on a ti
 
 **On GitHub Pages:** https://danielxhu.github.io/daily/ — a read-only snapshot with real content. Every 6 hours (and on each push to `main`) `.github/workflows/pages.yml` runs the real pipeline on GitHub's servers: it tracks the built-in source pack plus `workplace/site/sources.txt`, polls them, fetches the articles, writes AI summaries, freezes every read endpoint to JSON (`backend/app/static_site.py`), and exports the frontend on top of that data. The database is kept between runs in the Actions cache, so items accumulate. Adding sources, notes, or questions still needs the local app.
 
-To set it up: Settings → Pages → Source: **GitHub Actions**; Settings → Secrets and variables → Actions → add `DEEPSEEK_API_KEY` for real summaries (without it items appear with placeholder summaries). Edit `workplace/site/sources.txt` to change what the site tracks.
+To set it up: Settings → Pages → Source: **GitHub Actions**; Settings → Secrets and variables → Actions → add `DEEPSEEK_API_KEY` for real summaries (without it items appear with placeholder summaries). Edit `workplace/site/sources.txt` to change what the site tracks — a removed line is unsubscribed on the next run. Each new item costs one AI summary, so prefer sources that publish a few times a week.
 
 ---
 

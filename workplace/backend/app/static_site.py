@@ -3,9 +3,10 @@
 GitHub Pages serves files, not a backend, so a scheduled GitHub Actions job
 runs the real pipeline on a persistent SQLite database and freezes the result:
 
-1. `refresh` — adopt the default source pack, subscribe any extra sources from
-   a sources file, poll every subscription, then run the background worker until
-   the backlog is drained (fetch + AI summaries) or the time budget runs out.
+1. `refresh` — adopt the default source pack, subscribe the extra sources in
+   a sources file and unsubscribe any removed from it, poll every subscription,
+   then run the background worker until the backlog is drained (fetch + AI
+   summaries) or the time budget runs out.
 2. `export` — call every read endpoint the frontend uses through the real app
    (FastAPI `TestClient`, so the JSON is exactly what the API returns) and write
    each response to `<out>/<path>[~<query>].json`. The frontend's static-data
@@ -31,6 +32,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.main import create_app
+from app.source_pack import default_source_pack
 
 # the Today / Digest window choices (frontend `WINDOW_DAY_OPTIONS`) plus the
 # Sources page's year view
@@ -61,6 +63,31 @@ def read_sources_file(path: Path | None) -> list[tuple[str | None, str]]:
     return out
 
 
+def sync_subscriptions(client: TestClient, sources: list[tuple[str | None, str]]) -> None:
+    """Make the subscriptions match the source pack plus the sources file: adopt
+    the pack, subscribe new lines, and unsubscribe (with their items) any source
+    no longer listed — so trimming the file actually stops polling and
+    summarizing that source."""
+    client.post("/source-pack/adopt").raise_for_status()
+    # the sources file is the whole list beyond the pack: a line removed from it
+    # unsubscribes that source (and its items) on the next run
+    wanted = {e.url for e in default_source_pack()} | {url for _, url in sources}
+    existing: set[str] = set()
+    for sub in client.get("/subscriptions").json():
+        if sub["input_url"] in wanted:
+            existing.add(sub["input_url"])
+            continue
+        resp = client.delete(f"/subscriptions/{sub['id']}")
+        print(f"unsubscribe {sub['input_url']}: {resp.status_code}")
+    for board_id, url in sources:
+        if url in existing:
+            continue
+        resp = client.post(
+            "/subscriptions", json={"input_url": url, "mode": "autodiscover", "board_id": board_id}
+        )
+        print(f"subscribe {url}: {resp.status_code}")
+
+
 def refresh(client: TestClient, sources: list[tuple[str | None, str]], minutes: float) -> None:
     from app.clients.deepseek import get_llm_client
     from app.db.engine import init_db
@@ -69,15 +96,7 @@ def refresh(client: TestClient, sources: list[tuple[str | None, str]], minutes: 
     from app.main import get_ingest_first
     from app.tracking.worker import work_once
 
-    client.post("/source-pack/adopt").raise_for_status()
-    existing = {s["input_url"] for s in client.get("/subscriptions").json()}
-    for board_id, url in sources:
-        if url in existing:
-            continue
-        resp = client.post(
-            "/subscriptions", json={"input_url": url, "mode": "autodiscover", "board_id": board_id}
-        )
-        print(f"subscribe {url}: {resp.status_code}")
+    sync_subscriptions(client, sources)
 
     report = client.post("/tracking/poll")
     report.raise_for_status()

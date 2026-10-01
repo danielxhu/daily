@@ -14,7 +14,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.main import create_app
-from app.static_site import data_file, export, read_sources_file
+from app.source_pack import default_source_pack
+from app.static_site import data_file, export, read_sources_file, sync_subscriptions
 
 
 def test_data_file_names_match_the_frontend_rule() -> None:
@@ -69,3 +70,23 @@ def test_export_writes_every_read_endpoint_and_hides_keys(tmp_path: Path) -> Non
         assert (out / name).exists(), name
     assert json.loads((out / "_static-params.json").read_text()) == {"items": [], "notes": []}
     assert "9876" not in (out / "settings/api.json").read_text()
+
+
+def test_sync_follows_the_sources_file(tmp_path: Path) -> None:
+    settings: Any = Settings(  # type: ignore[call-arg]
+        _env_file=None, sqlite_path=str(tmp_path / "daily.db"), data_dir=str(tmp_path)
+    )
+    client = TestClient(create_app(settings))
+    pack = {e.url for e in default_source_pack()}
+
+    def urls() -> set[str]:
+        return {s["input_url"] for s in client.get("/subscriptions").json()}
+
+    sync_subscriptions(
+        client, [("b_tech", "https://a.example/feed"), (None, "https://b.example/rss")]
+    )
+    assert urls() == pack | {"https://a.example/feed", "https://b.example/rss"}
+
+    # a line removed from the file is unsubscribed; the pack is never touched
+    sync_subscriptions(client, [("b_tech", "https://a.example/feed")])
+    assert urls() == pack | {"https://a.example/feed"}
