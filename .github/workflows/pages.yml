@@ -60,17 +60,12 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DATA_DIR: ${{ env.SITE_DATA }}
           SQLITE_PATH: ${{ env.SITE_DATA }}/daily.db
-          # keep DeepSeek cost low: one-paragraph summaries from at most 4000
-          # chars of each article, and at most 20 backlog summaries per run
-          ENRICH_BRIEF: "true"
-          ENRICH_MAX_INPUT_CHARS: "4000"
         run: |
           mkdir -p "$SITE_DATA"
           python -m app.static_site \
             --out ../frontend/public/data \
             --sources ../site/sources.txt \
-            --minutes 20 \
-            --max-summaries 20
+            --minutes 20
 
       - name: Save database
         if: always()

@@ -186,13 +186,6 @@ class Settings(BaseSettings):
     # Scrapling StealthyFetcher tier: anti-bot / Cloudflare / headless-detecting
     # pages. Needs `pip install -e ".[stealth]" && scrapling install`.
     enable_stealth_fetch: bool = False
-
-    # --- Summary cost (LLM tokens per item) ---
-    # Brief mode: one short paragraph per language instead of the 2-10 paragraph
-    # plan. 0 for the input cap keeps each tier's own excerpt size (10k-40k chars).
-    # The GitHub Pages run turns both on; a local install keeps the full briefings.
-    enrich_brief: bool = False
-    enrich_max_input_chars: int = 0
     # In-process hourly poll scheduler (FR-3 / §6.4): OFF by default so tests and a
     # plain `uvicorn app.main:app` never spawn a background scheduler. The local dev
     # runtime (`scripts/dev.sh`) opts in by setting ENABLE_TRACKING_SCHEDULER=true so

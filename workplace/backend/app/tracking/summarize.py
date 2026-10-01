@@ -21,7 +21,6 @@ length — see `_ENRICH_TIERS` below.
 from __future__ import annotations
 
 from app.clients.base import LLMClient
-from app.core.config import get_settings
 from app.schemas.models import ItemEnrichment
 
 _ITEM_ENRICH_BASE = (
@@ -89,13 +88,6 @@ _ENRICH_TIERS: list[tuple[int, int, str]] = [
     ),
 ]
 
-# ENRICH_BRIEF: the cheap plan — one paragraph, a fraction of the output tokens
-_BRIEF_PLAN = (
-    "Each summary is ONE short paragraph of 3-4 sentences: the core event with the "
-    "key figures/dates and actors, then the single most important detail the source "
-    "gives. Never pad beyond the material."
-)
-
 # sanity guard against runaway output, not a style control (style = the plan)
 _MAX_SUMMARY = 8000
 
@@ -152,11 +144,6 @@ def enrich_fetched_item(
     # summary length follows content length: a 2h transcript
     # gets a wider excerpt AND a longer paragraph plan than a short article
     excerpt_chars, plan = _enrich_plan(len(stripped))
-    settings = get_settings()
-    if settings.enrich_brief:
-        plan = _BRIEF_PLAN
-    if settings.enrich_max_input_chars > 0:
-        excerpt_chars = min(excerpt_chars, settings.enrich_max_input_chars)
     excerpt = stripped[:excerpt_chars]
     user = (
         f"Title: {title or 'unknown'}\nSource domain: {domain or 'unknown'}\n"
