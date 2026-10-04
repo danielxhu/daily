@@ -2,13 +2,17 @@
 
 **A local-first tracker for the sources you choose.** Hand it a feed, homepage, podcast, or channel; it polls them on a schedule, turns new items into summarized, searchable knowledge that keeps its provenance, and says out loud when it could not read something.
 
+**Live demo:** https://danielxhu.github.io/daily/ (read-only snapshot, refreshed every 6 hours)
+
+<p align="center"><img src="docs/today.png" width="760" alt="The Today page: a timeline of new items from tracked sources, each with an AI summary, tags and a link to the original"></p>
+
 - **Honest by construction.** AI summaries only restate the source — they never score or rank it. A failed fetch becomes a typed status with a next step, not a silent gap.
 - **676 tests, all offline.** 499 backend (the suite bans sockets), 119 component, 58 browser end-to-end against a mocked build. One command runs the whole matrix with zero network and zero API spend.
 - **Deterministic code wherever code will do.** Source tiering, duplicate detection, feed recovery, and search are plain Python and SQL. The model writes summaries, drafts notes, and answers questions — it never decides a status.
 
 Everything runs on your own machine: FastAPI, Next.js, SQLite, and a local Chroma index, no account and no cloud. The only paid dependency is the LLM API key you supply.
 
-daily is a personal, non-commercial project. It has no fetch red lines: proxies, cookies and logged-in sessions, archive fallbacks, browser impersonation, and stealth fetchers such as Scrapling's are all fair game wherever they help a source read. Respecting each site's terms and copyright is up to whoever runs it.
+daily is a personal, non-commercial project. Heavier fetch layers (headless rendering, Scrapling's stealth fetcher, proxies) are off by default and run only when you enable them. A few domains that block automated clients are fetched with a browser user agent. Whoever runs daily is responsible for respecting each site's terms and copyright.
 
 Three primary pages carry it — **Today** (what your sources published, on a timeline), **Sources** (what is tracked and how healthy it is), **Knowledge** (your saved notes, and questions answered only from what daily has stored) — with detail pages behind them for a single item, a single note, and the run trace.
 
@@ -162,3 +166,7 @@ Knowledge search runs two channels: deterministic keyword matching, plus a local
 ## Out of scope
 
 Deliberately not built: multi-user accounts, auth, or billing; a mobile or browser-extension client; real-time push; automatic true/false verdicts on claims; topic-wide auto-discovery of sources (you choose them); native video understanding.
+
+## License
+
+[MIT](LICENSE) © 2026 Daniel Hu
