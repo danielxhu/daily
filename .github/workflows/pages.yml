@@ -1,7 +1,7 @@
 # Publishes daily to GitHub Pages as a read-only snapshot with real content.
 #
 # GitHub Pages only serves static files, so this job runs the real backend
-# pipeline here — adopt the source pack plus workplace/site/sources.txt, poll
+# pipeline here — adopt the source pack plus site/sources.txt, poll
 # every source, fetch articles and write AI summaries — then freezes every read
 # endpoint to JSON (backend app/static_site.py) and exports the frontend in
 # static-data mode on top of it. The SQLite database is kept between runs in the
@@ -43,9 +43,9 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: workplace/backend/pyproject.toml
+          cache-dependency-path: backend/pyproject.toml
       - name: Install backend
-        run: pip install -e workplace/backend
+        run: pip install -e backend
 
       - name: Restore database
         uses: actions/cache/restore@v4
@@ -55,7 +55,7 @@ jobs:
           restore-keys: daily-db-
 
       - name: Poll sources, summarize, export snapshot
-        working-directory: workplace/backend
+        working-directory: backend
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DATA_DIR: ${{ env.SITE_DATA }}
@@ -78,9 +78,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: workplace/frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - name: Static export under /<repo>
-        working-directory: workplace/frontend
+        working-directory: frontend
         env:
           PAGES_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_REPO_URL: ${{ github.server_url }}/${{ github.repository }}
@@ -89,7 +89,7 @@ jobs:
           npm run build:pages
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: workplace/frontend/out
+          path: frontend/out
 
   deploy:
     needs: build
