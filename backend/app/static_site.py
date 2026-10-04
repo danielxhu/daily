@@ -12,7 +12,7 @@ runs the real pipeline on a persistent SQLite database and freezes the result:
    each response to `<out>/<path>[~<query>].json`. The frontend's static-data
    mode (`src/lib/static-data.ts`) reads the same file names.
 
-Run from `workplace/backend`:
+Run from `backend`:
 
     python -m app.static_site --out ../frontend/public/data --sources ../site/sources.txt
 
