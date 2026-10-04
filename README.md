@@ -16,9 +16,9 @@ daily is a personal, non-commercial project. Heavier fetch layers (headless rend
 
 Three primary pages carry it — **Today** (what your sources published, on a timeline), **Sources** (what is tracked and how healthy it is), **Knowledge** (your saved notes, and questions answered only from what daily has stored) — with detail pages behind them for a single item, a single note, and the run trace.
 
-**On GitHub Pages:** https://danielxhu.github.io/daily/ — a read-only snapshot with real content. Every 6 hours (and on each push to `main`) `.github/workflows/pages.yml` runs the real pipeline on GitHub's servers: it tracks the built-in source pack plus `workplace/site/sources.txt`, polls them, fetches the articles, writes AI summaries, freezes every read endpoint to JSON (`backend/app/static_site.py`), and exports the frontend on top of that data. The database is kept between runs in the Actions cache, so items accumulate. Adding sources, notes, or questions still needs the local app.
+**On GitHub Pages:** https://danielxhu.github.io/daily/ — a read-only snapshot with real content. Every 6 hours (and on each push to `main`) `.github/workflows/pages.yml` runs the real pipeline on GitHub's servers: it tracks the built-in source pack plus `site/sources.txt`, polls them, fetches the articles, writes AI summaries, freezes every read endpoint to JSON (`backend/app/static_site.py`), and exports the frontend on top of that data. The database is kept between runs in the Actions cache, so items accumulate. Adding sources, notes, or questions still needs the local app.
 
-To set it up: Settings → Pages → Source: **GitHub Actions**; Settings → Secrets and variables → Actions → add `DEEPSEEK_API_KEY` for real summaries (without it items appear with placeholder summaries). Edit `workplace/site/sources.txt` to change what the site tracks — a removed line is unsubscribed on the next run. Each new item costs one AI summary, so prefer sources that publish a few times a week.
+To set it up: Settings → Pages → Source: **GitHub Actions**; Settings → Secrets and variables → Actions → add `DEEPSEEK_API_KEY` for real summaries (without it items appear with placeholder summaries). Edit `site/sources.txt` to change what the site tracks — a removed line is unsubscribed on the next run. Each new item costs one AI summary, so prefer sources that publish a few times a week.
 
 ---
 
@@ -40,7 +40,7 @@ Four steps, two of them one-time installs. **Each block starts from the reposito
 **1. Backend**
 
 ```bash
-cd workplace/backend
+cd backend
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
@@ -49,7 +49,7 @@ pip install -e ".[dev]"
 **2. Frontend**
 
 ```bash
-cd workplace/frontend
+cd frontend
 npm install
 npx playwright install chromium   # only needed to run the browser tests
 ```
@@ -57,7 +57,6 @@ npx playwright install chromium   # only needed to run the browser tests
 **3. Verify the install before adding any key**
 
 ```bash
-cd workplace
 scripts/test-all.sh --no-e2e
 ```
 
@@ -66,7 +65,7 @@ This runs the whole offline matrix — lint, types, backend tests, component tes
 **4. Add your model key**
 
 ```bash
-cd workplace/backend
+cd backend
 cp .env.example .env
 ```
 
@@ -84,22 +83,20 @@ Optional extras, all off by default:
 ## Running
 
 ```bash
-cd workplace
 scripts/serve.sh
 ```
 
 Open **http://localhost:3000**. This is the mode to use day to day: it builds the frontend once and serves it, so navigation is instant. Ctrl-C stops both processes; the script also clears stale ones from an earlier run.
 
 ```bash
-cd workplace
 scripts/dev.sh
 ```
 
 Use this only while changing frontend code — it hot-reloads, at the cost of a slow first visit to each page.
 
-Either way the backend is on `:8000` (`/docs` for the API), the frontend on `:3000`, and all data lives in `workplace/backend/data/`.
+Either way the backend is on `:8000` (`/docs` for the API), the frontend on `:3000`, and all data lives in `backend/data/`.
 
-**Containers instead:** `docker compose up` from `workplace/` runs both services with `backend/data/` bind-mounted. Export `DEEPSEEK_API_KEY` in the host shell to pass a key through — it is never baked into an image. The image is the lean install, so audio transcription typed-skips; use the local path above for the full feature set.
+**Containers instead:** `docker compose up` from the repository root runs both services with `backend/data/` bind-mounted. Export `DEEPSEEK_API_KEY` in the host shell to pass a key through — it is never baked into an image. The image is the lean install, so audio transcription typed-skips; use the local path above for the full feature set.
 
 ## First run
 
@@ -124,7 +121,6 @@ Ingestion is best-effort. A source that cannot be fetched is typed-skipped with 
 ## Tests
 
 ```bash
-cd workplace
 scripts/test-all.sh            # everything, including the browser e2e
 scripts/test-all.sh --no-e2e   # faster regression
 ```
@@ -133,7 +129,7 @@ Zero network, zero API spend, non-zero exit on any failure. It installs nothing 
 
 The suite is offline by construction, not by convention: backend tests mock the LLM, transcriber, and browser clients, replay recorded HTTP through `vcrpy` cassettes, and ban sockets in an autouse fixture, so a test that reaches for the network fails loudly. The frontend runs against a mocked API (MSW); the Playwright suite builds in mock mode, owns port 3100, and never reuses an existing server — a stale one used to make every spec time out with no explanation.
 
-Individual tools, from `workplace/backend` with the venv active: `pytest`, `ruff check .`, `ruff format --check .`, `mypy`. From `workplace/frontend`: `npm test`, `npm run typecheck`, `npm run e2e`.
+Individual tools, from `backend` with the venv active: `pytest`, `ruff check .`, `ruff format --check .`, `mypy`. From `frontend`: `npm test`, `npm run typecheck`, `npm run e2e`.
 
 One caveat: `build:mock` replaces `.next`, so restart `scripts/dev.sh` after an e2e run.
 
@@ -145,20 +141,21 @@ One caveat: `build:mock` replaces `.next`, so restart `scripts/dev.sh` after an 
 | Podcast or caption-less YouTube items typed-skip | Transcription needs the optional extra: `pip install -e ".[ml]"`. |
 | A source reads "Could not use" | A typed skip, not a crash — paywall, anti-bot, no captions. Follow the on-screen next step; the run completed for every other source. |
 | Port 8000 or 3000 in use | An earlier `scripts/dev.sh` or `docker compose up` is still running. Both scripts release their ports on Ctrl-C. |
-| Playwright cannot launch a browser | `cd workplace/frontend && npx playwright install chromium`. |
+| Playwright cannot launch a browser | `cd frontend && npx playwright install chromium`. |
 | A source's feed is found but its articles are not | The feed is fine and the article pages refuse automated access. daily falls back to the description the source publishes in its own feed and labels it. |
-| Want to start clean | `cd workplace/backend && .venv/bin/python ../scripts/reset_local.py` wipes the local database, the Chroma store, and derived data. Destructive, no backup; `--yes` skips the prompt. |
+| Want to start clean | `cd backend && .venv/bin/python ../scripts/reset_local.py` wipes the local database, the Chroma store, and derived data. Destructive, no backup; `--yes` skips the prompt. |
 
 ## Repository layout
 
 ```
-workplace/
-  backend/     FastAPI app — ingestion · tracking · knowledge · LLM and STT clients
-    tests/       offline suite (sockets banned); see tests/README.md
-    data/        SQLite + Chroma, created on first run
-  frontend/    Next.js + Tailwind — today · sources · knowledge · digest · trace
-  scripts/     serve.sh · dev.sh · test-all.sh · reset_local.py
-  docker-compose.yml
+backend/     FastAPI app — ingestion · tracking · knowledge · LLM and STT clients
+  tests/       offline suite (sockets banned); see tests/README.md
+  data/        SQLite + Chroma, created on first run
+frontend/    Next.js + Tailwind — today · sources · knowledge · digest · trace
+scripts/     serve.sh · dev.sh · test-all.sh · reset_local.py
+site/        sources.txt — what the GitHub Pages snapshot tracks
+docs/        README screenshot
+docker-compose.yml
 ```
 
 Knowledge search runs two channels: deterministic keyword matching, plus a local semantic layer — multilingual sentence-transformers embeddings in a persistent Chroma collection, maintained incrementally by the background worker — so a Chinese query finds an English-summarized item and the reverse. No external vector service; if the index is unavailable, search degrades to keyword-only.
