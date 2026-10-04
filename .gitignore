@@ -8,3 +8,20 @@ test-results/
 *.egg-info/
 __pycache__/
 *.pyc
+
+# Python
+backend/.venv/
+backend/.venv-ml/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets / local data
+backend/.env
+backend/data/
+backend/daily.db
+frontend/.env*
+
+# Node
+node_modules/
+frontend/.next/
